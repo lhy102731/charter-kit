@@ -131,6 +131,19 @@ DISTRIBUTION_SKILL_RELATIVE = "plugins/charter-kit/skills/charter-workflow"
 LEGACY_MANIFEST_RELATIVE = ".codex-plugin/plugin.json"
 LEGACY_SKILL_RELATIVE = "skills/charter-workflow"
 
+# DSH target/distribution boundaries.
+DSH_TARGET_ROOT_RELATIVE = "targets/dsh"
+DSH_TARGET_PACKAGE_JSON_RELATIVE = "targets/dsh/package.json"
+DSH_TARGET_SRC_RELATIVE = "targets/dsh/src/index.js"
+DSH_TARGET_BUILD_SCRIPT_RELATIVE = "targets/dsh/scripts/build.sh"
+DSH_TARGET_README_RELATIVE = "targets/dsh/README.md"
+DSH_DISTRIBUTION_ROOT_RELATIVE = "plugins/dsh-charter-kit"
+DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE = "plugins/dsh-charter-kit/package.json"
+DSH_DISTRIBUTION_SRC_RELATIVE = "plugins/dsh-charter-kit/src/index.js"
+DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE = "plugins/dsh-charter-kit/scripts/build.sh"
+DSH_DISTRIBUTION_LIB_RELATIVE = "plugins/dsh-charter-kit/lib/index.js"
+DSH_DISTRIBUTION_SKILL_RELATIVE = "plugins/dsh-charter-kit/skills/charter-workflow"
+
 # These are the root files copied into the self-contained distribution by the
 # deterministic packager.  Keeping the list explicit makes an accidental
 # omission visible and avoids treating arbitrary repository files as package
@@ -181,6 +194,17 @@ REQUIRED_FILES = (
     "scripts/validate_kit.py",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/build_dsh_plugin.py",
+    DSH_TARGET_PACKAGE_JSON_RELATIVE,
+    DSH_TARGET_SRC_RELATIVE,
+    DSH_TARGET_BUILD_SCRIPT_RELATIVE,
+    DSH_TARGET_README_RELATIVE,
+    DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE,
+    DSH_DISTRIBUTION_SRC_RELATIVE,
+    DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
+    DSH_DISTRIBUTION_LIB_RELATIVE,
+    f"{DSH_DISTRIBUTION_SKILL_RELATIVE}/SKILL.md",
+    "tests/test_dsh_target.py",
     "tests/test_charter_kit.py",
     "tests/test_dependencies.py",
     "tests/test_generic_bootstrap.py",
@@ -533,6 +557,7 @@ class Checker:
         self.check_agentpack()
         self.check_marketplace()
         self.check_target_and_distribution()
+        self.check_dsh_target_and_distribution()
         self.check_readme()
         self.check_tests_and_docs()
         self.check_mirrors()
@@ -553,6 +578,7 @@ class Checker:
         print("- host prompts share the generic canonical entry")
         print("- plugin manifest and LICENSE valid")
         print("- marketplace, Codex target, and generated distribution valid")
+        print("- DSH target and generated distribution valid")
         print("- target/distribution and legacy mirrors are byte-identical")
         print("- no install side effect is declared")
         return 0
@@ -974,6 +1000,101 @@ class Checker:
                 DISTRIBUTION_SKILL_RELATIVE,
                 label="legacy distribution mirror",
             )
+
+    def check_dsh_target_and_distribution(self) -> None:
+        """Check the DSH adapter source and its generated plugin distribution."""
+
+        self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE)
+        distribution_root = self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE)
+
+        target_pkg = self._load_json_object(
+            DSH_TARGET_PACKAGE_JSON_RELATIVE,
+            "DSH target package",
+        )
+        dist_pkg = self._load_json_object(
+            DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE,
+            "DSH distribution package",
+        )
+        for relative, data in (
+            (DSH_TARGET_PACKAGE_JSON_RELATIVE, target_pkg),
+            (DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE, dist_pkg),
+        ):
+            if data is None:
+                continue
+            if data.get("name") != "@dsh-external/dsh-charter-kit":
+                self.errors.append(f"{relative}: DSH package name must be @dsh-external/dsh-charter-kit")
+            version = data.get("version")
+            if not isinstance(version, str) or SEMVER_RE.fullmatch(version) is None:
+                self.errors.append(f"{relative}: version must be strict semver")
+            if data.get("license") != "MIT":
+                self.errors.append(f"{relative}: license must be MIT")
+            if data.get("main") != "./lib/index.js":
+                self.errors.append(f"{relative}: main must be ./lib/index.js")
+            if data.get("type") != "module":
+                self.errors.append(f"{relative}: type must be module")
+
+        self._compare_file_bytes(
+            DSH_TARGET_PACKAGE_JSON_RELATIVE,
+            DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE,
+            label="DSH target/distribution package.json",
+        )
+        self._compare_file_bytes(
+            DSH_TARGET_SRC_RELATIVE,
+            DSH_DISTRIBUTION_SRC_RELATIVE,
+            label="DSH target/distribution src",
+        )
+        self._compare_file_bytes(
+            DSH_TARGET_BUILD_SCRIPT_RELATIVE,
+            DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
+            label="DSH target/distribution build.sh",
+        )
+        self._compare_trees(
+            LEGACY_SKILL_RELATIVE,
+            DSH_DISTRIBUTION_SKILL_RELATIVE,
+            label="DSH distribution skill mirror",
+        )
+
+        if distribution_root is not None:
+            for item in DISTRIBUTION_ROOT_ITEMS:
+                source = self._path(item)
+                destination = self._path(f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}")
+                if source.is_dir():
+                    self._compare_trees(
+                        item,
+                        f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}",
+                        label="DSH distribution mirror",
+                    )
+                elif source.is_file():
+                    if not destination.is_file():
+                        self._missing_file(f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}")
+                    else:
+                        self._compare_file_bytes(
+                            item,
+                            f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}",
+                            label="DSH distribution mirror",
+                        )
+
+            lib_text = self.read(DSH_DISTRIBUTION_LIB_RELATIVE)
+            if "export const name = 'dsh-charter-kit'" not in lib_text:
+                self.errors.append(f"{DSH_DISTRIBUTION_LIB_RELATIVE}: missing plugin name marker")
+
+            expected_top_level = {
+                Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
+            } | {"package.json", "lib", "src", "scripts", "skills"}
+            for child in distribution_root.iterdir():
+                if child.name not in expected_top_level:
+                    self.errors.append(
+                        f"{DSH_DISTRIBUTION_ROOT_RELATIVE}: unexpected top-level entry {child.name!r}"
+                    )
+
+            for child in distribution_root.rglob("*"):
+                if not child.exists():
+                    continue
+                relative_parts = child.relative_to(distribution_root).parts
+                if relative_parts and relative_parts[0] in {"plugins", "targets"}:
+                    self.errors.append(
+                        f"{DSH_DISTRIBUTION_ROOT_RELATIVE}: nested {relative_parts[0]}/ tree is not allowed"
+                    )
 
     def check_license(self) -> None:
         text = self.read("LICENSE")

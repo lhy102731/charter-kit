@@ -48,9 +48,23 @@ codex plugin add charter-kit@charter-kit
 codex plugin remove charter-kit@charter-kit
 ```
 
+### 安装到 DSH
+
+DSH 插件发行包位于 `plugins/dsh-charter-kit/`。本地调试或正式装配可用 DSH 插件工具链：
+
+```text
+# 临时注入调试（不写 profile 配置）
+dev_inject_plugin <repo>/plugins/dsh-charter-kit
+
+# 正式装配到 profile（重启后保留）
+dev_install_package <repo>/plugins/dsh-charter-kit
+```
+
+插件会注册 `charter-workflow` 技能和 `/charter-workflow` 命令。superpowers / j-space / grill-me 是可选依赖，不会被自动安装；缺失时运行 `scripts/check_dependencies.py` 会给出 `FALLBACK`。
+
 ### 未来目标状态
 
-当前只有 Codex 目标封装。未来新增的目标也会遵循同一原则：它们是适配器，不是第三方宿主或外部 harness 的安装器。它们只适配对应宿主的入口和分发方式，不会安装宿主本身。
+当前已有 Codex 和 DSH 目标封装。未来新增的目标也会遵循同一原则：它们是适配器，不是第三方宿主或外部 harness 的安装器。它们只适配对应宿主的入口和分发方式，不会安装宿主本身。
 
 ### 验证
 
@@ -65,8 +79,8 @@ python scripts/validate_kit.py .
 ### 安全
 
 - 不要把未审阅的远程脚本直接管道进 shell。
-- 不要手工编辑生成的 `plugins/charter-kit/`。
-- 不要把 Codex 目标封装当成宿主安装器、代理层或外部服务协调器。
+- 不要手工编辑生成的 `plugins/charter-kit/` 或 `plugins/dsh-charter-kit/`。
+- 不要把 Codex/DSH 目标封装当成宿主安装器、代理层或外部服务协调器。
 - 不要让目标封装依赖仓库外的核心路径。
 - 不要把发现过程当成安装许可。
 - 发现过程绝不会 clone、build、run、import、copy 或 install 候选内容。
@@ -119,9 +133,23 @@ To uninstall, remove the installed plugin:
 codex plugin remove charter-kit@charter-kit
 ```
 
+### Install in DSH
+
+The DSH plugin distribution lives in `plugins/dsh-charter-kit/`. For local debugging or permanent installation, use the DSH plugin toolchain:
+
+```text
+# Temporary injection (does not touch profile config)
+dev_inject_plugin <repo>/plugins/dsh-charter-kit
+
+# Permanent profile installation (survives restart)
+dev_install_package <repo>/plugins/dsh-charter-kit
+```
+
+The plugin registers the `charter-workflow` skill and the `/charter-workflow` command. superpowers / j-space / grill-me are optional dependencies and are never auto-installed; when missing, `scripts/check_dependencies.py` reports a `FALLBACK`.
+
 ### Future Target Status
 
-Codex is the only target packaged today. Future targets will follow the same rule: they are adapters, not installers for third-party hosts or external harnesses. They adapt the core to a host entry point and distribution path; they do not package or install the host itself.
+Codex and DSH are packaged today. Future targets will follow the same rule: they are adapters, not installers for third-party hosts or external harnesses. They adapt the core to a host entry point and distribution path; they do not package or install the host itself.
 
 ### Validation
 
@@ -136,8 +164,8 @@ After installation, use `codex plugin list --json` to confirm the plugin is inst
 ### Safety
 
 - Do not pipe unreviewed remote scripts into a shell or reveal private source.
-- Do not hand-edit the generated `plugins/charter-kit/`.
-- Do not treat the Codex target as a host installer, proxy layer, or external coordination service.
+- Do not hand-edit the generated `plugins/charter-kit/` or `plugins/dsh-charter-kit/`.
+- Do not treat the Codex/DSH target as a host installer, proxy layer, or external coordination service.
 - Do not let the target depend on a core path outside the repository.
 - Do not treat discovery as installation permission.
 - Discovery never clones, builds, runs, imports, copies, installs candidate content.

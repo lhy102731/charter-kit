@@ -1,0 +1,29 @@
+{
+  "name": "@dsh-external/dsh-charter-kit",
+  "version": "0.2.0",
+  "description": "DSH plugin distribution for Charter Kit: portable charter workflow, charter-workflow skill, and /charter-workflow command.",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "scripts",
+    "portable",
+    "skills",
+    "DEVELOPMENT_CHARTER.md",
+    "DEPENDENCIES.md",
+    "dependencies.json",
+    "agentpack.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "bash scripts/build.sh"
+  }
+}
