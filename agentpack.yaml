@@ -79,6 +79,31 @@ host_entries:
   gemini: portable/prompts/gemini-bootstrap.md
   deepseek: portable/prompts/deepseek-bootstrap.md
 
+# Target adapters and generated distributions.  Target sources describe how a
+# host loads the portable core; they never install or bundle an external host.
+targets:
+  codex:
+    source: targets/codex
+    manifest: targets/codex/.codex-plugin/plugin.json
+    skill: targets/codex/skills/charter-workflow
+
+distributions:
+  codex:
+    path: plugins/charter-kit
+    generated_from: targets/codex
+    self_contained: true
+
+marketplace:
+  path: .agents/plugins/marketplace.json
+  name: charter-kit
+  source_path: ./plugins/charter-kit
+
+mirror_policy:
+  canonical_core: portable
+  byte_identity: true
+  newline_sensitive: true
+  legacy_snapshot: generated
+
 instruction_files:
   generic: portable/prompts/generic-bootstrap.md
   AGENTS.md: portable/prompts/generic-bootstrap.md

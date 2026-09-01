@@ -1,0 +1,20 @@
+{
+  "name": "charter-kit",
+  "interface": {
+    "displayName": "Charter Kit"
+  },
+  "plugins": [
+    {
+      "name": "charter-kit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/charter-kit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

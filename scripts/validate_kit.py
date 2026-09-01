@@ -12,9 +12,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Iterable
 
 
@@ -115,6 +118,37 @@ HOST_PROMPTS = (
 
 SKILL_TEMPLATE_ROOT = "skills/charter-workflow/templates"
 
+# Distribution boundaries.  ``portable/`` and the root charter documents are
+# canonical; target and distribution trees are checked copies/adapters.
+MARKETPLACE_RELATIVE = ".agents/plugins/marketplace.json"
+TARGET_ROOT_RELATIVE = "targets/codex"
+TARGET_MANIFEST_RELATIVE = "targets/codex/.codex-plugin/plugin.json"
+TARGET_README_RELATIVE = "targets/codex/README.md"
+TARGET_SKILL_RELATIVE = "targets/codex/skills/charter-workflow"
+DISTRIBUTION_ROOT_RELATIVE = "plugins/charter-kit"
+DISTRIBUTION_MANIFEST_RELATIVE = "plugins/charter-kit/.codex-plugin/plugin.json"
+DISTRIBUTION_SKILL_RELATIVE = "plugins/charter-kit/skills/charter-workflow"
+LEGACY_MANIFEST_RELATIVE = ".codex-plugin/plugin.json"
+LEGACY_SKILL_RELATIVE = "skills/charter-workflow"
+
+# These are the root files copied into the self-contained distribution by the
+# deterministic packager.  Keeping the list explicit makes an accidental
+# omission visible and avoids treating arbitrary repository files as package
+# input.
+DISTRIBUTION_ROOT_ITEMS = (
+    "LICENSE",
+    "README.md",
+    "DEVELOPMENT_CHARTER.md",
+    "DEPENDENCIES.md",
+    "dependencies.json",
+    "agentpack.yaml",
+    "portable",
+    "scripts",
+)
+
+MARKETPLACE_INSTALLATION_POLICIES = ("NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT")
+MARKETPLACE_AUTHENTICATION_POLICIES = ("ON_INSTALL", "ON_USE")
+
 REQUIRED_FILES = (
     "LICENSE",
     "DEVELOPMENT_CHARTER.md",
@@ -123,6 +157,13 @@ REQUIRED_FILES = (
     "dependencies.json",
     "agentpack.yaml",
     ".codex-plugin/plugin.json",
+    TARGET_MANIFEST_RELATIVE,
+    TARGET_README_RELATIVE,
+    f"{TARGET_SKILL_RELATIVE}/SKILL.md",
+    DISTRIBUTION_MANIFEST_RELATIVE,
+    f"{DISTRIBUTION_SKILL_RELATIVE}/SKILL.md",
+    MARKETPLACE_RELATIVE,
+    "scripts/build_codex_plugin.py",
     *PORTABLE_TEMPLATES,
     *HOST_PROMPTS,
     "portable/commands/charter-workflow.md",
@@ -214,6 +255,33 @@ HOST_LEAF_APPROVAL_RULE = (
 DEPENDENCY_STATUSES = ("AVAILABLE", "MISSING", "UNVERIFIED", "FALLBACK")
 
 
+def _is_junction(path: Path) -> bool:
+    """Return whether *path* is a directory junction/reparse point.
+
+    ``Path.is_symlink`` does not identify Windows junctions on every Python
+    version.  Validation must treat both forms as links because either can
+    make a supposedly self-contained package read outside its root.
+    """
+
+    checker = getattr(path, "is_junction", None)
+    if callable(checker):
+        try:
+            return bool(checker())
+        except OSError:
+            return False
+    if os.name == "nt":
+        try:
+            attributes = os.lstat(path).st_file_attributes
+        except (AttributeError, FileNotFoundError, OSError):
+            return False
+        return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x0400))
+    return False
+
+
+def _is_link(path: Path) -> bool:
+    return path.is_symlink() or _is_junction(path)
+
+
 class Checker:
     """Collect actionable validation failures without mutating the package."""
 
@@ -222,6 +290,7 @@ class Checker:
         self.errors: list[str] = []
         self.checked = 0
         self._missing: set[str] = set()
+        self._missing_dirs: set[str] = set()
 
     def _path(self, relative: str) -> Path:
         return self.root / relative
@@ -230,6 +299,11 @@ class Checker:
         if relative not in self._missing:
             self._missing.add(relative)
             self.errors.append(f"missing file: {relative}")
+
+    def _missing_dir(self, relative: str) -> None:
+        if relative not in self._missing_dirs:
+            self._missing_dirs.add(relative)
+            self.errors.append(f"missing directory: {relative}")
 
     def read(self, relative: str) -> str:
         path = self._path(relative)
@@ -273,6 +347,138 @@ class Checker:
         if compiled.search(text) is None:
             self.errors.append(f"{where}: {message}")
 
+    def _safe_relative_path(
+        self,
+        value: Any,
+        where: str,
+        *,
+        expected: str | None = None,
+        require_directory: bool = False,
+    ) -> Path | None:
+        """Validate a marketplace/plugin path and resolve it inside ``root``.
+
+        Marketplace paths are deliberately stricter than ordinary Markdown
+        links: they must be relative POSIX paths beginning with ``./`` and
+        cannot contain traversal, drive letters, or links escaping the
+        repository.  Returning the resolved path lets callers check existence
+        without duplicating the boundary logic.
+        """
+
+        if not isinstance(value, str) or not value.strip():
+            self.errors.append(f"{where} must be a non-empty relative path")
+            return None
+        if "\\" in value:
+            self.errors.append(f"{where} must use POSIX / separators")
+        normalized = value.replace("\\", "/")
+        if expected is not None and normalized != expected:
+            self.errors.append(f"{where} must be {expected}")
+        if not normalized.startswith("./"):
+            self.errors.append(f"{where} must start with ./")
+        # ``PurePosixPath`` discards a leading ``.`` component, so strip the
+        # required prefix explicitly before resolving rather than indexing
+        # ``parts[1:]`` (which would accidentally drop ``plugins``).
+        relative_text = normalized[2:] if normalized.startswith("./") else normalized
+        pure_posix = PurePosixPath(relative_text)
+        pure_windows = PureWindowsPath(value)
+        if pure_posix.is_absolute() or pure_windows.is_absolute() or pure_windows.drive:
+            self.errors.append(f"{where} must be relative")
+            return None
+        if not pure_posix.parts or any(part in {"", ".", ".."} for part in pure_posix.parts):
+            # ``.`` is harmless but rejecting it keeps identity checks
+            # deterministic and prevents alternate spellings of a source.
+            self.errors.append(f"{where} contains an unsafe relative path")
+            return None
+        candidate = (self.root / Path(*pure_posix.parts)).resolve(strict=False)
+        try:
+            inside = candidate.is_relative_to(self.root)
+        except AttributeError:  # pragma: no cover - Python < 3.9 fallback
+            inside = str(candidate).startswith(str(self.root) + os.sep)
+        if not inside:
+            self.errors.append(f"{where} resolves outside the package root")
+            return None
+        # Check every existing component, including the source root itself.
+        current = candidate
+        components = [current, *current.parents]
+        for component in components:
+            if component == self.root.parent:
+                break
+            if component.exists() and _is_link(component):
+                self.errors.append(f"{where} contains a symlink or junction: {component}")
+                return None
+            if component == self.root:
+                break
+        if require_directory and candidate.exists() and not candidate.is_dir():
+            self.errors.append(f"{where} must point to a directory")
+            return None
+        return candidate
+
+    def _check_tree_safety(
+        self,
+        relative: str,
+        *,
+        required: bool = True,
+        reject_caches: bool = True,
+    ) -> Path | None:
+        """Check a package subtree for links and unsafe generated artifacts."""
+
+        path = self._path(relative)
+        if _is_link(path):
+            self.errors.append(f"{relative}: symlink or junction is not allowed")
+            return None
+        if not path.exists():
+            if required:
+                self._missing_dir(relative)
+            return None
+        if not path.is_dir():
+            self.errors.append(f"expected directory: {relative}")
+            return None
+        for child in sorted(path.rglob("*"), key=lambda item: item.as_posix()):
+            if _is_link(child):
+                self.errors.append(f"{relative}: symlink or junction is not allowed: {child.relative_to(self.root)}")
+                continue
+            rel_parts = child.relative_to(path).parts
+            if any(part == ".." for part in rel_parts):
+                self.errors.append(f"{relative}: unsafe traversal entry {child}")
+            if reject_caches and child.is_file() and (
+                child.suffix.lower() == ".pyc" or "__pycache__" in rel_parts
+            ):
+                self.errors.append(f"{relative}: generated cache is not allowed: {child.relative_to(self.root)}")
+        return path
+
+    def _tree_bytes(self, relative: str, *, reject_caches: bool) -> dict[str, bytes] | None:
+        path = self._check_tree_safety(relative, reject_caches=reject_caches)
+        if path is None:
+            return None
+        result: dict[str, bytes] = {}
+        for child in sorted(path.rglob("*"), key=lambda item: item.relative_to(path).as_posix()):
+            if child.is_file() and not _is_link(child):
+                if not reject_caches and (
+                    child.suffix.lower() == ".pyc" or "__pycache__" in child.relative_to(path).parts
+                ):
+                    continue
+                result[child.relative_to(path).as_posix()] = child.read_bytes()
+        return result
+
+    def _compare_trees(self, left: str, right: str, *, label: str) -> None:
+        # Canonical source trees may contain interpreter caches left by local
+        # test runs; those are ignored on the source side.  Generated target
+        # and distribution trees must remain cache-free.
+        left_tree = self._tree_bytes(left, reject_caches=False)
+        right_tree = self._tree_bytes(right, reject_caches=True)
+        if left_tree is None or right_tree is None:
+            return
+        left_names = set(left_tree)
+        right_names = set(right_tree)
+        for missing in sorted(left_names - right_names):
+            self.errors.append(f"{right}: missing {missing} required by {left}")
+        for extra in sorted(right_names - left_names):
+            self.errors.append(f"{right}: unexpected {extra} ({label} tree drift)")
+        for name in sorted(left_names & right_names):
+            if left_tree[name] != right_tree[name]:
+                self.errors.append(
+                    f"{right}/{name}: differs from {left}/{name} ({label}; byte mismatch)"
+                )
+
     def run(self) -> int:
         # Touch every expected path up front so omissions are reported even if
         # a later semantic check has no text to inspect.
@@ -292,6 +498,8 @@ class Checker:
         self.check_initializer("scripts/init_project.py")
         self.check_tool_references()
         self.check_agentpack()
+        self.check_marketplace()
+        self.check_target_and_distribution()
         self.check_readme()
         self.check_tests_and_docs()
         self.check_mirrors()
@@ -311,6 +519,8 @@ class Checker:
         print("- self-contained Skill mirrors are byte-identical")
         print("- host prompts share the generic canonical entry")
         print("- plugin manifest and LICENSE valid")
+        print("- marketplace, Codex target, and generated distribution valid")
+        print("- target/distribution and legacy mirrors are byte-identical")
         print("- no install side effect is declared")
         return 0
 
@@ -435,6 +645,302 @@ class Checker:
                 self.errors.append(
                     "plugin manifest interface.defaultPrompt entries must be non-empty strings of at most 128 characters"
                 )
+
+    def _load_json_object(self, relative: str, label: str) -> dict[str, Any] | None:
+        """Read a JSON object and emit a stable, path-qualified diagnostic."""
+
+        text = self.read(relative)
+        if not text:
+            return None
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            self.errors.append(f"{relative}: invalid JSON ({exc})")
+            return None
+        if not isinstance(data, dict):
+            self.errors.append(f"{relative}: {label} top-level value must be an object")
+            return None
+        return data
+
+    def _check_secondary_plugin_manifest(
+        self,
+        relative: str,
+        base_relative: str,
+        label: str,
+    ) -> dict[str, Any] | None:
+        """Validate a target/distribution plugin manifest.
+
+        The root manifest has the historical, detailed checks above.  Target
+        and generated manifests use this smaller shared contract so target
+        prose may vary while identity, version, license, and self-contained
+        Skill paths remain fixed.
+        """
+
+        data = self._load_json_object(relative, f"{label} manifest")
+        if data is None:
+            return None
+        if data.get("name") != "charter-kit":
+            self.errors.append(f"{relative}: {label} manifest name must be charter-kit")
+        version = data.get("version")
+        if not isinstance(version, str) or SEMVER_RE.fullmatch(version) is None:
+            self.errors.append(f"{relative}: {label} manifest version must be strict semver")
+        if data.get("license") != "MIT":
+            self.errors.append(f"{relative}: {label} manifest license must be MIT")
+        description = data.get("description")
+        if not isinstance(description, str) or not description.strip():
+            self.errors.append(f"{relative}: {label} manifest description must be non-empty")
+        author = data.get("author")
+        if not isinstance(author, dict) or not isinstance(author.get("name"), str) or not author["name"].strip():
+            self.errors.append(f"{relative}: {label} manifest author.name must be non-empty")
+        skills = data.get("skills")
+        if skills != "./skills/":
+            self.errors.append(f"{relative}: {label} manifest must expose ./skills/")
+        base = self._path(base_relative)
+        skill_root = base / "skills"
+        if not skill_root.is_dir():
+            self.errors.append(f"{relative}: {label} manifest skills directory is missing: {base_relative}/skills")
+        elif _is_link(skill_root):
+            self.errors.append(f"{relative}: {label} manifest skills directory must not be a symlink or junction")
+        interface = data.get("interface")
+        if not isinstance(interface, dict):
+            self.errors.append(f"{relative}: {label} manifest interface must be an object")
+        else:
+            for field in ("displayName", "shortDescription", "longDescription", "developerName", "category"):
+                value = interface.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    self.errors.append(f"{relative}: {label} manifest interface.{field} must be non-empty")
+            if interface.get("category") != "Developer Tools":
+                self.errors.append(f"{relative}: {label} manifest interface.category must be Developer Tools")
+        return data
+
+    def check_marketplace(self) -> None:
+        """Validate the repository marketplace registration and source safety."""
+
+        relative = MARKETPLACE_RELATIVE
+        data = self._load_json_object(relative, "marketplace")
+        if data is None:
+            return
+
+        allowed_top = {"name", "interface", "plugins"}
+        for key in sorted(set(data) - allowed_top):
+            self.errors.append(f"{relative}: unsupported top-level field `{key}`")
+        if data.get("name") != "charter-kit":
+            self.errors.append(f"{relative}: marketplace name must be charter-kit")
+
+        interface = data.get("interface")
+        if not isinstance(interface, dict):
+            self.errors.append(f"{relative}: marketplace interface must be an object")
+        elif not isinstance(interface.get("displayName"), str) or not interface["displayName"].strip():
+            self.errors.append(f"{relative}: marketplace interface.displayName must be non-empty")
+
+        entries = data.get("plugins")
+        if not isinstance(entries, list) or not entries:
+            self.errors.append(f"{relative}: marketplace plugins must be a non-empty array")
+            # Keep the canonical contract visible even when a caller supplies
+            # the obsolete single-entry shape; this makes repair diagnostics
+            # actionable and preserves compatibility with early layout tests.
+            self.errors.append(f"{relative}: missing marketplace plugin entry charter-kit")
+            self.errors.append(f"{relative}: expected source path ./plugins/charter-kit")
+            return
+
+        seen: set[str] = set()
+        charter_entries = 0
+        for index, entry in enumerate(entries):
+            prefix = f"{relative}: plugins[{index}]"
+            if not isinstance(entry, dict):
+                self.errors.append(f"{prefix} must be an object")
+                continue
+            name = entry.get("name")
+            if not isinstance(name, str) or not name.strip():
+                self.errors.append(f"{prefix}.name must be a non-empty string")
+                name = ""
+            elif name in seen:
+                self.errors.append(f"{relative}: duplicate plugin name {name!r}")
+            else:
+                seen.add(name)
+            if name == "charter-kit":
+                charter_entries += 1
+
+            source = entry.get("source")
+            source_path: Any = None
+            if not isinstance(source, dict):
+                self.errors.append(f"{prefix}.source must be an object with source.path")
+            else:
+                if source.get("source") != "local":
+                    self.errors.append(f"{prefix}.source.source must be local")
+                source_path = source.get("path")
+                if source_path is None:
+                    self.errors.append(f"{prefix}.source.path is required")
+                else:
+                    expected = "./plugins/charter-kit" if name == "charter-kit" else None
+                    resolved = self._safe_relative_path(
+                        source_path,
+                        f"{prefix}.source.path",
+                        expected=expected,
+                        require_directory=True,
+                    )
+                    if resolved is not None and not resolved.is_dir():
+                        self.errors.append(f"{prefix}.source.path does not exist: {source_path}")
+            if name == "charter-kit" and source_path != "./plugins/charter-kit":
+                self.errors.append(f"{prefix}.source.path must be ./plugins/charter-kit")
+
+            policy = entry.get("policy")
+            if not isinstance(policy, dict):
+                self.errors.append(f"{prefix}.policy must be an object")
+                self.errors.append(f"{prefix}.policy.installation is required")
+                self.errors.append(f"{prefix}.policy.authentication is required")
+            else:
+                installation = policy.get("installation")
+                if installation not in MARKETPLACE_INSTALLATION_POLICIES:
+                    self.errors.append(
+                        f"{prefix}.policy.installation must be one of {', '.join(MARKETPLACE_INSTALLATION_POLICIES)}"
+                    )
+                authentication = policy.get("authentication")
+                if authentication not in MARKETPLACE_AUTHENTICATION_POLICIES:
+                    self.errors.append(
+                        f"{prefix}.policy.authentication must be one of {', '.join(MARKETPLACE_AUTHENTICATION_POLICIES)}"
+                    )
+                products = policy.get("products")
+                if products is not None and (
+                    not isinstance(products, list)
+                    or not all(isinstance(value, str) and value.strip() for value in products)
+                ):
+                    self.errors.append(f"{prefix}.policy.products must be an array of non-empty strings")
+
+            category = entry.get("category")
+            if not isinstance(category, str) or not category.strip():
+                self.errors.append(f"{prefix}.category must be a non-empty string")
+            elif name == "charter-kit" and category != "Developer Tools":
+                self.errors.append(f"{prefix}.category must be Developer Tools")
+
+        if charter_entries == 0:
+            self.errors.append(f"{relative}: missing marketplace plugin entry charter-kit")
+        elif charter_entries > 1:
+            # The duplicate-name diagnostic above is useful for callers, while
+            # this explicit cardinality message explains the package contract.
+            self.errors.append(f"{relative}: marketplace must contain exactly one charter-kit entry")
+
+    def _compare_file_bytes(self, left: str, right: str, *, label: str) -> None:
+        left_path = self._path(left)
+        right_path = self._path(right)
+        left_bytes = self.read_bytes(left)
+        right_bytes = self.read_bytes(right)
+        if left_bytes is not None and right_bytes is not None and left_bytes != right_bytes:
+            self.errors.append(f"{right}: differs from {left} ({label}; byte mismatch)")
+
+    def _compare_distribution_root_item(self, relative: str) -> None:
+        source = self._path(relative)
+        destination = self._path(f"{DISTRIBUTION_ROOT_RELATIVE}/{relative}")
+        if source.is_dir():
+            self._compare_trees(relative, f"{DISTRIBUTION_ROOT_RELATIVE}/{relative}", label="distribution mirror")
+        elif source.is_file():
+            if not destination.is_file():
+                self._missing_file(f"{DISTRIBUTION_ROOT_RELATIVE}/{relative}")
+            else:
+                self._compare_file_bytes(relative, f"{DISTRIBUTION_ROOT_RELATIVE}/{relative}", label="distribution mirror")
+
+    def _check_target_readme(self) -> None:
+        relative = TARGET_README_RELATIVE
+        text = self.read(relative)
+        if not text:
+            return
+        # Target-specific prose is allowed, but the adapter must continue to
+        # state the shared packaging/security boundary in at least one language.
+        for alternatives, message in (
+            (("portable/",), "must identify the portable core"),
+            (("plugins/charter-kit",), "must identify the generated distribution"),
+            (("external harness", "外部 harness"), "must say that it does not install an external harness"),
+            (("not the installable", "不是可安装"), "must distinguish the target source from the installable package"),
+            (("do not", "不要"), "must include target safety restrictions"),
+        ):
+            if not any(phrase.lower() in text.lower() for phrase in alternatives):
+                self.errors.append(f"{relative}: {message}")
+
+    def check_target_and_distribution(self) -> None:
+        """Check target source, self-contained distribution, and migration mirrors."""
+
+        target_root = self._check_tree_safety(TARGET_ROOT_RELATIVE)
+        distribution_root = self._check_tree_safety(DISTRIBUTION_ROOT_RELATIVE)
+        self._check_target_readme()
+
+        target_manifest = self._check_secondary_plugin_manifest(
+            TARGET_MANIFEST_RELATIVE,
+            TARGET_ROOT_RELATIVE,
+            "Codex target",
+        )
+        distribution_manifest = self._check_secondary_plugin_manifest(
+            DISTRIBUTION_MANIFEST_RELATIVE,
+            DISTRIBUTION_ROOT_RELATIVE,
+            "generated distribution",
+        )
+
+        # A target adapter and its generated package must carry exactly the
+        # same manifest bytes; this catches formatting and newline drift too.
+        self._compare_file_bytes(
+            TARGET_MANIFEST_RELATIVE,
+            DISTRIBUTION_MANIFEST_RELATIVE,
+            label="target/distribution manifest",
+        )
+        if target_manifest is not None and distribution_manifest is not None:
+            for key in ("name", "version", "license"):
+                if target_manifest.get(key) != distribution_manifest.get(key):
+                    self.errors.append(
+                        f"{DISTRIBUTION_MANIFEST_RELATIVE}: {key} differs from {TARGET_MANIFEST_RELATIVE}"
+                    )
+
+        # The target Skill is a controlled mirror of the canonical Skill, and
+        # the generated package is a byte-identical copy of that target tree.
+        self._compare_trees(
+            LEGACY_SKILL_RELATIVE,
+            TARGET_SKILL_RELATIVE,
+            label="target/core mirror",
+        )
+        self._compare_trees(
+            TARGET_SKILL_RELATIVE,
+            DISTRIBUTION_SKILL_RELATIVE,
+            label="generated distribution mirror",
+        )
+
+        # Root-level core files copied by the packager are also checked.  This
+        # prevents a stale package from silently carrying an older protocol.
+        if distribution_root is not None:
+            for item in DISTRIBUTION_ROOT_ITEMS:
+                self._compare_distribution_root_item(item)
+
+            expected_top_level = {
+                Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
+            } | {".codex-plugin", "skills"}
+            for child in distribution_root.iterdir():
+                if child.name not in expected_top_level:
+                    self.errors.append(
+                        f"{DISTRIBUTION_ROOT_RELATIVE}: unexpected top-level entry {child.name!r}"
+                    )
+
+            # A generated package must not recursively contain another target
+            # or distribution root (a common mistake when output is nested).
+            for child in distribution_root.rglob("*"):
+                if not child.exists():
+                    continue
+                relative_parts = child.relative_to(distribution_root).parts
+                if relative_parts and relative_parts[0] in {"plugins", "targets"}:
+                    self.errors.append(
+                        f"{DISTRIBUTION_ROOT_RELATIVE}: nested {relative_parts[0]}/ tree is not allowed"
+                    )
+
+        # During migration the old root snapshot remains valid only as a
+        # generated copy.  If either side exists, compare the available pair.
+        if self._path(LEGACY_MANIFEST_RELATIVE).is_file():
+            self._compare_file_bytes(
+                LEGACY_MANIFEST_RELATIVE,
+                DISTRIBUTION_MANIFEST_RELATIVE,
+                label="legacy manifest mirror",
+            )
+        if self._path(LEGACY_SKILL_RELATIVE).is_dir():
+            self._compare_trees(
+                LEGACY_SKILL_RELATIVE,
+                DISTRIBUTION_SKILL_RELATIVE,
+                label="legacy distribution mirror",
+            )
 
     def check_license(self) -> None:
         text = self.read("LICENSE")
@@ -1139,6 +1645,13 @@ class Checker:
             "AGENTS.md:",
             "CLAUDE.md:",
             "user_commands:",
+            "targets:",
+            "distributions:",
+            "marketplace:",
+            "mirror_policy:",
+            "byte_identity: true",
+            "newline_sensitive: true",
+            "legacy_snapshot: generated",
         ):
             self.require(text, phrase, relative)
         for key, value in {
@@ -1154,6 +1667,102 @@ class Checker:
                 relative,
                 f"host entry {key} must map to {value}",
             )
+        def top_level_block(name: str) -> str:
+            lines = text.splitlines()
+            start = None
+            for index, line in enumerate(lines):
+                if line.strip() == f"{name}:" and not line.startswith((" ", "\t")):
+                    start = index + 1
+                    break
+            if start is None:
+                return ""
+            collected: list[str] = []
+            for line in lines[start:]:
+                if line and not line.startswith((" ", "\t")) and line.rstrip().endswith(":"):
+                    break
+                collected.append(line)
+            return "\n".join(collected)
+
+        def require_yaml_value(block: str, pattern: str, message: str) -> None:
+            if re.search(pattern, block, re.MULTILINE) is None:
+                self.errors.append(f"{relative}: {message}")
+
+        targets_block = top_level_block("targets")
+        if not targets_block:
+            self.errors.append(f"{relative}: targets declaration is missing")
+        require_yaml_value(targets_block, r"^\s{2}codex:\s*$", "targets.codex declaration is missing")
+        require_yaml_value(
+            targets_block,
+            r"^\s{4}source:\s*targets/codex\s*$",
+            "targets.codex.source must be targets/codex",
+        )
+        require_yaml_value(
+            targets_block,
+            r"^\s{4}manifest:\s*targets/codex/\.codex-plugin/plugin\.json\s*$",
+            "targets.codex.manifest declaration is missing",
+        )
+        require_yaml_value(
+            targets_block,
+            r"^\s{4}skill:\s*targets/codex/skills/charter-workflow\s*$",
+            "targets.codex.skill declaration is missing",
+        )
+
+        distributions_block = top_level_block("distributions")
+        if not distributions_block:
+            self.errors.append(f"{relative}: distributions declaration is missing")
+        require_yaml_value(
+            distributions_block,
+            r"^\s{2}codex:\s*$",
+            "distributions.codex declaration is missing",
+        )
+        require_yaml_value(
+            distributions_block,
+            r"^\s{4}path:\s*plugins/charter-kit\s*$",
+            "distributions.codex.path must be plugins/charter-kit",
+        )
+        require_yaml_value(
+            distributions_block,
+            r"^\s{4}generated_from:\s*targets/codex\s*$",
+            "distributions.codex.generated_from declaration is missing",
+        )
+
+        marketplace_block = top_level_block("marketplace")
+        if not marketplace_block:
+            self.errors.append(f"{relative}: marketplace declaration is missing")
+        require_yaml_value(
+            marketplace_block,
+            r"^\s{2}path:\s*\.agents/plugins/marketplace\.json\s*$",
+            "marketplace.path must be .agents/plugins/marketplace.json",
+        )
+        require_yaml_value(
+            marketplace_block,
+            r"^\s{2}source_path:\s*\./plugins/charter-kit\s*$",
+            "marketplace.source_path must be ./plugins/charter-kit",
+        )
+
+        mirror_block = top_level_block("mirror_policy")
+        if not mirror_block:
+            self.errors.append(f"{relative}: mirror_policy declaration is missing")
+        require_yaml_value(
+            mirror_block,
+            r"^\s{2}canonical_core:\s*portable\s*$",
+            "mirror_policy.canonical_core must be portable",
+        )
+        require_yaml_value(
+            mirror_block,
+            r"^\s{2}byte_identity:\s*true\s*$",
+            "mirror_policy.byte_identity must be true",
+        )
+        require_yaml_value(
+            mirror_block,
+            r"^\s{2}newline_sensitive:\s*true\s*$",
+            "mirror_policy.newline_sensitive must be true",
+        )
+        require_yaml_value(
+            mirror_block,
+            r"^\s{2}legacy_snapshot:\s*generated\s*$",
+            "mirror_policy.legacy_snapshot must be generated",
+        )
         if "\t" in text:
             self.errors.append(f"{relative}: tabs are not valid indentation in this YAML declaration")
         if re.search(r"(?i)(pip\s+install|npm\s+install|curl\s*\|)", text):

@@ -65,6 +65,8 @@ class CharterKitBehaviorTests(unittest.TestCase):
         target_skill = target / "skills" / "charter-workflow"
         target_manifest.parent.mkdir(parents=True, exist_ok=True)
         target_manifest.write_bytes((package / ".codex-plugin" / "plugin.json").read_bytes())
+        if target_skill.exists():
+            shutil.rmtree(target_skill)
         shutil.copytree(package / "skills" / "charter-workflow", target_skill)
 
         distribution = package / "plugins" / "charter-kit"
@@ -102,6 +104,13 @@ class CharterKitBehaviorTests(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
+
+    def prepare_codex_target_skill_mirror(self, package: Path) -> Path:
+        target_skill = package / "targets" / "codex" / "skills" / "charter-workflow"
+        if target_skill.exists():
+            shutil.rmtree(target_skill)
+        shutil.copytree(package / "skills" / "charter-workflow", target_skill)
+        return target_skill
 
     def run_script(self, script: Path, *arguments: object) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -616,12 +625,33 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertIn("plugins/charter-kit", result.stdout)
         self.assertIn("differs", result.stdout.lower())
 
+    def test_validator_rejects_generated_distribution_extra_entry(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        (package / "plugins" / "charter-kit" / "unexpected.txt").write_text("not generated", encoding="utf-8")
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("unexpected top-level entry", result.stdout.lower())
+
+    def test_validator_rejects_malformed_repository_marketplace_json(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        marketplace_path = package / ".agents" / "plugins" / "marketplace.json"
+        marketplace_path.write_bytes(b"{\n  \"plugins\": [\n")
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("marketplace.json: invalid JSON", result.stdout)
+
     def test_validator_rejects_missing_agentpack_distribution_declarations(self) -> None:
         package = self.make_package_copy()
         self.prepare_complete_distribution_layout(package)
         agentpack = package / "agentpack.yaml"
         text = agentpack.read_text(encoding="utf-8")
-        text = text.replace("targets:\n", "targets_removed:\n") if "targets:\n" in text else text + "\n"
+        text = text.replace("    source: targets/codex\n", "")
         agentpack.write_text(text, encoding="utf-8")
 
         result = self.run_validator(package)
@@ -646,6 +676,24 @@ class CharterKitBehaviorTests(unittest.TestCase):
             source_manifest.read_bytes(),
         )
         self.assert_tree_is_link_free(output)
+
+    def test_builder_uses_codex_target_skill_mirror(self) -> None:
+        package = self.make_package_copy()
+        target_skill = self.prepare_codex_target_skill_mirror(package)
+        roadmap = target_skill / "templates" / "roadmap.md"
+        roadmap.write_text("TARGET MIRROR ROADMAP\n", encoding="utf-8")
+
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "plugins" / "charter-kit"
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (output / "skills" / "charter-workflow" / "templates" / "roadmap.md").read_text(encoding="utf-8"),
+            "TARGET MIRROR ROADMAP\n",
+        )
 
     def test_builder_check_is_deterministic_and_non_mutating(self) -> None:
         package = self.make_package_copy()
