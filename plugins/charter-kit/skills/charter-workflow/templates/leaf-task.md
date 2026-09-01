@@ -118,9 +118,9 @@ Stop and write a decision record when:
 - Reuse discovery evidence reviewed: `<discovery ID, candidate revision, targeted recheck, or BUILD_NEW rationale>`
 - First failing check (RED): `<test or inspection>`
 - Minimal implementation plan:
-  1. 
-  2. 
-  3. 
+  1.
+  2.
+  3.
 
 ### Events
 

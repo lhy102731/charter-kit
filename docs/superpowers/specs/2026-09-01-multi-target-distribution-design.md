@@ -35,7 +35,8 @@ charter-kit/
 ├─ plugins/
 │  └─ charter-kit/                   # 已生成并提交的 Codex 安装包
 │     ├─ .codex-plugin/plugin.json
-│     └─ skills/charter-workflow/
+│     ├─ skills/charter-workflow/
+│     └─ scripts/                    # 仅运行时检查器与初始化器
 ├─ .agents/plugins/marketplace.json # GitHub marketplace 清单
 ├─ scripts/
 │  ├─ build_codex_plugin.py          # 从目标封装源生成发行包
@@ -44,6 +45,8 @@ charter-kit/
 ```
 
 `portable/` 是唯一的语义事实源。`targets/codex/` 只描述 Codex 如何进入和加载核心；它可以包含为安装自足而生成的核心镜像，但镜像不得手工独立维护。`plugins/charter-kit/` 是提交到 GitHub 的发行快照，用户不需要先运行构建器。
+
+发行包只携带运行时需要的 `scripts/check_dependencies.py` 和 `scripts/init_project.py`。仓库级 `scripts/build_codex_plugin.py` 与 `scripts/validate_kit.py` 是维护工具，不进入可安装插件；这样安装后的包不会暴露依赖仓库目标目录或 marketplace 文件的维护命令。
 
 为兼容当前已安装的本地插件，现有根目录 `.codex-plugin/` 与 `skills/` 在迁移期保留为旧快照，并标记为 deprecated；构建器和验证器负责同步它们，维护者不直接编辑两套内容。待新 marketplace 路径稳定后再删除旧快照。
 
@@ -91,4 +94,3 @@ README 必须包含中英文对应章节：项目简介、核心/目标封装关
 4. 从干净临时目录运行构建器后，生成包与仓库中的发行包逐字节一致。
 5. `codex plugin marketplace add lhy102731/charter-kit` 能读取 marketplace，`codex plugin add charter-kit@charter-kit` 能安装并显示 `installed, enabled`；若网络或认证不可用，记录实际阻塞，不伪造成功。
 6. README 中英双语章节、命令和链接可读、可复制且没有未完成占位符。
-

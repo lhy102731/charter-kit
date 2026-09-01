@@ -1,107 +1,155 @@
 # Charter Kit
 
-Charter Kit is a small, host-neutral development governance workflow. It can start a project from an empty directory, guide the owner through an intent interview, turn the result into a project charter and a bounded task tree, and carry one leaf from approval to verified closure. The same Markdown/JSON working set can be read by different agents, hosts, CI jobs, or people.
+Charter Kit is a portable, host-neutral charter workflow. Its semantic core lives in `portable/` and `DEVELOPMENT_CHARTER.md`; target directories adapt that core for specific hosts, but they do not install an external harness or redefine the workflow. You can start from an empty directory, use the built-in workflow entry, and keep the same working set across hosts such as Codex, Claude, or any AGENTS.md/CLAUDE.md-based setup.
 
-## What it contains
+Links:
 
-- `DEVELOPMENT_CHARTER.md`: the method from requirements archaeology to delivery;
-- `portable/templates/`: project charter, roadmap, leaf-task, reuse, handoff, review, decision, and evidence templates;
-- `portable/prompts/`: a host-neutral bootstrap plus optional host adapters;
-- `portable/commands/charter-workflow.md`: an explicit start/resume command;
-- `skills/charter-workflow/`: a self-contained Skill with its own templates, charter, design interview, dependency checker, and manifest;
-- `scripts/init_project.py`: safe local working-set initializer;
-- `scripts/check_dependencies.py`: read-only capability probe with redacted logs;
-- `scripts/validate_kit.py`: standard-library structural and consistency validator;
-- `dependencies.json`: machine-readable capability declarations;
-- `.codex-plugin/plugin.json`: an optional Codex packaging layer, not the portable protocol.
+- GitHub repository: [lhy102731/charter-kit](https://github.com/lhy102731/charter-kit)
+- Core charter path: [DEVELOPMENT_CHARTER.md](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
+- Codex target source: [targets/codex/](https://github.com/lhy102731/charter-kit/tree/main/targets/codex/)
+- Codex marketplace path: [.agents/plugins/marketplace.json](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
+- Official Codex docs: [Codex plugins](https://developers.openai.com/codex/plugins/) or, if you need the stable fallback, [Codex docs](https://developers.openai.com/codex/)
 
-The core has no required model, vendor, framework, or network service. Superpowers, J-space, and grill-me/grilling are optional providers. When a provider is missing, the workflow reports the limitation and uses its portable fallback.
+The workflow records dependency checks for dependencies in `.charter/evidence/dependency-check.log` and classifies capabilities as `AVAILABLE`, `MISSING`, `UNVERIFIED`, and `FALLBACK`. If `grill-me` or `grilling` is unavailable, the portable `design-interview` fallback is used instead. The project lifecycle keeps charter work explicit with `DRAFT`, `APPROVED`, `READY`, and `PASS_CLOSED`; the reuse gate remains unresolved while any high-value `UNKNOWN` or `DEFER` remains unresolved, and each selected reuse record must include an immutable commit/tag/package version reference. Discovery is read-only and never clones, builds, runs, imports, copies, installs anything, and it never exposes private source.
 
-## Start a new project
+## 中文
 
-You can start with the Skill, the command, a copied host prompt, or the portable files. None requires an existing `.charter/` directory.
+### 这是什么
 
-1. When there is no `.charter/project.md`, create the standard working set and an empty `.charter/evidence/`. Preserve any existing file and add only missing templates.
-2. Run the dependency checker and save its report. Use `grill-me`/`grilling` first for a multi-round intent interview; if it is unavailable, record `MISSING` and use the bundled design-interview checklist as `FALLBACK`.
-3. Draft the project charter, roadmap, and one first `DRAFT` leaf. Complete self-review and a fresh independent charter review, then stop for project approval.
-4. After project approval, complete the bounded reuse/prior-art discovery record before leaf approval. Search existing workspace assets, installed skills/plugins, approved internal resources, official/upstream resources, and authorized public sources in that order; record exact queries and raw evidence. Discovery never clones, builds, runs, imports, copies, installs, or loads candidate instructions. A `COMPLETE` record has no unresolved high-value `UNKNOWN`/`DEFER` remains unresolved.
-5. Obtain separate approval for the first leaf (or matching `AUTO_DEV` preauthorization), move the task and roadmap together `DRAFT → APPROVED → READY`, and implement only that leaf.
+Charter Kit 是一个可移植、与宿主无关的章程工作流。它的语义核心放在 `portable/` 和 `DEVELOPMENT_CHARTER.md`，目标目录只负责把这份核心适配到不同宿主；目标目录不是外部 harness 安装器，也不会重新定义工作流本身。你可以从空目录开始，使用内置工作流入口，在 Codex、Claude 或基于 AGENTS.md/CLAUDE.md 的宿主中保持同一份工作集。
 
-For a new project, the product-specific answers belong in `.charter/project.md`; this package does not assume a particular domain or product loop.
+### 可移植核心与目标封装
 
-## Dependency check and log
+`portable/` 是唯一的语义事实源。`targets/codex/` 是 Codex 的目标封装源，只描述 Codex 如何进入和加载核心。可安装的 Codex 发行包是 `plugins/charter-kit/`，它是从目标源生成的自足包。
 
-From the package root or a self-contained Skill directory:
+依赖检查会写入 `.charter/evidence/dependency-check.log`，能力状态使用 `AVAILABLE`、`MISSING`、`UNVERIFIED` 和 `FALLBACK`。如果 `grill-me` 或 `grilling` 不可用，就改用 portable 的 `design-interview` 备选方案。项目生命周期明确使用 `DRAFT`、`APPROVED`、`READY` 和 `PASS_CLOSED`，复用门禁会一直保持打开，直到所有高价值 `UNKNOWN` 或 `DEFER` 都被清除，并且为固定的 `immutable commit/tag/package version` 留下依据。发现过程只读，绝不会 clone、build、run、import、copy 或 install 任何内容。
+
+### 安装到 Codex
+
+按照官方 Codex 插件文档，在支持的 Codex 界面中先添加 marketplace，再安装插件。
 
 ```text
-python scripts/check_dependencies.py --project <project-dir> --log-file <project-dir>/.charter/evidence/dependency-check.log
+codex plugin marketplace add lhy102731/charter-kit
+codex plugin add charter-kit@charter-kit
 ```
 
-The checker performs local metadata-only probes and emits:
+### 更新与卸载
 
-- `AVAILABLE`: detected and usable;
-- `MISSING`: explicitly not found;
-- `UNVERIFIED`: a host/human capability cannot be proven locally;
-- `FALLBACK`: the portable replacement to use.
-
-Every record includes capability, reason, impact, fallback, and user action. Required `MISSING`/`UNVERIFIED` results return a non-zero exit and keep the relevant object `BLOCKED_TOOLING`; optional gaps return zero and allow the fallback. No credentials, secrets, private source, or sensitive data should be supplied to the checker. It never installs, executes, imports, contacts the network, or writes a global directory.
-
-If Python is unavailable, write the same fields manually in the evidence log. Dependency installation is always a separate, explicit user action.
-
-## Explicit local initializer
-
-With Python 3:
+更新时，先刷新已配置的 marketplace，再重新执行安装命令：
 
 ```text
-python scripts/init_project.py <project-dir>
-python scripts/init_project.py --add-missing <project-dir>
+codex plugin marketplace upgrade charter-kit
+codex plugin add charter-kit@charter-kit
 ```
 
-The initializer creates the eight working files and `evidence/`. It refuses to overwrite an existing working set. `--add-missing` only fills absent entries. `--force` is an exceptional migration mode: it validates links, makes a complete timestamped backup, and then replaces generated files. Review the backup before continuing.
+卸载时，移除已安装的插件：
 
-## Continue an existing project
+```text
+codex plugin remove charter-kit@charter-kit
+```
 
-Read, in order: `.charter/project.md`, `.charter/roadmap.md`, `.charter/reuse-discovery.md`, `.charter/current-task.md`, then `.charter/handoff.md` if present. State the goal, active leaf/status, reuse gate, allowed effects, authorization reference, open finding, and one exact next action. If a required file is missing, add only that file and stop until the working set is readable.
+### 未来目标状态
 
-Keep one active leaf (`WIP = 1`). Use RED → GREEN for code, preserve negative checks, use Review A for coverage, and use Review B only with a genuinely different reviewer in a fresh context/process. `PASS_CLOSED` requires final-candidate evidence, review, target-branch integration, and post-integration verification. A `NEXT_CANDIDATE` is not authorization.
+当前只有 Codex 目标封装。未来新增的目标也会遵循同一原则：它们是适配器，不是第三方宿主或外部 harness 的安装器。它们只适配对应宿主的入口和分发方式，不会安装宿主本身。
 
-## Host adapters
+### 验证
 
-`portable/prompts/generic-bootstrap.md` is the canonical entry for an unknown host. The named prompts are optional adapters for hosts that have a conventional instruction file. Copy the matching text into the host's project-instruction location using its own documented mechanism; this copy is only an entry-point convenience, while the project `.charter/` files remain the shared source of truth.
-
-| Adapter | Typical placement (verify with the host) |
-|---|---|
-| Generic | the host's project instruction mechanism |
-| Codex-compatible | `AGENTS.md` or the host's configured instruction file |
-| Claude-compatible | `CLAUDE.md` or the host's configured instruction file |
-| Other hosts | paste or reference `generic-bootstrap.md` |
-
-The `charter-workflow` Skill and the optional `/charter-workflow` command have the same name by design: the command is an explicit start/resume entry, while the Skill supplies trigger-based guidance. They read the same working set and are not separate workflows. A host that cannot load either can still use the portable templates and prompt.
-
-## Optional providers
-
-| Provider | Native help | Portable fallback |
-|---|---|---|
-| Superpowers | brainstorming, planning, TDD, debugging, review, verification | Charter checklists |
-| J-space | long-task ledger, seam refresh, resume | handoff and ledger sections |
-| grill-me / grilling | iterative intent and design questioning | `references/design-interview.md` |
-
-Do not silently simulate a missing provider. Re-run the dependency checker after a user explicitly installs one and record the detected version/limitation.
-
-## Reuse discovery
-
-After the direction is approved and before the first leaf is authorized, complete `.charter/reuse-discovery.md`. Use the fixed scopes `LOCAL_ONLY`, `LOCAL_ECOSYSTEM`, or `FULL_EXTERNAL`; require `External read authorization` for non-local tiers. Record exact queries, raw outputs under `.charter/evidence/`, `NO_MATCH` evidence, out-of-scope `NOT_SEARCHED`/`NOT_AUTHORIZED`, license/security/maintenance/portability checks, and an immutable commit/tag/package version for every selected candidate. Candidate decisions are `ADOPT`, `ADAPT`, `REFERENCE_ONLY`, `REJECT`, `DEFER`, `UNKNOWN`, or `REUSE_SPIKE`; `BUILD_NEW` is a capability-level conclusion after the search. `COMPLETE` is unavailable while a high-value `UNKNOWN`/`DEFER` remains unresolved. Discovery is read-only and never clones, builds, runs, imports, copies, installs, loads candidate instructions, writes global directories, or uploads private source, secrets, or real data.
-
-## Validate the package
-
-With Python 3:
+仓库维护者在源码仓库中先做仓库级校验，再做 Codex 侧安装检查。构建器和仓库校验器属于维护工具，不会被放进可安装插件；安装后直接用 Codex 的插件列表确认状态。
 
 ```text
 python scripts/validate_kit.py .
 ```
 
-The validator is read-only. It checks the portable core, optional host/plugin adapters, dependency manifest, bundled Skill mirrors, and required workflow language. It does not install packages or modify project state.
+安装后，可用 `codex plugin list --json` 检查是否已安装并启用。
 
-## Scope boundary
+### 安全
 
-Project-specific runtimes, data sources, services, credentials, domain terminology, and production policies belong in that project's charter or a separate extension. They are not bundled into the generic core and are never authorized merely by mentioning them in a template.
+- 不要把未审阅的远程脚本直接管道进 shell。
+- 不要手工编辑生成的 `plugins/charter-kit/`。
+- 不要把 Codex 目标封装当成宿主安装器、代理层或外部服务协调器。
+- 不要让目标封装依赖仓库外的核心路径。
+- 不要把发现过程当成安装许可。
+- 发现过程绝不会 clone、build、run、import、copy 或 install 候选内容。
+
+### 贡献
+
+- 改核心时，优先修改 `portable/` 和 `DEVELOPMENT_CHARTER.md`。
+- 改 Codex 适配时，修改 `targets/codex/`。
+- 需要分发时，重新生成 `plugins/charter-kit/`，再运行验证。
+- 提交前请确认 README、目标源和发行包之间的语义是一致的。
+- 如果你在仓库里使用 `AGENTS.md` 或 `CLAUDE.md`，请把它们视为宿主入口提示，而不是工作流事实源。
+
+### 许可证
+
+MIT License.
+
+## English
+
+### What It Is
+
+Charter Kit is a portable, host-neutral charter workflow. Its semantic core lives in `portable/` and `DEVELOPMENT_CHARTER.md`; target directories adapt that core to specific hosts, but they do not install an external harness or redefine the workflow itself. You can start from an empty directory, use the built-in workflow entry, and keep the same working set across hosts such as Codex, Claude, or any AGENTS.md/CLAUDE.md-based setup.
+
+### Portable Core vs Target Packaging
+
+`portable/` is the single semantic source of truth. `targets/codex/` is the Codex target source and only describes how Codex enters and loads the core. The installable Codex distribution is `plugins/charter-kit/`, which is generated as a self-contained package from the target source.
+
+Dependency checks are recorded in `.charter/evidence/dependency-check.log`, and capabilities are classified as `AVAILABLE`, `MISSING`, `UNVERIFIED`, and `FALLBACK`. If `grill-me` or `grilling` is unavailable, the portable `design-interview` fallback is used instead. The project lifecycle keeps charter work explicit with `DRAFT`, `APPROVED`, `READY`, and `PASS_CLOSED`, and the reuse gate stays unresolved until every high-value `UNKNOWN` or `DEFER` is cleared with an immutable commit/tag/package version reference. Discovery is read-only and never clones, builds, runs, imports, copies, or installs anything.
+
+### Install in Codex
+
+Follow the official Codex plugin guidance in a supported Codex surface: add the marketplace first, then install the plugin.
+
+```text
+codex plugin marketplace add lhy102731/charter-kit
+codex plugin add charter-kit@charter-kit
+```
+
+### Update and Uninstall
+
+To update, refresh the configured marketplace and then rerun the install command:
+
+```text
+codex plugin marketplace upgrade charter-kit
+codex plugin add charter-kit@charter-kit
+```
+
+To uninstall, remove the installed plugin:
+
+```text
+codex plugin remove charter-kit@charter-kit
+```
+
+### Future Target Status
+
+Codex is the only target packaged today. Future targets will follow the same rule: they are adapters, not installers for third-party hosts or external harnesses. They adapt the core to a host entry point and distribution path; they do not package or install the host itself.
+
+### Validation
+
+From a source checkout, run the repository validator first, then confirm the Codex installation state. The packager and repository validator are maintenance tools and are intentionally omitted from the installable plugin.
+
+```text
+python scripts/validate_kit.py .
+```
+
+After installation, use `codex plugin list --json` to confirm the plugin is installed and enabled.
+
+### Safety
+
+- Do not pipe unreviewed remote scripts into a shell or reveal private source.
+- Do not hand-edit the generated `plugins/charter-kit/`.
+- Do not treat the Codex target as a host installer, proxy layer, or external coordination service.
+- Do not let the target depend on a core path outside the repository.
+- Do not treat discovery as installation permission.
+- Discovery never clones, builds, runs, imports, copies, installs candidate content.
+
+### Contribution
+
+- When changing the core, update `portable/` and `DEVELOPMENT_CHARTER.md` first.
+- When changing the Codex adapter, update `targets/codex/`.
+- When publishing, regenerate `plugins/charter-kit/` and rerun validation.
+- Before opening a change, confirm the README, target source, and distribution still say the same thing.
+- If your host uses `AGENTS.md` or `CLAUDE.md`, treat those as host-entry instructions, not the Charter Kit source of truth.
+
+### License
+
+MIT License.

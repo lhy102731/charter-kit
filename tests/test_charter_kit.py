@@ -748,6 +748,190 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertRegex(result.stderr.lower(), r"linked|symlink|junction")
         self.assertEqual(list(real_output.iterdir()), [])
 
+    def test_builder_rejects_repository_root_output_without_deleting_source(self) -> None:
+        package = self.make_package_copy()
+        before = {
+            relative: (package / relative).read_bytes()
+            for relative in ("README.md", "scripts/build_codex_plugin.py", "targets/codex/.codex-plugin/plugin.json")
+        }
+
+        result = self.run_builder(package, "--output", package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"repository|source|output")
+        for relative, contents in before.items():
+            self.assertEqual((package / relative).read_bytes(), contents)
+
+    def test_builder_rejects_output_inside_canonical_source_tree(self) -> None:
+        package = self.make_package_copy()
+        source_tree = package / "portable"
+        before = (source_tree / "templates" / "roadmap.md").read_bytes()
+
+        result = self.run_builder(package, "--output", source_tree)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"source|canonical|output")
+        self.assertEqual((source_tree / "templates" / "roadmap.md").read_bytes(), before)
+
+    def test_builder_rejects_hardlinked_output_entry(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        base = Path(temporary.name)
+        output = base / "plugins" / "charter-kit"
+        output.mkdir(parents=True)
+        external = base / "external.txt"
+        external.write_text("DO_NOT_OVERWRITE", encoding="utf-8")
+        try:
+            os.link(external, output / "README.md")
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"hardlink creation unavailable: {exc}")
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("hard-linked", result.stderr.lower())
+        self.assertEqual(external.read_text(encoding="utf-8"), "DO_NOT_OVERWRITE")
+
+    def test_builder_rejects_dangling_output_link(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        base = Path(temporary.name)
+        linked_output = base / "linked-output"
+        missing_target = base / "missing-output"
+        try:
+            linked_output.symlink_to(missing_target, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+
+        result = self.run_builder(package, "--output", linked_output)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"linked|symlink|junction")
+        self.assertFalse(missing_target.exists())
+
+    def test_builder_rejects_unsafe_target_manifest_skill_path(self) -> None:
+        package = self.make_package_copy()
+        manifest_path = package / "targets" / "codex" / ".codex-plugin" / "plugin.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["skills"] = "../../outside"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "plugins" / "charter-kit"
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("skills", result.stderr.lower())
+        self.assertFalse(output.exists())
+
+    def test_builder_rejects_output_that_contains_repository(self) -> None:
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-ancestor-")
+        self.addCleanup(temporary.cleanup)
+        base = Path(temporary.name)
+        package = base / "repo"
+        shutil.copytree(
+            PACKAGE_ROOT,
+            package,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
+        sentinel = base / "keep.txt"
+        sentinel.write_text("DO_NOT_DELETE", encoding="utf-8")
+
+        result = self.run_builder(package, "--output", base)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"contain|ancestor|repository|source")
+        self.assertTrue((package / "README.md").is_file())
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "DO_NOT_DELETE")
+
+    def test_builder_refuses_nonempty_external_output_without_deleting_it(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "external-output"
+        output.mkdir()
+        sentinel = output / "keep.txt"
+        sentinel.write_text("DO_NOT_DELETE", encoding="utf-8")
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"non-empty|existing|output")
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "DO_NOT_DELETE")
+
+    def test_builder_rejects_default_output_through_linked_plugins_directory(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-linked-")
+        self.addCleanup(temporary.cleanup)
+        outside = Path(temporary.name) / "outside"
+        outside.mkdir()
+        plugins = package / "plugins"
+        shutil.rmtree(plugins)
+        try:
+            plugins.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+
+        result = self.run_builder(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"linked|symlink|junction")
+        self.assertFalse((outside / "charter-kit").exists())
+
+    def test_builder_rejects_hardlinked_source_manifest(self) -> None:
+        package = self.make_package_copy()
+        manifest_path = package / "targets" / "codex" / ".codex-plugin" / "plugin.json"
+        external_manifest = manifest_path.parent.parent.parent.parent / "external-manifest.json"
+        external_manifest.write_bytes(manifest_path.read_bytes())
+        manifest_path.unlink()
+        try:
+            os.link(external_manifest, manifest_path)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"hardlink creation unavailable: {exc}")
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "charter-kit"
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("hard-linked", result.stderr.lower())
+        self.assertFalse(output.exists())
+
+    def test_generated_package_omits_repository_maintenance_tools(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "charter-kit"
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((output / "scripts" / "check_dependencies.py").is_file())
+        self.assertTrue((output / "scripts" / "init_project.py").is_file())
+        self.assertFalse((output / "scripts" / "build_codex_plugin.py").exists())
+        self.assertFalse((output / "scripts" / "validate_kit.py").exists())
+
+    def test_validator_rejects_hardlinked_target_tree_entry(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        target_file = package / "targets" / "codex" / "skills" / "charter-workflow" / "SKILL.md"
+        external_file = package.parent / "external-skill.md"
+        external_file.write_bytes(target_file.read_bytes())
+        target_file.unlink()
+        try:
+            os.link(external_file, target_file)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"hardlink creation unavailable: {exc}")
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("hard-linked file", result.stdout.lower())
+
     def test_force_backs_up_unknown_charter_data(self) -> None:
         package = self.make_package_copy()
         project = package.parent / "project"

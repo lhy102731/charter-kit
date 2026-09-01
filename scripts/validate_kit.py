@@ -143,7 +143,8 @@ DISTRIBUTION_ROOT_ITEMS = (
     "dependencies.json",
     "agentpack.yaml",
     "portable",
-    "scripts",
+    "scripts/check_dependencies.py",
+    "scripts/init_project.py",
 )
 
 MARKETPLACE_INSTALLATION_POLICIES = ("NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT")
@@ -280,6 +281,20 @@ def _is_junction(path: Path) -> bool:
 
 def _is_link(path: Path) -> bool:
     return path.is_symlink() or _is_junction(path)
+
+
+def _is_regular_file(path: Path) -> bool:
+    try:
+        return stat.S_ISREG(os.lstat(path).st_mode)
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def _is_hardlink(path: Path) -> bool:
+    try:
+        return _is_regular_file(path) and os.lstat(path).st_nlink > 1
+    except OSError:
+        return False
 
 
 class Checker:
@@ -429,17 +444,35 @@ class Checker:
             if required:
                 self._missing_dir(relative)
             return None
-        if not path.is_dir():
+        try:
+            root_mode = os.lstat(path).st_mode
+        except OSError as exc:
+            self.errors.append(f"cannot inspect directory: {relative} ({exc})")
+            return None
+        if not stat.S_ISDIR(root_mode):
             self.errors.append(f"expected directory: {relative}")
             return None
         for child in sorted(path.rglob("*"), key=lambda item: item.as_posix()):
             if _is_link(child):
                 self.errors.append(f"{relative}: symlink or junction is not allowed: {child.relative_to(self.root)}")
                 continue
+            try:
+                child_mode = os.lstat(child).st_mode
+            except OSError as exc:
+                self.errors.append(f"{relative}: cannot inspect entry {child.relative_to(self.root)} ({exc})")
+                continue
+            if stat.S_ISDIR(child_mode):
+                continue
+            if not stat.S_ISREG(child_mode):
+                self.errors.append(f"{relative}: special file is not allowed: {child.relative_to(self.root)}")
+                continue
+            if _is_hardlink(child):
+                self.errors.append(f"{relative}: hard-linked file is not allowed: {child.relative_to(self.root)}")
+                continue
             rel_parts = child.relative_to(path).parts
             if any(part == ".." for part in rel_parts):
                 self.errors.append(f"{relative}: unsafe traversal entry {child}")
-            if reject_caches and child.is_file() and (
+            if reject_caches and (
                 child.suffix.lower() == ".pyc" or "__pycache__" in rel_parts
             ):
                 self.errors.append(f"{relative}: generated cache is not allowed: {child.relative_to(self.root)}")
@@ -451,7 +484,7 @@ class Checker:
             return None
         result: dict[str, bytes] = {}
         for child in sorted(path.rglob("*"), key=lambda item: item.relative_to(path).as_posix()):
-            if child.is_file() and not _is_link(child):
+            if _is_regular_file(child) and not _is_link(child):
                 if not reject_caches and (
                     child.suffix.lower() == ".pyc" or "__pycache__" in child.relative_to(path).parts
                 ):
