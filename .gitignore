@@ -11,6 +11,7 @@ __pycache__/
 # Build/test output that should be regenerated
 dist/
 *.zip
+targets/dsh/lib/
 
 # Local secrets and environment files
 .env
