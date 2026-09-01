@@ -1,0 +1,30 @@
+{
+  "name": "charter-kit",
+  "version": "0.2.0",
+  "description": "A lightweight, host-neutral development charter that can bootstrap a project from zero.",
+  "author": {
+    "name": "Charter Kit contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "development-charter",
+    "task-contract",
+    "cross-agent",
+    "handoff",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Charter Kit",
+    "shortDescription": "Portable project charter and leaf-task workflow",
+    "longDescription": "Start a project with a guided intent interview, then use one charter, task contract, evidence record, and handoff packet across agents and hosts. Optional providers enhance the workflow but are never required.",
+    "developerName": "Charter Kit contributors",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Start a new project with an intent interview.",
+      "Resume the current charter leaf task.",
+      "Check available workflow dependencies."
+    ]
+  }
+}

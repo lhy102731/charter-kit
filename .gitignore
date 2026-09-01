@@ -1,0 +1,19 @@
+# Python caches and local runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local J-space and agent scratch state
+.jspace/
+.superpowers/sdd/
+
+# Build/test output that should be regenerated
+dist/
+*.zip
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+

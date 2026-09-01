@@ -1,0 +1,34 @@
+# Package Structure Check
+
+The lightweight kit is valid only when these paths exist:
+
+- `DEVELOPMENT_CHARTER.md`
+- `LICENSE` — matches the MIT declaration in `.codex-plugin/plugin.json`
+- `README.md`
+- `DEPENDENCIES.md`
+- `dependencies.json` — matches the dependency guide and is diagnostic metadata only
+- `agentpack.yaml`
+- `portable/templates/project-charter.md`
+- `portable/templates/leaf-task.md`
+- `portable/templates/reuse-discovery.md`
+- `portable/templates/handoff.md`
+- `portable/templates/review.md`
+- `portable/templates/decision.md`
+- `portable/templates/roadmap.md`
+- `portable/templates/evidence-receipt.md`
+- `portable/prompts/generic-bootstrap.md`
+- `portable/prompts/codex-bootstrap.md`
+- `portable/prompts/claude-bootstrap.md`
+- `portable/prompts/gemini-bootstrap.md`
+- `portable/prompts/deepseek-bootstrap.md`
+- `portable/commands/charter-workflow.md`
+- `skills/charter-workflow/SKILL.md`
+- `skills/charter-workflow/references/tool-routing.md`
+- `skills/charter-workflow/references/DEVELOPMENT_CHARTER.md`
+- `skills/charter-workflow/references/design-interview.md`
+- `skills/charter-workflow/templates/` — byte-identical copies of all eight `portable/templates/` files
+- `scripts/validate_kit.py`
+- `scripts/init_project.py`
+- `tests/test_charter_kit.py` — standard-library behavior tests for backup, refusal, safe `--add-missing` migration, and validator gates
+
+The bundled copies under `skills/charter-workflow/` must never diverge from their package-root originals; `scripts/validate_kit.py` enforces real byte identity, including newline differences. The behavior tests cover complete `--force` backups, refusal without `--force`, safe `--add-missing` migration, safe handling of links, invalid plugin interface data, missing-roadmap blocking, separate project/leaf approval, reuse-discovery gate presence, `DRAFT → APPROVED` state mirroring, unresolved-review blocking, and first-leaf state. The check is intentionally independent of a host plugin. A missing optional provider is not a package-structure failure.
