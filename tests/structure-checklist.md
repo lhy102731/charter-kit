@@ -22,6 +22,10 @@ The lightweight kit is valid only when these paths exist:
 - `portable/prompts/gemini-bootstrap.md`
 - `portable/prompts/deepseek-bootstrap.md`
 - `portable/commands/charter-workflow.md`
+- `targets/codex/` — Codex target source for the adapter layout
+- `plugins/charter-kit/` — generated Codex distribution snapshot
+- `.agents/plugins/marketplace.json` — repository marketplace manifest
+- marketplace entry `charter-kit` with source path `./plugins/charter-kit`
 - `skills/charter-workflow/SKILL.md`
 - `skills/charter-workflow/references/tool-routing.md`
 - `skills/charter-workflow/references/DEVELOPMENT_CHARTER.md`
@@ -31,4 +35,4 @@ The lightweight kit is valid only when these paths exist:
 - `scripts/init_project.py`
 - `tests/test_charter_kit.py` — standard-library behavior tests for backup, refusal, safe `--add-missing` migration, and validator gates
 
-The bundled copies under `skills/charter-workflow/` must never diverge from their package-root originals; `scripts/validate_kit.py` enforces real byte identity, including newline differences. The behavior tests cover complete `--force` backups, refusal without `--force`, safe `--add-missing` migration, safe handling of links, invalid plugin interface data, missing-roadmap blocking, separate project/leaf approval, reuse-discovery gate presence, `DRAFT → APPROVED` state mirroring, unresolved-review blocking, and first-leaf state. The check is intentionally independent of a host plugin. A missing optional provider is not a package-structure failure.
+The bundled copies under `skills/charter-workflow/` must never diverge from their package-root originals; `scripts/validate_kit.py` enforces real byte identity, including newline differences. The behavior tests cover complete `--force` backups, refusal without `--force`, safe `--add-missing` migration, safe handling of links, invalid plugin interface data, missing-roadmap blocking, separate project/leaf approval, reuse-discovery gate presence, `DRAFT → APPROVED` state mirroring, unresolved-review blocking, first-leaf state, the Codex target source, the generated plugin distribution, and the repository marketplace entry contract. The legacy root `.codex-plugin/` and `skills/` snapshot remains a migration compatibility copy until the new marketplace path is stable; maintainers do not hand-edit both layouts. The check is intentionally independent of a host plugin. A missing optional provider is not a package-structure failure.

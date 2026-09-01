@@ -25,6 +25,33 @@ class CharterKitBehaviorTests(unittest.TestCase):
         )
         return destination
 
+    def write_marketplace_manifest(self, package: Path, *, name: str = "charter-kit", source: str = "./plugins/charter-kit") -> Path:
+        manifest_path = package / ".agents" / "plugins" / "marketplace.json"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "entry": {
+                        "name": name,
+                        "source": source,
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return manifest_path
+
+    def prepare_multi_target_layout(self, package: Path) -> None:
+        (package / "targets" / "codex").mkdir(parents=True, exist_ok=True)
+        (package / "plugins" / "charter-kit" / ".codex-plugin").mkdir(parents=True, exist_ok=True)
+        (package / "plugins" / "charter-kit" / ".codex-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "charter-kit"}, indent=2),
+            encoding="utf-8",
+        )
+        self.write_marketplace_manifest(package)
+
     def run_script(self, script: Path, *arguments: object) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(script), *(str(argument) for argument in arguments)],
@@ -409,6 +436,57 @@ class CharterKitBehaviorTests(unittest.TestCase):
         result = self.run_validator(package)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("reuse discovery", result.stdout.lower())
+
+    def test_validator_requires_codex_target_source_directory(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_multi_target_layout(package)
+        shutil.rmtree(package / "targets" / "codex")
+
+        result = self.run_validator(package)
+        self.assertIn("targets/codex", result.stdout)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_validator_requires_generated_codex_plugin_directory(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_multi_target_layout(package)
+        shutil.rmtree(package / "plugins" / "charter-kit")
+
+        result = self.run_validator(package)
+        self.assertIn("plugins/charter-kit", result.stdout)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_validator_requires_repository_marketplace_manifest(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_multi_target_layout(package)
+        (package / ".agents" / "plugins" / "marketplace.json").unlink()
+
+        result = self.run_validator(package)
+        self.assertIn(".agents/plugins/marketplace.json", result.stdout)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_validator_requires_marketplace_entry_source_path(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_multi_target_layout(package)
+        manifest_path = package / ".agents" / "plugins" / "marketplace.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["entry"]["source"] = "./plugins/wrong-charter-kit"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        result = self.run_validator(package)
+        self.assertIn("./plugins/charter-kit", result.stdout)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_validator_requires_marketplace_entry_name(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_multi_target_layout(package)
+        manifest_path = package / ".agents" / "plugins" / "marketplace.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["entry"]["name"] = "wrong-charter-kit"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        result = self.run_validator(package)
+        self.assertIn("charter-kit", result.stdout)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_force_backs_up_unknown_charter_data(self) -> None:
         package = self.make_package_copy()
