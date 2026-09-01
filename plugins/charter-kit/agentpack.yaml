@@ -1,0 +1,163 @@
+name: charter-kit
+version: 0.2.0
+protocol: charter/v1
+purpose: cross-agent-development-governance
+
+source_of_truth:
+  charter: DEVELOPMENT_CHARTER.md
+  templates: portable/templates
+  prompts: portable/prompts
+  roadmap_template: portable/templates/roadmap.md
+  reuse_template: portable/templates/reuse-discovery.md
+  reuse_record: .charter/reuse-discovery.md
+
+# A project may start with this package, the bundled Skill, or a manual copy of
+# the portable templates. The package does not require a particular host.
+working_set:
+  required:
+    - .charter/project.md
+    - .charter/roadmap.md
+    - .charter/reuse-discovery.md
+    - .charter/current-task.md
+  optional:
+    - .charter/handoff.md
+
+dependencies:
+  manifest: dependencies.json
+  checker: scripts/check_dependencies.py
+  log: .charter/evidence/dependency-check.log
+  statuses:
+    - AVAILABLE
+    - MISSING
+    - UNVERIFIED
+    - FALLBACK
+  required_missing_exit: 1
+  optional_missing_exit: 0
+  installation: explicit-user-action-only
+  secret_logging: redacted
+
+required:
+  - readable-markdown
+  - project-directory-access
+
+recommended:
+  - git
+  - isolated-workspace
+  - executable-project-tests
+
+optional_providers:
+  - id: superpowers
+    kind: host-workflow
+    capabilities:
+      - brainstorming
+      - planning
+      - tdd
+      - systematic-debugging
+      - code-review
+      - verification
+    fallback: portable-checklists
+  - id: j-space
+    kind: host-state-support
+    capabilities:
+      - ledger
+      - seam-review
+      - resume
+    fallback: project-handoff-and-ledger
+  - id: grill-me
+    kind: host-skill
+    capabilities:
+      - design-interview
+    fallback: portable-design-interview
+
+# The generic entry is canonical for unknown hosts. Named entries below are
+# optional adapters; they do not change the portable protocol.
+host_neutral_entry: portable/prompts/generic-bootstrap.md
+host_entries:
+  generic: portable/prompts/generic-bootstrap.md
+  codex: portable/prompts/generic-bootstrap.md
+  claude: portable/prompts/claude-bootstrap.md
+  gemini: portable/prompts/gemini-bootstrap.md
+  deepseek: portable/prompts/deepseek-bootstrap.md
+
+instruction_files:
+  generic: portable/prompts/generic-bootstrap.md
+  AGENTS.md: portable/prompts/generic-bootstrap.md
+  CLAUDE.md: portable/prompts/claude-bootstrap.md
+
+user_commands:
+  charter-workflow: portable/commands/charter-workflow.md
+
+reuse_gate:
+  scope_mapping:
+    LOCAL_ONLY: workspace/history
+    LOCAL_ECOSYSTEM: workspace/history+installed/cache+approved-internal
+    FULL_EXTERNAL: LOCAL_ECOSYSTEM+official/upstream/registries+authorized-public-web
+  external_read_authorization_required_for: non-local-search-tiers
+  statuses:
+    - NOT_STARTED
+    - IN_PROGRESS
+    - COMPLETE
+    - LIMITED
+    - WAIVED
+    - BLOCKED_TOOLING
+  candidate_decisions:
+    - ADOPT
+    - ADAPT
+    - REFERENCE_ONLY
+    - REJECT
+    - DEFER
+    - UNKNOWN
+    - REUSE_SPIKE
+  completion_requirements:
+    - every-material-capability-covered-in-approved-scope
+    - raw-evidence-for-every-searched-tier
+    - explicit-not-searched-or-not-authorized-for-out-of-scope-tier
+    - immutable-revision-required
+    - no-unresolved-high-value-unknown-or-defer
+    - uncertain-item-requires-reuse-spike-waiver-or-block
+  evidence_required: true
+
+install_policy:
+  plugin_load: read-only
+  reuse_discovery: read-only-no-install-or-execution
+  reuse_discovery_policy:
+    search_order:
+      - workspace/history
+      - installed-skills-plugins/cache/manifest
+      - approved-internal-resources
+      - official-docs/upstream/registries
+      - authorized-public-web
+    prohibited_actions:
+      - clone
+      - build
+      - run
+      - import
+      - copy
+      - install
+      - load-candidate-instructions
+      - write-global-directories
+    prohibited_data:
+      - private_source
+      - secrets
+      - credentials
+      - sensitive_data
+      - identifying_project_details
+    blocked_tooling: stop-until-restored-or-user-approved-limited-waiver
+  dependency_installation: explicit-user-action
+  network_by_default: false
+  global_writes_by_default: false
+  auto_update: false
+
+scope:
+  included:
+    - requirements-to-charter
+    - reuse-prior-art-discovery
+    - leaf-task-planning
+    - bounded-agent-execution
+    - review-and-verification
+    - cross-agent-handoff
+  excluded:
+    - central-coordinator-service
+    - silent-dependency-installation
+    - unapproved-release
+    - unapproved-sensitive-data-access

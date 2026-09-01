@@ -52,6 +52,57 @@ class CharterKitBehaviorTests(unittest.TestCase):
         )
         self.write_marketplace_manifest(package)
 
+    def prepare_complete_distribution_layout(self, package: Path) -> None:
+        """Create a minimal but complete target/distribution fixture.
+
+        The fixture deliberately uses byte copies of the package's existing
+        Codex manifest and Skill.  That keeps each validator test focused on
+        one marketplace/distribution invariant instead of depending on the
+        in-progress generated tree in the source checkout.
+        """
+        target = package / "targets" / "codex"
+        target_manifest = target / ".codex-plugin" / "plugin.json"
+        target_skill = target / "skills" / "charter-workflow"
+        target_manifest.parent.mkdir(parents=True, exist_ok=True)
+        target_manifest.write_bytes((package / ".codex-plugin" / "plugin.json").read_bytes())
+        shutil.copytree(package / "skills" / "charter-workflow", target_skill)
+
+        distribution = package / "plugins" / "charter-kit"
+        if distribution.exists():
+            shutil.rmtree(distribution)
+        distribution_manifest = distribution / ".codex-plugin" / "plugin.json"
+        distribution_manifest.parent.mkdir(parents=True, exist_ok=True)
+        distribution_manifest.write_bytes(target_manifest.read_bytes())
+        shutil.copytree(target_skill, distribution / "skills" / "charter-workflow")
+
+        marketplace_path = package / ".agents" / "plugins" / "marketplace.json"
+        marketplace_path.parent.mkdir(parents=True, exist_ok=True)
+        marketplace_path.write_text(
+            json.dumps(
+                {
+                    "name": "charter-kit",
+                    "interface": {"displayName": "Charter Kit"},
+                    "plugins": [
+                        {
+                            "name": "charter-kit",
+                            "source": {
+                                "source": "local",
+                                "path": "./plugins/charter-kit",
+                            },
+                            "policy": {
+                                "installation": "AVAILABLE",
+                                "authentication": "ON_INSTALL",
+                            },
+                            "category": "Developer Tools",
+                        }
+                    ],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     def run_script(self, script: Path, *arguments: object) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(script), *(str(argument) for argument in arguments)],
@@ -63,6 +114,27 @@ class CharterKitBehaviorTests(unittest.TestCase):
 
     def run_validator(self, package: Path) -> subprocess.CompletedProcess[str]:
         return self.run_script(package / "scripts" / "validate_kit.py", package)
+
+    def run_builder(self, package: Path, *arguments: object) -> subprocess.CompletedProcess[str]:
+        return self.run_script(package / "scripts" / "build_codex_plugin.py", *arguments)
+
+    def snapshot_tree_bytes(self, root: Path) -> dict[str, bytes]:
+        snapshot: dict[str, bytes] = {}
+        for path in sorted(root.rglob("*")):
+            if path.is_file():
+                snapshot[str(path.relative_to(root))] = path.read_bytes()
+        return snapshot
+
+    def assert_tree_is_link_free(self, root: Path) -> None:
+        resolved_root = root.resolve()
+        self.assertFalse(root.is_symlink(), f"{root} is a symlink")
+        for path in sorted(root.rglob("*")):
+            self.assertFalse(path.is_symlink(), f"{path} is a symlink")
+            if path.exists():
+                self.assertTrue(
+                    path.resolve().is_relative_to(resolved_root),
+                    f"{path} resolves outside {resolved_root}",
+                )
 
     def test_force_backs_up_all_charter_data_before_overwrite(self) -> None:
         package = self.make_package_copy()
@@ -487,6 +559,146 @@ class CharterKitBehaviorTests(unittest.TestCase):
         result = self.run_validator(package)
         self.assertIn("charter-kit", result.stdout)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_validator_rejects_duplicate_marketplace_plugin_names(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        marketplace_path = package / ".agents" / "plugins" / "marketplace.json"
+        marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
+        marketplace["plugins"].append(dict(marketplace["plugins"][0]))
+        marketplace_path.write_text(json.dumps(marketplace, indent=2), encoding="utf-8")
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("duplicate plugin name", result.stdout.lower())
+
+    def test_validator_rejects_marketplace_policy_and_unsafe_source(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        marketplace_path = package / ".agents" / "plugins" / "marketplace.json"
+        marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
+        entry = marketplace["plugins"][0]
+        entry["source"]["path"] = "../outside"
+        entry["policy"].pop("authentication")
+        entry["policy"]["installation"] = "UNKNOWN"
+        marketplace_path.write_text(json.dumps(marketplace, indent=2), encoding="utf-8")
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("source.path", result.stdout)
+        self.assertIn("policy.installation", result.stdout)
+        self.assertIn("policy.authentication", result.stdout)
+
+    def test_validator_rejects_missing_codex_target_manifest(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        (package / "targets" / "codex" / ".codex-plugin" / "plugin.json").unlink()
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("targets/codex/.codex-plugin/plugin.json", result.stdout)
+
+    def test_validator_rejects_generated_distribution_newline_drift(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        bundled = package / "plugins" / "charter-kit" / "skills" / "charter-workflow" / "templates" / "roadmap.md"
+        original = bundled.read_bytes()
+        modified = original.replace(b"\r\n", b"\n") if b"\r\n" in original else original.replace(b"\n", b"\r\n")
+        self.assertNotEqual(original, modified)
+        bundled.write_bytes(modified)
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugins/charter-kit", result.stdout)
+        self.assertIn("differs", result.stdout.lower())
+
+    def test_validator_rejects_missing_agentpack_distribution_declarations(self) -> None:
+        package = self.make_package_copy()
+        self.prepare_complete_distribution_layout(package)
+        agentpack = package / "agentpack.yaml"
+        text = agentpack.read_text(encoding="utf-8")
+        text = text.replace("targets:\n", "targets_removed:\n") if "targets:\n" in text else text + "\n"
+        agentpack.write_text(text, encoding="utf-8")
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("targets.codex.source", result.stdout)
+
+    def test_builder_creates_self_contained_codex_package(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "plugins" / "charter-kit"
+        source_manifest = package / "targets" / "codex" / ".codex-plugin" / "plugin.json"
+
+        result = self.run_builder(package, "--output", output)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((output / ".codex-plugin" / "plugin.json").is_file(), result.stdout + result.stderr)
+        self.assertTrue((output / "skills" / "charter-workflow").is_dir(), result.stdout + result.stderr)
+        self.assertEqual(
+            (output / ".codex-plugin" / "plugin.json").read_bytes(),
+            source_manifest.read_bytes(),
+        )
+        self.assert_tree_is_link_free(output)
+
+    def test_builder_check_is_deterministic_and_non_mutating(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "plugins" / "charter-kit"
+
+        built = self.run_builder(package, "--output", output)
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        before = self.snapshot_tree_bytes(output)
+
+        checked = self.run_builder(package, "--check", "--output", output)
+        after = self.snapshot_tree_bytes(output)
+
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertEqual(before, after, checked.stdout + checked.stderr)
+
+    def test_builder_synchronizes_legacy_root_snapshot(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "plugins" / "charter-kit"
+
+        result = self.run_builder(package, "--output", output)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (package / ".codex-plugin" / "plugin.json").read_bytes(),
+            (output / ".codex-plugin" / "plugin.json").read_bytes(),
+        )
+        self.assertEqual(
+            self.snapshot_tree_bytes(package / "skills" / "charter-workflow"),
+            self.snapshot_tree_bytes(output / "skills" / "charter-workflow"),
+        )
+        self.assert_tree_is_link_free(output / "skills" / "charter-workflow")
+
+    def test_builder_rejects_linked_output_root(self) -> None:
+        package = self.make_package_copy()
+        temporary = tempfile.TemporaryDirectory(prefix="charter-kit-output-")
+        self.addCleanup(temporary.cleanup)
+        base = Path(temporary.name)
+        real_output = base / "real-output"
+        real_output.mkdir()
+        linked_output = base / "linked-output"
+        try:
+            linked_output.symlink_to(real_output, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+
+        result = self.run_builder(package, "--output", linked_output)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stderr.lower(), r"linked|symlink|junction")
+        self.assertEqual(list(real_output.iterdir()), [])
 
     def test_force_backs_up_unknown_charter_data(self) -> None:
         package = self.make_package_copy()
