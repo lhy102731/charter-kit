@@ -1,0 +1,74 @@
+{
+  "schema": "charter-kit/install/v1",
+  "description": "Explicit optional-provider installation manifest. This file never auto-installs on plugin load; it is consumed by scripts/install_dependencies.py only after the user runs it.",
+  "target": "{home}/.agents/skills",
+  "entries": [
+    {
+      "id": "superpowers",
+      "repo": "https://github.com/obra/superpowers",
+      "ref": "main",
+      "sourcePath": "skills",
+      "destName": null,
+      "mode": "copyChildren"
+    },
+    {
+      "id": "j-space",
+      "repo": "https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6",
+      "ref": "main",
+      "sourcePath": "j-space",
+      "destName": "j-space",
+      "mode": "copyDir"
+    },
+    {
+      "id": "grill-me",
+      "repo": "https://github.com/joshuawheelock/grill-me",
+      "ref": "main",
+      "sourcePath": "skills/grill-me",
+      "destName": "grill-me",
+      "mode": "copyDir"
+    },
+    {
+      "id": "reuse-first",
+      "repo": "https://github.com/dhruvinrsoni/agentskills-garden",
+      "ref": "main",
+      "sourcePath": "skills/100-engineering/25-pragmatism/reuse-first",
+      "destName": "reuse-first",
+      "mode": "copyDir"
+    },
+    {
+      "id": "framework-first-coding",
+      "repo": "https://github.com/Leeaoyin/dr-agent-skills",
+      "ref": "main",
+      "sourcePath": "framework-first-coding",
+      "destName": "framework-first-coding",
+      "mode": "copyDir",
+      "renameFiles": {
+        "skill.md": "SKILL.md"
+      }
+    },
+    {
+      "id": "reduce-reinvention",
+      "repo": "https://github.com/JUNERDD/skills",
+      "ref": "main",
+      "sourcePath": "skills/reduce-reinvention",
+      "destName": "reduce-reinvention",
+      "mode": "copyDir"
+    },
+    {
+      "id": "find-skills",
+      "repo": "https://github.com/vercel-labs/skills",
+      "ref": "main",
+      "sourcePath": "skills/find-skills",
+      "destName": "find-skills",
+      "mode": "copyDir"
+    },
+    {
+      "id": "repo-to-skill",
+      "repo": "https://github.com/zhangguiping-xydt/repo-to-skill",
+      "ref": "main",
+      "sourcePath": "skills/repo-to-skill",
+      "destName": "repo-to-skill",
+      "mode": "copyDir"
+    }
+  ]
+}

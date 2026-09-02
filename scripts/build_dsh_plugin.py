@@ -34,10 +34,12 @@ DISTRIBUTION_ROOT_ITEMS = (
     "DEVELOPMENT_CHARTER.md",
     "DEPENDENCIES.md",
     "dependencies.json",
+    "dependencies.install.json",
     "agentpack.yaml",
     "portable",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/install_dependencies.py",
 )
 TARGET_FILES = (
     "package.json",

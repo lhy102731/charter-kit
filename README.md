@@ -76,6 +76,19 @@ dev_install_package <repo>/plugins/dsh-charter-kit
 
 Codex 和 DSH 是当前仓库经过安装与启动 smoke test 验证的目标。其他 Harness 目录在完成真实宿主验证前仍标记为 `experimental` / `unverified`，本仓库不会为未验证目标提供正式安装承诺。
 
+### 可选依赖安装（显式）
+
+superpowers、j-space、grill-me 以及 Reuse Skills 不是自动安装项。安装 Charter Kit 后，如希望补齐可选依赖，可运行：
+
+```text
+python scripts/install_dependencies.py --list
+python scripts/install_dependencies.py --yes
+# 或只安装某几个
+python scripts/install_dependencies.py --only j-space grill-me
+```
+
+该命令会从 `dependencies.install.json` 记录的 GitHub 仓库安装到 `~/.agents/skills`，需要 Git；不会在插件加载时自动执行。
+
 ### 依赖与安全
 
 - `superpowers`、`j-space`、`grill-me`、便携 `design-interview` 以及五个可选 Reuse Skill 是增强插槽，不是核心硬依赖。
@@ -164,6 +177,19 @@ dev_install_package <repo>/plugins/dsh-charter-kit
 ### Target status
 
 Codex and DSH are the targets in this repository with verified installation and startup smoke-test evidence. Any future Claude, Gemini, or other Harness adapter remains `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim for an unverified target.
+
+### Optional dependency installation (explicit)
+
+superpowers, j-space, grill-me, and the Reuse Skills are not auto-installed. After installing Charter Kit, run this command to install missing optional providers:
+
+```text
+python scripts/install_dependencies.py --list
+python scripts/install_dependencies.py --yes
+# or install only selected providers
+python scripts/install_dependencies.py --only j-space grill-me
+```
+
+The command installs into `~/.agents/skills` from the GitHub repositories recorded in `dependencies.install.json` and requires Git. It never runs automatically on plugin load.
 
 ### Dependencies and safety
 

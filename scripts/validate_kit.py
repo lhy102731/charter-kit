@@ -158,10 +158,12 @@ DISTRIBUTION_ROOT_ITEMS = (
     "DEVELOPMENT_CHARTER.md",
     "DEPENDENCIES.md",
     "dependencies.json",
+    "dependencies.install.json",
     "agentpack.yaml",
     "portable",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/install_dependencies.py",
 )
 
 MARKETPLACE_INSTALLATION_POLICIES = ("NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT")
@@ -210,6 +212,8 @@ REQUIRED_FILES = (
     "scripts/validate_kit.py",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/install_dependencies.py",
+    "dependencies.install.json",
     TARGET_CHANGE_TRIAGE_REFERENCE,
     DISTRIBUTION_CHANGE_TRIAGE_REFERENCE,
     "tests/test_charter_kit.py",

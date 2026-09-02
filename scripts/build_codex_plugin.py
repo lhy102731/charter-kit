@@ -26,12 +26,14 @@ PACKAGE_ROOT_ITEMS = (
     "DEVELOPMENT_CHARTER.md",
     "DEPENDENCIES.md",
     "dependencies.json",
+    "dependencies.install.json",
     "agentpack.yaml",
     "portable",
 )
 PACKAGE_RUNTIME_SCRIPTS = (
     Path("scripts") / "check_dependencies.py",
     Path("scripts") / "init_project.py",
+    Path("scripts") / "install_dependencies.py",
 )
 IGNORED_TREE_NAMES = {"__pycache__", ".git", ".hg", ".svn", "plugins", "tests"}
 

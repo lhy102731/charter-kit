@@ -95,3 +95,15 @@ FALLBACK    原能力不可用时可使用的便携替代记录
 ## 6. 安装与授权原则
 
 依赖安装是独立的、明确的用户动作。用户决定安装后，应使用目标宿主的官方机制，记录安装版本和授权范围，再重新运行检查器；Charter Kit 不替用户执行安装，不自动更新，也不修改 `~/.agents`、`$CODEX_HOME` 或其他全局目录。没有某个 provider 时，直接使用便携 fallback 并记录限制即可开始章程访谈和文档审计。
+
+## 7. 显式安装可选依赖
+
+仓库和发行包内提供一个**显式安装器**，只在你主动运行时执行：
+
+```text
+python scripts/install_dependencies.py --list
+python scripts/install_dependencies.py --yes
+python scripts/install_dependencies.py --only j-space grill-me
+```
+
+安装源记录在 `dependencies.install.json`；默认安装到 `~/.agents/skills`。脚本需要 Git，会做浅克隆、复制对应 Skill 目录，并在安装前逐项确认（`--yes` 跳过确认，`--force` 覆盖已存在目录）。它不是插件加载钩子，不会在加载 Charter Kit 时自动安装任何东西。
