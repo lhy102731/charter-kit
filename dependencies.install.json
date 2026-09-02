@@ -1,20 +1,20 @@
 {
   "schema": "charter-kit/install/v1",
-  "description": "Explicit optional-provider installation manifest. This file never auto-installs on plugin load; it is consumed by scripts/install_dependencies.py only after the user runs it.",
+  "description": "Explicit optional-provider installation manifest with pinned immutable commits. This file never auto-installs on plugin load; it is consumed by scripts/install_dependencies.py only after the user runs it.",
   "target": "{home}/.agents/skills",
   "entries": [
     {
       "id": "superpowers",
       "repo": "https://github.com/obra/superpowers",
-      "ref": "main",
+      "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
       "sourcePath": "skills",
       "destName": null,
       "mode": "copyChildren"
     },
     {
       "id": "j-space",
-      "repo": "https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6",
-      "ref": "main",
+      "repo": "https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.7",
+      "ref": "988d07b8b5e70cea72533699f0c0f620ebfa3bc6",
       "sourcePath": "j-space",
       "destName": "j-space",
       "mode": "copyDir"
@@ -22,7 +22,7 @@
     {
       "id": "grill-me",
       "repo": "https://github.com/mattpocock/skills",
-      "ref": "main",
+      "ref": "6654f6b60cd9d5be8b54c6fafe44346dabeb3b76",
       "sourcePath": "skills/productivity/grill-me",
       "destName": "grill-me",
       "mode": "copyDir"
@@ -30,7 +30,7 @@
     {
       "id": "grilling",
       "repo": "https://github.com/mattpocock/skills",
-      "ref": "main",
+      "ref": "6654f6b60cd9d5be8b54c6fafe44346dabeb3b76",
       "sourcePath": "skills/productivity/grilling",
       "destName": "grilling",
       "mode": "copyDir"
@@ -38,7 +38,7 @@
     {
       "id": "reuse-first",
       "repo": "https://github.com/dhruvinrsoni/agentskills-garden",
-      "ref": "main",
+      "ref": "c94cf3f3d7463e7e77eaa08b54d04195a24cd533",
       "sourcePath": "skills/100-engineering/25-pragmatism/reuse-first",
       "destName": "reuse-first",
       "mode": "copyDir"
@@ -46,7 +46,7 @@
     {
       "id": "framework-first-coding",
       "repo": "https://github.com/Leeaoyin/dr-agent-skills",
-      "ref": "main",
+      "ref": "a45efe5c2e7f6c60e4eb07b975e10dae9d2718b3",
       "sourcePath": "framework-first-coding",
       "destName": "framework-first-coding",
       "mode": "copyDir",
@@ -57,7 +57,7 @@
     {
       "id": "reduce-reinvention",
       "repo": "https://github.com/JUNERDD/skills",
-      "ref": "main",
+      "ref": "c33abdddbfe58366c80bfb39ba8ddac545a9ab0a",
       "sourcePath": "skills/reduce-reinvention",
       "destName": "reduce-reinvention",
       "mode": "copyDir"
@@ -65,7 +65,7 @@
     {
       "id": "find-skills",
       "repo": "https://github.com/vercel-labs/skills",
-      "ref": "main",
+      "ref": "435076e78988e1e6ec40d00b0b1d76bdbbc5419a",
       "sourcePath": "skills/find-skills",
       "destName": "find-skills",
       "mode": "copyDir"
@@ -73,10 +73,11 @@
     {
       "id": "repo-to-skill",
       "repo": "https://github.com/zhangguiping-xydt/repo-to-skill",
-      "ref": "main",
+      "ref": "e261af599828e379d81886193c7fa2d2285df8de",
       "sourcePath": "skills/repo-to-skill",
       "destName": "repo-to-skill",
       "mode": "copyDir"
     }
-  ]
+  ],
+  "pinned_at": "2026-09-03"
 }
