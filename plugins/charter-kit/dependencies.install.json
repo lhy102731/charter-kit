@@ -21,10 +21,18 @@
     },
     {
       "id": "grill-me",
-      "repo": "https://github.com/joshuawheelock/grill-me",
+      "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
-      "sourcePath": "skills/grill-me",
+      "sourcePath": "skills/productivity/grill-me",
       "destName": "grill-me",
+      "mode": "copyDir"
+    },
+    {
+      "id": "grilling",
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "sourcePath": "skills/productivity/grilling",
+      "destName": "grilling",
       "mode": "copyDir"
     },
     {
