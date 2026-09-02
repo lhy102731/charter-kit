@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-charter-kit",
   "version": "0.2.0",
-  "description": "Experimental / unverified DSH adapter distribution for Charter Kit; structural development artifact only.",
+  "description": "DSH plugin distribution for Charter Kit: portable charter workflow, charter-workflow skill, and /charter-workflow command.",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",

@@ -255,15 +255,14 @@ class CharterKitBehaviorTests(unittest.TestCase):
             with self.subTest(relative=relative):
                 self.assertEqual((package / relative).read_bytes(), expected)
 
-    def test_validator_allows_unimplemented_experimental_target(self) -> None:
+    def test_validator_requires_dsh_target(self) -> None:
         package = self.make_package_copy()
         shutil.rmtree(package / "targets" / "dsh")
         shutil.rmtree(package / "plugins" / "dsh-charter-kit")
 
         result = self.run_validator(package)
 
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("experimental", result.stdout.lower())
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_entry_points_repeat_full_discovery_safety_and_immutable_revision_rule(self) -> None:
         package = self.make_package_copy()

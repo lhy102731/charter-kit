@@ -12,7 +12,7 @@ self-contained installable distribution is
 
 `portable/` 和根目录的 `DEVELOPMENT_CHARTER.md` 是唯一的语义来源。本目录只提供 Codex 的入口、Skill 映射和打包所需的宿主元数据，不重新定义 Charter、Change Triage、Reuse Check、授权或关闭语义，也不安装 Codex 以外的 Harness。
 
-Codex 是当前仓库唯一有真实安装与启动 smoke-test 记录的目标。未来的 Claude、Gemini、DSH 或其他目标必须在真实宿主完成验证后才能标记为 supported；在此之前只能标记为 `experimental` / `unverified`，不能从本仓库文档推导出正式安装命令。
+Codex 和 DSH 是当前仓库有真实安装与启动 smoke-test 记录的目标。未来的 Claude、Gemini 或其他目标必须在真实宿主完成验证后才能标记为 supported；在此之前只能标记为 `experimental` / `unverified`，不能从本仓库文档推导出正式安装命令。
 
 ### 工作流入口
 
@@ -82,8 +82,8 @@ of truth. This directory supplies the Codex entry point, Skill mapping, and
 packaging metadata. It does not redefine Charter, Change Triage, Reuse Check,
 authorization, or closure semantics, and it does not install any Harness.
 
-Codex is the only target in this repository with real installation and startup
-smoke-test evidence. A future Claude, Gemini, DSH, or other target may be
+Codex and DSH are the targets in this repository with real installation and
+startup smoke-test evidence. A future Claude, Gemini, or other target may be
 marked `supported` only after a real-host verification; until then it is
 `experimental` / `unverified`, with no supported-install command implied by
 this repository.

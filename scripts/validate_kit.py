@@ -182,6 +182,16 @@ REQUIRED_FILES = (
     f"{DISTRIBUTION_SKILL_RELATIVE}/SKILL.md",
     MARKETPLACE_RELATIVE,
     "scripts/build_codex_plugin.py",
+    "scripts/build_dsh_plugin.py",
+    DSH_TARGET_PACKAGE_JSON_RELATIVE,
+    DSH_TARGET_SRC_RELATIVE,
+    DSH_TARGET_BUILD_SCRIPT_RELATIVE,
+    DSH_TARGET_README_RELATIVE,
+    DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE,
+    DSH_DISTRIBUTION_SRC_RELATIVE,
+    DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
+    DSH_DISTRIBUTION_LIB_RELATIVE,
+    f"{DSH_DISTRIBUTION_SKILL_RELATIVE}/SKILL.md",
     *PORTABLE_TEMPLATES,
     *HOST_PROMPTS,
     "portable/commands/charter-workflow.md",
@@ -674,7 +684,7 @@ class Checker:
         print("- host prompts share the generic canonical entry")
         print("- plugin manifest and LICENSE valid")
         print("- marketplace, Codex target, and generated distribution valid")
-        print("- DSH adapter checked only when present (experimental / unverified; no supported-install claim)")
+        print("- DSH target and generated distribution valid")
         print("- target/distribution and legacy mirrors are byte-identical")
         print("- no install side effect is declared")
         return 0
@@ -1098,63 +1108,10 @@ class Checker:
             )
 
     def check_dsh_target_and_distribution(self) -> None:
-        """Check the optional DSH adapter without treating it as supported.
+        """Check the DSH adapter source and its generated plugin distribution."""
 
-        DSH source/distribution files are intentionally retained for future
-        host work. Core validation remains useful when either tree is absent;
-        when both are present, only structural consistency is checked.
-        """
-
-        target_root = self._path(DSH_TARGET_ROOT_RELATIVE)
-        distribution_root_path = self._path(DSH_DISTRIBUTION_ROOT_RELATIVE)
-        target_present = target_root.exists() or _is_link(target_root)
-        distribution_present = distribution_root_path.exists() or _is_link(distribution_root_path)
-        if not target_present and not distribution_present:
-            return
-
-        # Check the disclaimer independently of whether the optional source
-        # and generated trees are both present.  A partially checked-out
-        # experimental adapter must not accidentally acquire a supported
-        # installation claim simply because its counterpart is absent.
-        for relative in (
-            DSH_TARGET_README_RELATIVE,
-            f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/README.md",
-        ):
-            # README files are recommended metadata for an experimental
-            # adapter, but the adapter itself remains optional.  Do not turn
-            # a partial source checkout into a hard failure merely because a
-            # counterpart README is absent.
-            if not self._path(relative).is_file():
-                continue
-            readme = self.read(relative)
-            if not readme:
-                continue
-            self.require_regex(
-                readme,
-                r"(?i)experimental",
-                relative,
-                "experimental adapter must be labelled experimental",
-            )
-            self.require_regex(
-                readme,
-                r"(?i)unverified",
-                relative,
-                "experimental adapter must be labelled unverified",
-            )
-            if DSH_INSTALL_COMMAND_RE.search(readme):
-                self.errors.append(f"{relative}: DSH supported-install command is not allowed")
-            if _contains_dsh_supported_claim(readme):
-                self.errors.append(f"{relative}: DSH supported-install claim is not allowed")
-
-        if target_present and not distribution_present:
-            self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE, required=False)
-            return
-        if distribution_present and not target_present:
-            self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE, required=False)
-            return
-
-        self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE, required=False)
-        distribution_root = self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE, required=False)
+        self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE, required=True)
+        distribution_root = self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE, required=True)
 
         target_pkg = self._load_json_object(
             DSH_TARGET_PACKAGE_JSON_RELATIVE,

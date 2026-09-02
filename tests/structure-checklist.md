@@ -40,7 +40,7 @@ The generated `plugins/charter-kit/` includes only runtime helpers (`scripts/che
 ## Documentation boundary checks
 
 - `DEVELOPMENT_CHARTER.md` and `README.md` describe a project-local workflow and a single Portable Core; they do not promise cross-Agent communication, cross-Harness synchronization, a central service, or automatic installation.
-- `README.md` contains both Chinese and English sections, links to the GitHub repository and official Codex documentation, and identifies Codex as the only currently verified target. Unverified targets are labeled `experimental` / `unverified` and have no supported-install command.
+- `README.md` contains both Chinese and English sections, links to the GitHub repository and official Codex documentation, and identifies Codex and DSH as currently verified targets. Other unverified targets are labeled `experimental` / `unverified` and have no supported-install command.
 - The documented lifecycle includes `Change Triage`, `Reuse Assessment / Reuse Check`, `DRAFT → APPROVED → READY`, `Review`, `Verify`, and `PASS_CLOSED`. A new requirement must not silently expand the current Leaf.
 - Reuse documentation separates gate status (`PENDING | COMPLETE | BLOCKED`), coverage, result, and final route. `NO_MATCH` requires evidence; `UNKNOWN`, `NOT_AUTHORIZED`, and `BLOCKED_TOOLING` cannot be silently converted to `BUILD_NEW`.
 - Pressure scenarios include first start and Resume convergence, scope changes, stale reuse evidence, `NO_MATCH` versus `UNKNOWN`, and a new capability that returns to Change Triage.

@@ -43,7 +43,7 @@ class DocumentationContractTests(unittest.TestCase):
             "Change Triage",
             "Reuse Assessment / Reuse Check",
             "new requirement must not silently expand the current Leaf",
-            "Codex is the only target",
+            "Codex and DSH are the targets",
             "experimental",
             "unverified",
             "不会自动安装",
@@ -54,8 +54,8 @@ class DocumentationContractTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
 
-        self.assertNotIn("dev_inject_plugin", text)
-        self.assertNotIn("dev_install_package", text)
+        self.assertIn("dev_inject_plugin", text)
+        self.assertIn("dev_install_package", text)
 
     def test_codex_target_readme_is_an_adapter_not_a_harness_installer(self) -> None:
         text = read("targets/codex/README.md")

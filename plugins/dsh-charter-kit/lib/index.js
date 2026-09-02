@@ -24,12 +24,17 @@ function parseFrontmatter(text) {
   return {
     description: meta.description || 'Charter Kit development workflow',
     whenToUse: meta['when-to-use'] || meta.whenToUse,
+    argumentHint: meta['argument-hint'] || meta.argumentHint,
     body: (match[2] || '').trimEnd() + '\n',
   }
 }
 
 function readCommandText() {
   return parseFrontmatter(readFileSync(COMMAND_FILE, 'utf8')).body
+}
+
+function readCommandHint() {
+  return parseFrontmatter(readFileSync(COMMAND_FILE, 'utf8')).argumentHint
 }
 
 export const name = 'dsh-charter-kit'
@@ -40,9 +45,12 @@ export function apply(ctx) {
 
   ctx.effect(() => ctx.commands.register({
     name: 'charter-workflow',
-    description: 'Start or resume the host-neutral Charter Kit development workflow',
-    input: { hint: 'optional one-sentence requirement' },
-    handler: () => ({ kind: 'success', text: readCommandText() }),
+    description: 'Start, resume, or run change triage for the Charter Kit development workflow',
+    input: { hint: readCommandHint() || 'optional one-sentence requirement' },
+    handler: () => ({
+      kind: 'success',
+      text: `Charter Kit DSH plugin package root: ${ROOT}\n\n${readCommandText()}`,
+    }),
   }), 'charter-kit: /charter-workflow')
 
   ctx.effect(() => ctx.skills.register({

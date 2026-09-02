@@ -40,7 +40,7 @@ Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。叶�
 
 运行时的核心恢复文件（core Resume files）只有 `.charter/project.md`、`roadmap.md`、`reuse-discovery.md` 和 `current-task.md`；`handoff.md` 是可选恢复快照。初始化器还会准备 `decision.md`、`review.md`、`evidence-receipt.md` 和 `evidence/` 作为辅助收据（auxiliary receipts）及证据容器；它们只在被当前记录引用时读取，不构成第二套状态源。`current-task.md` 是活动叶状态的权威来源，`roadmap.md` 只是投影。
 
-### 安装到 Codex（当前唯一已验证目标）
+### 安装到 Codex 与 DSH
 
 请先阅读 [Codex 插件文档](https://developers.openai.com/codex/plugins/)，再执行：
 
@@ -62,9 +62,19 @@ codex plugin add charter-kit@charter-kit
 codex plugin remove charter-kit@charter-kit
 ```
 
+### 安装到 DSH
+
+DSH 插件发行包位于 `plugins/dsh-charter-kit/`，可通过 DSH 插件工具链安装：
+
+```text
+dev_inject_plugin <repo>/plugins/dsh-charter-kit
+# 或正式装配到 profile（重启后保留）
+dev_install_package <repo>/plugins/dsh-charter-kit
+```
+
 ### 目标状态
 
-Codex 是当前仓库唯一经过安装和启动 smoke test 验证的目标。其他 Harness 目录（如未来的 Claude、Gemini 或 DSH 适配）在完成真实宿主验证前只能标记为 `experimental` / `unverified`；本仓库不会为未验证目标提供正式安装承诺或安装命令。
+Codex 和 DSH 是当前仓库经过安装与启动 smoke test 验证的目标。其他 Harness 目录在完成真实宿主验证前仍标记为 `experimental` / `unverified`，本仓库不会为未验证目标提供正式安装承诺。
 
 ### 依赖与安全
 
@@ -73,17 +83,18 @@ Codex 是当前仓库唯一经过安装和启动 smoke test 验证的目标。�
 - 缺少可选 provider 时使用便携 fallback，并把能力状态和影响写入 `.charter/evidence/dependency-check.log`。
 - 依赖检查、复用发现和插件加载默认只读；不会自动安装 Skill、插件、包、模型、服务或 Harness。
 - 复用发现不会 clone、build、run、import、copy 或 install 候选内容，也不会上传私有源代码、凭据或敏感数据。
-- 生成的 `plugins/charter-kit/` 不要手工编辑；修改核心后由维护脚本重新生成并校验。
+- 生成的 `plugins/charter-kit/` 和 `plugins/dsh-charter-kit/` 不要手工编辑；修改核心后由维护脚本重新生成并校验。
 
 ### 文档与贡献
 
 - [通用开发章程](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
 - [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
 - [Codex 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
+- [DSH 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/dsh)
 - [Codex Marketplace 清单](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
 - [GitHub 仓库](https://github.com/lhy102731/charter-kit)
 
-以下维护命令只在源码仓库 checkout 中运行：修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`。发布前运行 `python scripts/validate_kit.py .` 和 `python scripts/build_codex_plugin.py --check`，并在 Codex 中确认安装状态。MIT License.
+以下维护命令只在源码仓库 checkout 中运行：修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`，修改 DSH 入口时编辑 `targets/dsh/`。发布前运行 `python scripts/validate_kit.py .`，并分别运行 `python scripts/build_codex_plugin.py --check` 与 `python scripts/build_dsh_plugin.py --check`。MIT License.
 
 ## English
 
@@ -118,7 +129,7 @@ Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. A 
 
 The four core Resume files are `.charter/project.md`, `roadmap.md`, `reuse-discovery.md`, and `current-task.md`; `handoff.md` is an optional recovery snapshot. The initializer also prepares `decision.md`, `review.md`, `evidence-receipt.md`, and `evidence/` as auxiliary receipts and an evidence container. Read those when the active records reference them; they are not another state authority. `current-task.md` is authoritative for the active leaf state, while `roadmap.md` is a projection.
 
-### Install in Codex (the only verified target today)
+### Install in Codex and DSH
 
 Read the [Codex plugin documentation](https://developers.openai.com/codex/plugins/) first, then run:
 
@@ -140,9 +151,19 @@ Uninstall:
 codex plugin remove charter-kit@charter-kit
 ```
 
+### Install in DSH
+
+The DSH plugin distribution lives in `plugins/dsh-charter-kit/`. Use the DSH plugin toolchain:
+
+```text
+dev_inject_plugin <repo>/plugins/dsh-charter-kit
+# Or install permanently into the profile (survives restart)
+dev_install_package <repo>/plugins/dsh-charter-kit
+```
+
 ### Target status
 
-Codex is the only target in this repository with verified installation and startup smoke-test evidence. Any future Claude, Gemini, DSH, or other Harness adapter is `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim or install command for an unverified target.
+Codex and DSH are the targets in this repository with verified installation and startup smoke-test evidence. Any future Claude, Gemini, or other Harness adapter remains `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim for an unverified target.
 
 ### Dependencies and safety
 
@@ -152,14 +173,15 @@ Codex is the only target in this repository with verified installation and start
 - Dependency checks, reuse discovery, and plugin loading are read-only by default. Nothing automatically installs a Skill, plugin, package, model, service, or Harness.
 - Reuse discovery never clones, builds, runs, imports, copies, installs anything, and never uploads private source, credentials, or sensitive data.
 - The core remains readable from ordinary `AGENTS.md` or `CLAUDE.md` host instructions; those files are entry hints, not a second workflow source.
-- Do not hand-edit generated `plugins/charter-kit/`; regenerate and validate it after changing the core.
+- Do not hand-edit generated `plugins/charter-kit/` or `plugins/dsh-charter-kit/`; regenerate and validate them after changing the core.
 
 ### Documentation and contribution
 
 - [Generic development charter](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
 - [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
 - [Codex target source](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
+- [DSH target source](https://github.com/lhy102731/charter-kit/tree/main/targets/dsh)
 - [Codex marketplace manifest](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
 - [GitHub repository](https://github.com/lhy102731/charter-kit)
 
-In a source repository checkout, update `portable/` and `DEVELOPMENT_CHARTER.md` first when changing the core, and update `targets/codex/` when changing the Codex entry. Before publishing, run `python scripts/validate_kit.py .` and `python scripts/build_codex_plugin.py --check`, then confirm the installation state in Codex. These maintainer paths and commands are not expected inside an installed plugin package. MIT License.
+In a source repository checkout, update `portable/` and `DEVELOPMENT_CHARTER.md` first when changing the core, and update `targets/codex/` when changing the Codex entry. Before publishing, run `python scripts/validate_kit.py .`, `python scripts/build_codex_plugin.py --check`, and `python scripts/build_dsh_plugin.py --check`, then confirm the installation state in both hosts. These maintainer paths and commands are not expected inside an installed plugin package. MIT License.
