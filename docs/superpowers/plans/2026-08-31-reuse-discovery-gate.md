@@ -2,6 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status (2026-09-02): SUPERSEDED.** The lightweight three-state contract and
+> current implementation are defined by
+> [`2026-09-02-charter-kit-v1-implementation.md`](2026-09-02-charter-kit-v1-implementation.md)
+> and the approved architecture specification. Keep this file as historical
+> planning context; do not execute its older `LIMITED`/`WAIVED` gate-state
+> model. A bounded waiver does not change the gate state; it may authorize
+> only the explicitly named Leaf as a scoped readiness exception, with its
+> limitation, approver, and expiry/recheck recorded.
+
 **Goal:** Add a bounded, auditable reuse/prior-art discovery gate between project-charter approval and first-leaf authorization so agents check existing code, skills, projects, packages, and references before building new work.
 
 **Architecture:** Keep the existing leaf state machine unchanged. Add one project-level `.charter/reuse-discovery.md` record with an explicit status and evidence fields; require `COMPLETE`, user-approved `LIMITED`, or user-approved `WAIVED` before a leaf can become `READY`. Discovery is read-only and time-boxed; adoption, installation, execution, and scope changes remain separate authorized actions.

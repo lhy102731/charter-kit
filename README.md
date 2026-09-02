@@ -29,7 +29,7 @@ Charter Kit 是一个轻量、项目本地、可移植的开发工作流。它�
 
 新需求、新事实、缺陷和风险都进入 `Change Triage`；新需求不能静默扩大当前 Leaf。复用检查按需要从项目和历史资产逐步扩大到已安装能力与获准的外部资料。发现、采用、安装、复制和执行是不同的授权动作。
 
-Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。记录会把 Coverage（`SEARCHED` / `NOT_SEARCHED` / `NOT_AUTHORIZED` / `BLOCKED_TOOLING`）、Result（`MATCH` / `NO_MATCH` / `UNKNOWN`）和最终路线（`ADOPT` / `ADAPT` / `REFERENCE_ONLY` / `BUILD_NEW` / `REUSE_SPIKE` / `NEEDS_DECISION`）分开；`NO_MATCH` 必须有真实查询和证据。
+Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。叶任务只有在门为 `COMPLETE`，或有针对该叶、明确单独批准并记录范围/限制/批准人/复查条件的有界 waiver 时，才能进入 `READY`；waiver 不是第四种状态，也不改变项目级门状态或其他叶的授权。记录会把 Coverage（`SEARCHED` / `NOT_SEARCHED` / `NOT_AUTHORIZED` / `BLOCKED_TOOLING`）、Result（`MATCH` / `NO_MATCH` / `UNKNOWN`）和最终路线（`ADOPT` / `ADAPT` / `REFERENCE_ONLY` / `BUILD_NEW` / `REUSE_SPIKE` / `NEEDS_DECISION`）分开；`NO_MATCH` 必须有真实查询和证据。
 
 ### 使用方式
 
@@ -38,7 +38,7 @@ Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。记�
 3. 在叶任务进入 `READY` 前完成轻量 Reuse Check，并单独取得叶任务批准或匹配的 `AUTO_DEV` 预授权。
 4. 按一个叶任务一个闭环执行；遇到范围、能力或安全边界变化，回到 `Change Triage`。
 
-运行时工作集位于项目的 `.charter/`：`project.md`、`roadmap.md`、`current-task.md`、`reuse-discovery.md`、`decision.md`、`review.md`、`evidence-receipt.md`、可选的 `handoff.md` 和 `evidence/`。`current-task.md` 是活动叶状态的权威来源，`roadmap.md` 只是投影。
+运行时的核心恢复文件（core Resume files）只有 `.charter/project.md`、`roadmap.md`、`reuse-discovery.md` 和 `current-task.md`；`handoff.md` 是可选恢复快照。初始化器还会准备 `decision.md`、`review.md`、`evidence-receipt.md` 和 `evidence/` 作为辅助收据（auxiliary receipts）及证据容器；它们只在被当前记录引用时读取，不构成第二套状态源。`current-task.md` 是活动叶状态的权威来源，`roadmap.md` 只是投影。
 
 ### 安装到 Codex（当前唯一已验证目标）
 
@@ -77,13 +77,13 @@ Codex 是当前仓库唯一经过安装和启动 smoke test 验证的目标。�
 
 ### 文档与贡献
 
-- [通用开发章程](DEVELOPMENT_CHARTER.md)
-- [Portable Core](portable/)
-- [Codex 目标源](targets/codex/)
-- [Codex Marketplace 清单](.agents/plugins/marketplace.json)
+- [通用开发章程](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
+- [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
+- [Codex 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
+- [Codex Marketplace 清单](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
 - [GitHub 仓库](https://github.com/lhy102731/charter-kit)
 
-修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`。发布前运行 `python scripts/validate_kit.py .` 和 `python scripts/build_codex_plugin.py --check`，并在 Codex 中确认安装状态。MIT License.
+以下维护命令只在源码仓库 checkout 中运行：修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`。发布前运行 `python scripts/validate_kit.py .` 和 `python scripts/build_codex_plugin.py --check`，并在 Codex 中确认安装状态。MIT License.
 
 ## English
 
@@ -107,7 +107,7 @@ User input
 
 New requirements, discovered facts, defects, and risks all enter `Change Triage`; a new requirement must not silently expand the current Leaf. Reuse checks escalate only as needed from project and history to installed capabilities and authorized external sources. Discovery, adoption, installation, copying, and execution are separate authorized actions. A high-value `UNKNOWN` or `DEFER` remains unresolved until it is decided, and selected reuse must cite an immutable commit/tag/package version.
 
-Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. Its record keeps Coverage (`SEARCHED` / `NOT_SEARCHED` / `NOT_AUTHORIZED` / `BLOCKED_TOOLING`), Result (`MATCH` / `NO_MATCH` / `UNKNOWN`), and the final route (`ADOPT` / `ADAPT` / `REFERENCE_ONLY` / `BUILD_NEW` / `REUSE_SPIKE` / `NEEDS_DECISION`) separate. `NO_MATCH` requires an actual query and evidence.
+Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. A Leaf may enter `READY` only when the gate is `COMPLETE`, or when that specific Leaf has an explicit, separately approved bounded waiver recording its scope, limitation, approver, and expiry/recheck. A waiver is not a fourth state, does not change the project-wide gate projection, and does not authorize another Leaf. Its record keeps Coverage (`SEARCHED` / `NOT_SEARCHED` / `NOT_AUTHORIZED` / `BLOCKED_TOOLING`), Result (`MATCH` / `NO_MATCH` / `UNKNOWN`), and the final route (`ADOPT` / `ADAPT` / `REFERENCE_ONLY` / `BUILD_NEW` / `REUSE_SPIKE` / `NEEDS_DECISION`) separate. `NO_MATCH` requires an actual query and evidence; a waiver must explicitly address any high-value `UNKNOWN`/`DEFER`.
 
 ### Use it
 
@@ -116,7 +116,7 @@ Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. It
 3. Complete the lightweight Reuse Check before a leaf becomes `READY`, then obtain separate leaf approval or matching `AUTO_DEV` preauthorization.
 4. Close one leaf at a time. If scope, capability, or safety boundaries change, return to `Change Triage`.
 
-The project-local working set lives under `.charter/`: `project.md`, `roadmap.md`, `current-task.md`, `reuse-discovery.md`, `decision.md`, `review.md`, `evidence-receipt.md`, optional `handoff.md`, and `evidence/`. `current-task.md` is authoritative for the active leaf state; `roadmap.md` is a projection.
+The four core Resume files are `.charter/project.md`, `roadmap.md`, `reuse-discovery.md`, and `current-task.md`; `handoff.md` is an optional recovery snapshot. The initializer also prepares `decision.md`, `review.md`, `evidence-receipt.md`, and `evidence/` as auxiliary receipts and an evidence container. Read those when the active records reference them; they are not another state authority. `current-task.md` is authoritative for the active leaf state, while `roadmap.md` is a projection.
 
 ### Install in Codex (the only verified target today)
 
@@ -156,10 +156,10 @@ Codex is the only target in this repository with verified installation and start
 
 ### Documentation and contribution
 
-- [Generic development charter](DEVELOPMENT_CHARTER.md)
-- [Portable Core](portable/)
-- [Codex target source](targets/codex/)
-- [Codex marketplace manifest](.agents/plugins/marketplace.json)
+- [Generic development charter](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
+- [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
+- [Codex target source](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
+- [Codex marketplace manifest](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
 - [GitHub repository](https://github.com/lhy102731/charter-kit)
 
-When changing the core, update `portable/` and `DEVELOPMENT_CHARTER.md` first. When changing the Codex entry, update `targets/codex/`. Before publishing, run `python scripts/validate_kit.py .` and `python scripts/build_codex_plugin.py --check`, then confirm the installation state in Codex. MIT License.
+In a source repository checkout, update `portable/` and `DEVELOPMENT_CHARTER.md` first when changing the core, and update `targets/codex/` when changing the Codex entry. Before publishing, run `python scripts/validate_kit.py .` and `python scripts/build_codex_plugin.py --check`, then confirm the installation state in Codex. These maintainer paths and commands are not expected inside an installed plugin package. MIT License.

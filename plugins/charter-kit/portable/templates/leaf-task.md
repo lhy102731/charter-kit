@@ -26,7 +26,7 @@
 
 ### Change Triage
 
-- Record the Change Triage event kind and route from `portable/references/change-triage.md`.
+- Record the Change Triage event kind and route from the bundled reference: `portable/references/change-triage.md` in the full kit or `references/change-triage.md` in the self-contained Skill.
 - New requirement must not silently expand the current Leaf.
 
 ### Explicit non-results
@@ -37,9 +37,11 @@
 ## 3. Preconditions
 
 - [ ] Project charter is approved.
-- [ ] Reuse discovery record: `.charter/reuse-discovery.md` has been read; its gate is `COMPLETE`, or an explicit approved `LIMITED`/`WAIVED` result covers this leaf.
-- Reuse route / candidate IDs: `<ADOPT / ADAPT / REFERENCE_ONLY / REUSE_SPIKE and IDs, or BUILD_NEW with the discovery hand-back justification>`
-- [ ] The reuse record is current for this leaf; if its recheck trigger/date applies, a targeted recheck is linked. `BLOCKED_TOOLING` is not approval: restore the capability or obtain an explicit user-approved `LIMITED`/`WAIVED` downgrade before continuing.
+- [ ] Reuse discovery record: `.charter/reuse-discovery.md` has been read; its gate is `COMPLETE`, or this specific Leaf has an explicit, separately approved bounded waiver recording the approved/omitted scope, limitation, approver, and expiry/recheck condition, before this leaf becomes `READY`. The waiver is not a fourth gate state or project-wide bypass.
+- Reuse assessment: `YES | NO_MATERIAL_TARGET` — `<rationale and local sanity-check evidence>`
+- Reuse coverage / result: `<SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING>` / `<MATCH | NO_MATCH | UNKNOWN>`
+- Reuse final route / candidate IDs: `<ADOPT / ADAPT / REFERENCE_ONLY / BUILD_NEW / REUSE_SPIKE / NEEDS_DECISION>` / `<IDs or justification>`
+- [ ] The reuse record is current for this leaf; if its recheck trigger/date applies, a targeted recheck is linked. Without the leaf-specific waiver above, `PENDING`, `BLOCKED`, and `BLOCKED_TOOLING` are not approval; resolve the evidence or authorization gap before continuing. Any limitation or waiver is recorded in the decision field with approver, omitted scope, and recheck condition.
 - [ ] This leaf is approved under its selected mode and the authorization reference is recorded.
 - [ ] Predecessor tasks: `<IDs at PASS_CLOSED, or — for the first leaf>`
 - [ ] Baseline revision/workspace: `<branch, commit, or provider revision>`
@@ -120,7 +122,7 @@ Stop and write a decision record when:
 
 - Design note: `<path or short description>`
 - Design interview record: `<path or summary; design tree fully resolved before implementation>`
-- Reuse discovery evidence reviewed: `<discovery ID, candidate revision, targeted recheck, or BUILD_NEW rationale>`
+- Reuse discovery evidence reviewed: `<discovery ID, coverage/result, candidate revision, targeted recheck, NO_MATERIAL_TARGET sanity check, or BUILD_NEW rationale>`
 - First failing check (RED): `<test or inspection>`
 - Minimal implementation plan:
   1.
@@ -142,17 +144,20 @@ Stop and write a decision record when:
 ## 9. Review and closure
 
 - Review A: `<path, reviewer, candidate, verdict>`
-- Review B / fresh behavior check: `<path, reviewer, freshness, verdict>`
+- Review B / fresh behavior check: `<REQUIRED with trigger/path/reviewer/freshness/verdict, or NOT_REQUIRED with bounded omission reason>`
+- Pre-integration verification receipt: `<path, command, candidate, result>`
 - Final candidate: `<revision>`
 - Target-branch integration receipt: `<path or not yet>`
 - Post-merge verification: `<path, command, result>`
 - Unrelated failures and limitations:
 
+Required order: `Review → Verification → target-branch integration → post-integration verification`. Do not integrate directly from Review, and do not treat pre-integration Verification as post-integration proof.
+
 ### Closure decision
 
 Choose exactly one:
 
-- `PASS_CLOSED` — all acceptance, review, integration, and post-merge checks are evidenced.
+- `PASS_CLOSED` — acceptance, Review, pre-integration Verification, target-branch integration, and post-integration verification are all evidenced.
 - `PARTIAL` — useful result exists but a stated requirement remains open.
 - `BLOCKED` — an invariant, predecessor, or safety boundary prevents continuation.
 - `BLOCKED_TOOLING` — a required host capability or independent context is unavailable.

@@ -193,8 +193,8 @@
       "probe": "unverified",
       "required": false,
       "impact": "A fresh reviewer or independent process cannot be confirmed by a local file probe.",
-      "fallback": "Record BLOCKED_TOOLING or obtain an explicit user waiver.",
-      "action": "remain BLOCKED_TOOLING until a fresh reviewer is available or an explicit user waiver with limitation and expiry is recorded"
+      "fallback": "When independent review is not triggered, record a bounded omission reason. When triggered but unavailable, record BLOCKED_TOOLING or obtain an explicit user waiver.",
+      "action": "if triggered, remain BLOCKED_TOOLING until a fresh reviewer is available or an explicit user waiver with limitation and expiry is recorded"
     }
   ]
 }

@@ -13,7 +13,7 @@
 - Recheck trigger / date: `<new capability, stack/boundary change, or expiry>`
 - Gate status: `PENDING | COMPLETE | BLOCKED`
 
-Gate semantics are intentionally small: `PENDING` means this record is not ready to authorize a Leaf; `COMPLETE` means the material targets in the approved scope have evidence and a final route; `BLOCKED` means a required capability, authorization, decision, or evidence is unavailable. A limited or waived search is recorded in the decision fields below; it is not a fourth Gate state.
+Gate semantics are intentionally small: `PENDING` means this record is not ready to authorize a Leaf; `COMPLETE` means the material targets in the approved scope have evidence and a final route; `BLOCKED` means a required capability, authorization, decision, or evidence is unavailable. A Leaf may enter `READY` only when this gate is `COMPLETE`, or when that specific Leaf has an explicit, separately approved bounded waiver recorded in the decision fields below. The waiver must name the Leaf, approved and omitted scope, accepted limitation, approver, and expiry/recheck condition. It is not a fourth Gate state or a project-wide bypass; without it, `PENDING`, `BLOCKED`, and `BLOCKED_TOOLING` remain blocking.
 
 ## 2. Search contract
 
@@ -62,7 +62,7 @@ Use one row per candidate that merits consideration. Pin an immutable Git commit
 |---|---|---|---|---|---|---|---|---|---|---|
 | C-01 | `<type>` | `<path or URL>` | `<immutable commit/tag/version>` | `<evidence>` | `<evidence>` | `<SPDX / obligation>` | `<risk and evidence>` | `<notes>` | `<disposition>` | `<reason or task>` |
 
-`BUILD_NEW` is a capability-level route, never a candidate disposition. Resolve an unresolved candidate or capability with more bounded evidence, a `REUSE_SPIKE`, or `NEEDS_DECISION` before choosing `BUILD_NEW`. A complete record has no unresolved high-value `UNKNOWN` or `DEFER`.
+`BUILD_NEW` is a capability-level route, never a candidate disposition. Resolve an unresolved candidate or capability with more bounded evidence, a `REUSE_SPIKE`, or `NEEDS_DECISION` before choosing `BUILD_NEW`. A complete record has no unresolved high-value `UNKNOWN` or `DEFER`; a waiver must explicitly address any such item rather than silently converting it to `BUILD_NEW`.
 
 ## 5. Final decision and hand-back
 

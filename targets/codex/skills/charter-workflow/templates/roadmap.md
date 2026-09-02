@@ -24,7 +24,7 @@
 - WIP limit per parent: `1`
 - Current task contract: `.charter/current-task.md`
 - Reuse discovery record: `.charter/reuse-discovery.md`
-- Reuse discovery gate: `NOT_STARTED | IN_PROGRESS | COMPLETE | LIMITED | WAIVED | BLOCKED_TOOLING`
+- Reuse discovery gate: `PENDING | COMPLETE | BLOCKED`
 - Gate source of truth: `.charter/reuse-discovery.md`; this status is a synchronized projection and must match `project.md`.
 - Reuse discovery ID: `<RD-...; must match .charter/reuse-discovery.md and project.md>`
 - Discovery freshness: `<current, or targeted recheck ID/date when a trigger applies>`
@@ -35,8 +35,15 @@
 ### Change Triage
 
 - current-task.md is the active Leaf state authority; roadmap.md is a projection.
-- Use `portable/references/change-triage.md` when a new requirement, defect, discovered constraint, or risk arrives.
+- Use the bundled Change Triage reference when a new requirement, defect, discovered constraint, or risk arrives: `portable/references/change-triage.md` in the full kit or `references/change-triage.md` in the self-contained Skill.
 - New requirement must not silently expand the current Leaf.
+
+### Reuse Check projection
+
+- Material target: `YES | NO_MATERIAL_TARGET` (a `NO_MATERIAL_TARGET` leaf still records a local sanity check).
+- Coverage / result: `<SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING>` / `<MATCH | NO_MATCH | UNKNOWN>`.
+- Final route: `<ADOPT | ADAPT | REFERENCE_ONLY | BUILD_NEW | REUSE_SPIKE | NEEDS_DECISION>`.
+- The authoritative record is one project-local `.charter/reuse-discovery.md`; do not create a registry, scoring board, or second memory database.
 
 ## Leaf readiness check
 
@@ -50,19 +57,19 @@ Before moving a leaf to `READY`, confirm:
 - [ ] stop conditions and repair budget are written;
 - [ ] required host capabilities and approvals are available.
 - [ ] the dependency-check record is attached; every required capability is `AVAILABLE`, or an explicit `BLOCKED_TOOLING`/user waiver is recorded.
-- [ ] the reuse discovery gate is `COMPLETE`, or `LIMITED`/`WAIVED` has explicit user approval, limitations, and a recheck condition recorded in `.charter/reuse-discovery.md`;
+- [ ] the reuse discovery gate is `COMPLETE`, or this specific Leaf has an explicit, separately approved bounded waiver in `.charter/reuse-discovery.md`; if a bounded limitation or waiver is used, record its approved/omitted scope, limitation, approver, and expiry/recheck condition;
 - [ ] the projected gate status matches `.charter/reuse-discovery.md` and `project.md`, and its recheck trigger/date is current; if a trigger applies, a targeted recheck is recorded before this leaf is approved;
 - [ ] when the gate is `COMPLETE`, every material capability has in-scope raw evidence, out-of-scope tiers are explicitly `NOT_SEARCHED`/`NOT_AUTHORIZED`, selected revisions are fixed immutable commit/tag/package versions, and no high-value `UNKNOWN`/`DEFER` remains unresolved;
 - [ ] every non-workspace/installed search tier used by this leaf is covered by the recorded discovery scope and `External read authorization`;
-- [ ] `BLOCKED_TOOLING` is treated as blocking: do not approve or move a leaf to `READY` until the capability is restored or the user approves a bounded `LIMITED`/`WAIVED` downgrade;
+- [ ] without that leaf-specific waiver, `PENDING`, `BLOCKED`, or `BLOCKED_TOOLING` is treated as blocking; a waiver is not a new gate state or project-wide bypass;
 
-`BLOCKED_TOOLING` blocks leaf readiness and is never equivalent to approval.
+`BLOCKED` and `BLOCKED_TOOLING` block leaf readiness and are never equivalent to approval unless the current Leaf has the explicit bounded waiver above. `PENDING` likewise cannot authorize a leaf without that waiver.
 
-Project approval does not bypass the reuse discovery gate. A pending or unsupported search keeps the leaf out of `APPROVED`/`READY`; `BLOCKED_TOOLING` requires restored capability or an explicit user-approved downgrade. For later leaves, do not repeat a full search unless a new capability, stack/boundary change, or expiry trigger applies; perform and link a targeted recheck instead. A selected candidate is still only a route decision until its own dependency, installation, and execution authorization exists.
+Project approval does not bypass the reuse discovery gate. A `PENDING` or `BLOCKED` record keeps a leaf out of `APPROVED`/`READY` unless that specific Leaf has the recorded, separately approved bounded waiver; the waiver is decision evidence, not a new gate state or project-wide bypass. For later leaves, do not repeat a full search unless a new capability, stack/boundary change, or expiry trigger applies; perform and link a targeted recheck instead. A selected candidate is still only a route decision until its own dependency, installation, and execution authorization exists.
 
 When the authoritative reuse record changes, update its status, this projection, and the project projection in the same change. Any mismatch is a blocking finding, not permission to choose the most optimistic copy.
 
-When moving a leaf from `DRAFT` to `APPROVED`, update the task file and roadmap row together; then move both to `READY` together after readiness. After the checklist passes, update the leaf status and roadmap row to `READY` together, and set `Active leaf` to that ID. Project-charter approval alone never moves a leaf out of `DRAFT`. Mirror every later leaf state transition (`IN_PROGRESS`, `REVIEW`, `INTEGRATION_PENDING`, `POST_MERGE_VERIFIED`, `PASS_CLOSED`) in the task file and roadmap row in the same change. When the leaf reaches `PASS_CLOSED`, record the closure evidence, clear `Active leaf` (or set it to the next explicitly authorized leaf), and update the row and `Next authorization` together; never leave `Active leaf: NONE` while a leaf is `READY` or `IN_PROGRESS`.
+When moving a leaf from `DRAFT` to `APPROVED`, update the task file and roadmap row together; then move both to `READY` together after readiness. After the checklist passes, update the leaf status and roadmap row to `READY` together, and set `Active leaf` to that ID. Project-charter approval alone never moves a leaf out of `DRAFT`. Mirror the full normal sequence `DRAFT → APPROVED → READY → IN_PROGRESS → REVIEW → VERIFIED → PASS_CLOSED` in the task file and roadmap row. Git integration and post-integration verification are required closure evidence between `VERIFIED` and `PASS_CLOSED`, not additional Leaf states. When the leaf reaches `PASS_CLOSED`, record the closure evidence, clear `Active leaf` (or set it to the next explicitly authorized leaf), and update the row and `Next authorization` together; never leave `Active leaf: NONE` while a leaf is `READY` or `IN_PROGRESS`.
 
 ## Closure rule
 

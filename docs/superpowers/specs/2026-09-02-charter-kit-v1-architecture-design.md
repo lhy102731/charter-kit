@@ -1,6 +1,6 @@
 # Charter Kit v1 轻量可移植架构
 
-状态：已批准的设计基线，实施中  
+状态：已批准的设计基线；v1 候选已完成最终验证（Codex 已验证，其他 Harness 按实验性处理）
 日期：2026-09-02  
 范围：项目本地开发工作流、变化处理、轻量复用检查和 Harness 薄适配层
 
@@ -255,12 +255,12 @@ flowchart TD
 - UNKNOWN 不能自动变成 BUILD_NEW；
 - BUILD_NEW 必须写简短理由；
 - WAIVED 必须由用户或负责人批准；
-- 复用记录因能力、版本、技术栈或边界变化失效时，重新进入 IN_PROGRESS；
+- 复用记录因能力、版本、技术栈或边界变化失效时，门状态重新进入 PENDING；
 - 发现候选不等于采用，采用候选不等于安装、复制或执行。
 
 外部 Discovery 默认只读，不得上传私有代码、凭据、秘密或真实敏感数据。版本使用 Git commit/tag 或 package version，不使用内容 hash、digest 或 fingerprint。
 
-Reuse Gate 只保留 PENDING、COMPLETE 和 BLOCKED 三种状态。LIMITED 或 WAIVED 作为决定记录中的批准、遗漏范围、限制和复查条件，不再扩展状态机。
+Reuse Gate 只保留 PENDING、COMPLETE 和 BLOCKED 三种状态。叶任务只有在 Gate 为 COMPLETE，或该叶有明确、单独批准且记录完整的有界 waiver 时，才能进入 READY。waiver 必须写明叶 ID、批准/遗漏范围、限制、批准人和过期/复查条件；它不是第四种状态、不会改变项目级投影，也不授权其他叶。LIMITED 或 WAIVED 只是决定记录中的这些字段；没有当前叶 waiver 时，PENDING、BLOCKED 和 BLOCKED_TOOLING 仍阻塞 READY。waiver 必须显式处置相关高价值 UNKNOWN/DEFER，不能静默转成 BUILD_NEW。
 
 ### 7.3 五个 Reuse Skill
 
@@ -332,8 +332,12 @@ AUTO_DEV 只覆盖预先列明的 Leaf、路径、效果、依赖、修复预算
     ├── reuse-discovery.md
     ├── decision.md
     ├── handoff.md
+    ├── review.md
+    ├── evidence-receipt.md
     └── evidence/
 ~~~
+
+四个 core Resume files 是 `project.md`、`roadmap.md`、`reuse-discovery.md` 和 `current-task.md`。`handoff.md` 是可选恢复快照；`decision.md`、`review.md`、`evidence-receipt.md` 与 `evidence/` 是按引用读取的 auxiliary receipts / evidence，不是每次 Resume 都要加载的第二状态层。
 
 | 文件 | 唯一职责 |
 |---|---|
@@ -343,6 +347,8 @@ AUTO_DEV 只覆盖预先列明的 Leaf、路径、效果、依赖、修复预算
 | reuse-discovery.md | 复用搜索、候选、版本和决定 |
 | decision.md | 需要人工决定的事项、waiver 和限制 |
 | handoff.md | 恢复快照，不覆盖权威状态 |
+| review.md | Review 收据和发现；不产生新的 Leaf 状态 |
+| evidence-receipt.md | 单次验证、搜索或集成操作的收据模板 |
 | evidence/ | 测试、Review、Verification、搜索和集成收据 |
 
 current-task.md 是活动 Leaf 状态的权威来源，roadmap.md 是高层投影。如果两者冲突，Resume 必须停止并修复。

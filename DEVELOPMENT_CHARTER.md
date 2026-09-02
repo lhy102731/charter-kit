@@ -46,7 +46,7 @@ Charter Kit 只有一条主控制流：`Charter → Roadmap → Leaf → Reuse C
 → 设计拷问与最小计划
 → 隔离实现
 → 测试与根因调试
-→ Review A / Review B
+→ Review A / 风险触发的 Review B
 → 新鲜验证
 → 合并目标分支
 → 合并后验证
@@ -152,7 +152,7 @@ UNVERIFIED  无法可靠检测
 FALLBACK    使用便携替代，并记录限制
 ```
 
-每一项检查都要输出能力名、原因、影响、fallback 和用户行动建议，并写入 `.charter/evidence/dependency-check.log` 或项目指定日志。必需能力为 `MISSING`/`UNVERIFIED` 时保持 `BLOCKED_TOOLING`；推荐或可选能力缺失时可以继续，但不能声称使用了该能力。独立 Review 需要新的上下文或进程；同一会话自审不能冒充独立 Review B。
+每一项检查都要输出能力名、原因、影响、fallback 和用户行动建议，并写入 `.charter/evidence/dependency-check.log` 或项目指定日志。必需能力为 `MISSING`/`UNVERIFIED` 时保持 `BLOCKED_TOOLING`；推荐或可选能力缺失时可以继续，但不能声称使用了该能力。当独立 Review 被风险规则或用户明确触发时，它需要新的上下文或进程；同一会话自审不能冒充独立 Review。
 
 ### 2.7 任务树与叶任务
 
@@ -180,7 +180,7 @@ Epic
 - 自动继续的范围、修复次数和停止条件是否清楚？
 - 复用发现范围、查询预算、许可证/安全筛选和无结果证据是否明确？
 
-在自审前进行结构化设计访谈：由 `grill-me`（或宿主提供的 `grilling` 能力）逐轮追问目标、用户、接口、负向路径、失败模式和边界；事实由执行者调查，取舍交还用户。没有该 provider 时使用内置 `references/design-interview.md`，并记录 `FALLBACK`/限制。访谈结束后作者完成逐项自审并保留证据；随后由不负责起草的审阅上下文或独立进程，在新鲜上下文中执行 `CHARTER_INDEPENDENT` 审阅。换名字、在同一上下文重读或由作者代写，都不算独立审阅。
+在自审前进行结构化设计访谈：由 `grill-me`（或宿主提供的 `grilling` 能力）逐轮追问目标、用户、接口、负向路径、失败模式和边界；事实由执行者调查，取舍交还用户。没有该 provider 时使用内置 `references/design-interview.md`，并记录 `FALLBACK`/限制。访谈结束后作者完成逐项自审并保留证据。CHARTER_INDEPENDENT 只在高风险、重大目标/授权变化或用户明确要求时必需；低风险章程可以记录有边界的省略理由。当它被触发时，由不负责起草的审阅者在新鲜上下文或独立进程中执行；能力缺失时记录 `BLOCKED_TOOLING` 或取得有边界 waiver。换名字、在同一上下文重读或由作者代写，都不算独立审阅。
 
 所有发现必须解决、降级为有明确限制的开放决定，或在批准记录中说明 waiver；未处置的发现保持项目 `BLOCKED`，不能请求项目批准。人工批准的是目标、非目标、关键不变量、高风险效果、成功等级和审阅限制；实现细节可在合同范围内演化。
 
@@ -205,7 +205,7 @@ Epic
 
 复用发现使用已批准的 Goal、Non-goals、Invariants 和能力地图，主动检索：当前工作区/历史 → 已安装 skills/plugins、缓存和 manifest → 获准的内部资源 → 官方文档、上游项目和包注册表 → 获准的公开 Web。所有结果写入唯一事实源 `.charter/reuse-discovery.md`，原始输出放在 `.charter/evidence/`。记录 discovery ID、章程版本、目标能力、负责人、宿主和工具版本、搜索层级、精确查询、时间/查询预算、停止条件、候选路径或 URL、固定版本、许可证/安全/维护/可移植性、集成成本和决定。
 
-候选行决定只能是 `ADOPT`、`ADAPT`、`REFERENCE_ONLY`、`REJECT`、`DEFER` 或 `UNKNOWN`；`BUILD_NEW`、`REUSE_SPIKE` 和 `NEEDS_DECISION` 是完成检查后对能力的最终路线。没有合适候选也是有效结果，但必须保留查询、覆盖范围、时间和 `NO_MATCH` 证据。
+候选行决定只能是 `ADOPT`、`ADAPT`、`REFERENCE_ONLY`、`REJECT` 或 `DEFER`；`UNKNOWN` 只表示搜索证据不足的 Result，不是候选处置。`BUILD_NEW`、`REUSE_SPIKE` 和 `NEEDS_DECISION` 是完成检查后对能力的最终路线。没有合适候选也是有效结果，但必须保留查询、覆盖范围、时间和 `NO_MATCH` 证据。
 
 范围含义固定：
 
@@ -215,7 +215,7 @@ Epic
 
 非本地层级需要选定 discovery scope 和 `External read authorization`；范围外写 `NOT_SEARCHED` 或 `NOT_AUTHORIZED`，不能写成 `NO_MATCH`。发现阶段只读，禁止 clone、build、run、import、install、copy、加载候选指令、写全局目录或上传私有源代码/秘密/敏感数据。候选版本必须固定为 immutable commit/tag/package version；浮动分支和 `latest` 不算证据。
 
-门状态只保留 `PENDING | COMPLETE | BLOCKED`。记录字段分开：Coverage 为 `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`；Result 为 `MATCH | NO_MATCH | UNKNOWN`；Final route 为 `ADOPT | ADAPT | REFERENCE_ONLY | BUILD_NEW | REUSE_SPIKE | NEEDS_DECISION`。有限搜索或 waiver 写入决定、遗漏范围、限制和复查条件，不扩展门状态。`COMPLETE` 要求每个 Material Target 覆盖获准范围、每个已搜索层有证据、范围外层级有明确状态，并处理高价值 `UNKNOWN`。项目和 roadmap 中的门状态只是记录的投影；三处不一致、工具阻塞或记录过期时保持 `BLOCKED`。
+门状态只保留 `PENDING | COMPLETE | BLOCKED`。记录字段分开：Coverage 为 `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`；Result 为 `MATCH | NO_MATCH | UNKNOWN`；Final route 为 `ADOPT | ADAPT | REFERENCE_ONLY | BUILD_NEW | REUSE_SPIKE | NEEDS_DECISION`。有限搜索或 waiver 写入决定、遗漏范围、限制和复查条件，不扩展门状态。叶任务只有在门为 `COMPLETE`，或该叶有明确、单独批准且记录完整的有界 waiver 时，才能进入 `READY`。waiver 必须写明叶 ID、批准/遗漏范围、接受的限制、批准人和过期/复查条件；它不是第四种门状态，也不改变项目级投影或其他叶的授权。没有该 waiver 时，`PENDING`、`BLOCKED` 和 `BLOCKED_TOOLING` 都保持阻塞。`COMPLETE` 要求每个 Material Target 覆盖获准范围、每个已搜索层有证据、范围外层级有明确状态，并处理高价值 `UNKNOWN`；waiver 也必须显式处置其涉及的高价值 `UNKNOWN`/`DEFER`，不能静默转成 `BUILD_NEW`。项目和 roadmap 中的门状态只是记录的投影；三处不一致或记录过期时保持 `BLOCKED`。
 
 搜索深度按成本和风险选择：`FAST` 只查项目与历史，`STANDARD` 再查已安装能力、manifest、框架和依赖，`DEEP` 才查获准的官方、上游、注册表或公开资料。搜索到足够证据就停止，不要求每个 Leaf 做深度外部搜索。
 
@@ -267,7 +267,7 @@ A/B/C 描述拟议修复需要的授权，不是影响大小。Review 另填缺�
 7. 工作区、分支和用户已有改动已记录；
 8. 依赖检查结果、宿主能力和效果授权存在；
 9. 验收能被实际观察或测试；
-10. 复用门为 `COMPLETE`，或有明确批准、遗漏范围、限制和复查条件的有界 waiver；
+10. 复用门为 `COMPLETE`，或当前叶有明确批准、范围、限制、批准人和复查条件的有界 waiver；waiver 只授权该叶，不改变门状态或项目级投影；
 11. 下一动作具体且唯一。
 
 必需文件、依赖、授权或能力缺失时保持 `BLOCKED` 或 `BLOCKED_TOOLING`，不得以实现代替补齐门禁。
@@ -300,7 +300,7 @@ REFACTOR 保持绿色，清理重复和命名
 
 ### 4.5 Review A 与 Review B
 
-候选版本冻结后再审阅：Review A 检查规格覆盖、实现正确性、范围漂移和测试质量；Review B 由不同于实现者的审阅者在新鲜上下文或独立进程中做行为探针，尤其检查负向路径、越界输入和错误处理。没有 fresh 能力只能如实记为 `BLOCKED_TOOLING`，不能改名冒充独立审阅。
+候选版本冻结后再审阅。Review A 对每个 Leaf 必需，它检查规格覆盖、实现正确性、范围漂移和测试质量。Review B 只在安全、认证、外部依赖、公共 API、高风险/不可逆效果或用户明确要求时必需；低风险叶任务可以记录有边界的省略理由。当 Review B 被触发时，它由不同于实现者的审阅者在新鲜上下文或独立进程中做行为探针，尤其检查负向路径、越界输入和错误处理。触发后没有 fresh 能力时，如实记为 `BLOCKED_TOOLING` 或取得有边界 waiver；不能改名冒充独立审阅。
 
 ### 4.6 修复与决策循环
 
@@ -309,7 +309,9 @@ REFACTOR 保持绿色，清理重复和命名
 ### 4.7 集成与关闭
 
 ```text
-候选提交
+Review 通过
+→ 集成前 Verification
+→ VERIFIED
 → 合并目标分支
 → 在目标分支重新验证
 → 写完成/证据记录
@@ -326,14 +328,13 @@ DRAFT
 → READY
 → IN_PROGRESS
 → REVIEW
-→ INTEGRATION_PENDING
-→ POST_MERGE_VERIFIED
+→ VERIFIED
 → PASS_CLOSED
 ```
 
 异常状态：`BLOCKED`、`BLOCKED_TOOLING`、`NEEDS_DECISION`、`PARTIAL`、`SUPERSEDED`。项目管理状态还可用 `PAUSED` 和 `CLOSED`；它们不是通过状态。
 
-`BLOCKED_TOOLING` 表示所需宿主能力、依赖、独立上下文或进程暂不可用；两种阻塞都不能改写成 `READY` 或 `PASS_CLOSED`。项目批准只批准方向，不批准任何叶任务。每个叶必须在任务文件和 roadmap 中同步经历 `DRAFT → APPROVED → READY`，后续状态也要同步；`PASS_CLOSED` 必须绑定最终候选、验收、审阅、集成和合并后验证。
+`BLOCKED_TOOLING` 表示所需宿主能力、依赖、独立上下文或进程暂不可用；两种阻塞都不能改写成 `READY` 或 `PASS_CLOSED`。项目批准只批准方向，不批准任何叶任务。每个叶必须在任务文件和 roadmap 中同步经历 `DRAFT → APPROVED → READY → IN_PROGRESS → REVIEW → VERIFIED → PASS_CLOSED`；Git 集成和合并后验证是 `VERIFIED` 到 `PASS_CLOSED` 之间必须记录的关闭证据，不增加新的 Leaf 状态。
 
 ## 6. 证据、版本和完成等级
 
@@ -365,7 +366,7 @@ DRAFT
 | 多步计划 | Superpowers writing-plans | 叶任务合同 + 手写计划 |
 | 新功能/Bug | Superpowers TDD | 普通 RED/GREEN 记录 |
 | 根因调查 | Superpowers systematic-debugging | 复现、假设、实验和结论记录 |
-| 独立审阅 | 新鲜上下文中的 Review 工具 | 新鲜进程/上下文，或明确 `BLOCKED_TOOLING` |
+| 独立审阅（风险或用户触发时） | 新鲜上下文中的 Review 工具 | 新鲜进程/上下文；未触发时记录省略理由，触发但不可用时记录 `BLOCKED_TOOLING` 或 waiver |
 | 完成验证 | Superpowers verification-before-completion | 证据清单逐条复核 |
 | 方案拷问 | grill-me（grilling 原语） | `references/design-interview.md` |
 | 长任务状态 | J-space ledger/seam/resume | handoff + ledger 区块 |
@@ -406,7 +407,7 @@ Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。�
 2. 运行 `scripts/check_dependencies.py`（或宿主等价检查），把 `AVAILABLE`、`MISSING`、`UNVERIFIED`、`FALLBACK` 和影响写入日志；
 3. 用 `grill-me` 优先访谈用户意图；不可用时明确记录缺失并使用内置 `design-interview`；
 4. 起草 Goal、Non-goals、Invariants、产品闭环、成功等级、效果边界、资产审计、能力地图、任务树和开放决定；
-5. 起草 roadmap 与首个 `DRAFT` 叶任务，完成自审和 `CHARTER_INDEPENDENT` 审阅（或有边界 waiver），取得项目批准；
+5. 起草 roadmap 与首个 `DRAFT` 叶任务，完成自审；若触发风险条件或用户明确要求，再完成 `CHARTER_INDEPENDENT` 审阅（或有边界 waiver），取得项目批准；
 6. 按 `.charter/reuse-discovery.md` 完成轻量 Reuse Assessment / Reuse Check 并校准路线；覆盖为 `NOT_AUTHORIZED` 或 `BLOCKED_TOOLING` 时先停下，不得写成 `NO_MATCH`；
 7. 单独批准首叶或引用匹配的 `AUTO_DEV` 预授权，把任务和 roadmap 同步推进到 `APPROVED`、`READY`；
 8. 按叶任务逐一执行 RED/GREEN、审阅、合并、fresh verification 和关闭，并为下一叶重新检查授权。

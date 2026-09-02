@@ -21,6 +21,11 @@ working_set:
     - .charter/current-task.md
   optional:
     - .charter/handoff.md
+  auxiliary:
+    - .charter/decision.md
+    - .charter/review.md
+    - .charter/evidence-receipt.md
+    - .charter/evidence/
 
 dependencies:
   manifest: dependencies.json

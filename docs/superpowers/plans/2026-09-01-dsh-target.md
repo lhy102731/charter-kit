@@ -2,11 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a DSH target to Charter Kit so the same portable core can be installed as a self-contained DSH plugin that registers the `charter-workflow` skill and `/charter-workflow` command.
+> **Status (2026-09-02): DEFERRED / EXPERIMENTAL.** The adapter shell and
+> structural packager are retained for future work, but no DSH runtime smoke
+> test has been completed. DSH is `experimental` / `unverified`; this plan and
+> its artifacts must not be read as a supported-install promise. The main v1
+> release treats Codex as the only verified target.
 
-**Architecture:** The repository already has a multi-target layout: `portable/` is the semantic source of truth, `targets/<host>/` holds host adapter sources, and `plugins/<host-dist>/` holds generated self-contained distributions. This plan adds `targets/dsh/` as the DSH adapter, `scripts/build_dsh_plugin.py` as the deterministic builder, `plugins/dsh-charter-kit/` as the generated DSH plugin package, and extends `scripts/validate_kit.py` to validate both target and distribution.
+**Goal:** Retain a small DSH adapter shell for future validation while keeping the portable core independent of DSH and making no supported-install claim.
 
-**Tech Stack:** JavaScript (ESM) for the DSH plugin runtime, Node.js built-ins only, Python standard library for packager/validator, DSH plugin loader for installation.
+**Architecture:** `portable/` remains the semantic source of truth, `targets/dsh/` is only an adapter-development shell, and `plugins/dsh-charter-kit/` is a generated structural artifact. The validator checks consistency when those optional trees are present, but does not treat them as a supported runtime.
+
+**Tech Stack:** JavaScript (ESM) for the adapter shell, Node.js built-ins only, and Python standard library for structural packaging and validation. A real DSH plugin loader is not assumed or invoked by this plan.
 
 **Spec:** `docs/superpowers/specs/2026-09-01-multi-target-distribution-design.md` and the shared `DEVELOPMENT_CHARTER.md`.
 
@@ -291,14 +297,16 @@ git commit -m "feat: validate dsh target and distribution"
 
 ---
 
-### Task 4: Update README and finalize
+### Task 4: Record experimental status and finalize
 
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Add DSH install section**
+- [x] **Step 1: Record DSH as experimental / unverified**
 
-Add Chinese and English sections that point to `plugins/dsh-charter-kit/` and explain local DSH installation via the DSH plugin tools (e.g. `dev_install_package` or `dev_inject_plugin`), plus the note that superpowers / j-space / grill-me are optional and never auto-installed.
+The main README and DSH adapter README explicitly state that DSH has only
+structural checks, has no supported-install command, and must not be treated as
+verified. Optional providers remain non-installing.
 
 - [ ] **Step 2: Run validator and tests**
 
@@ -313,7 +321,7 @@ git commit -m "docs: document dsh installation"
 
 ---
 
-### Task 5: DSH runtime smoke test
+### Task 5: DSH runtime smoke test (deferred)
 
 - [ ] **Step 1: Build final distribution**
 
@@ -321,8 +329,11 @@ Run: `python -B scripts/build_dsh_plugin.py` to ensure the committed distributio
 
 - [ ] **Step 2: Inject into DSH**
 
-Use `dev_inject_plugin` with `plugins/dsh-charter-kit` from this repository to verify `/charter-workflow` appears and the `charter-workflow` skill remains available.
+Blocked pending a documented DSH runtime and installation contract. Do not
+invent or publish `dev_inject_plugin`, `dev_install_package`, or similar
+commands as support evidence.
 
 - [ ] **Step 3: Confirm no regression**
 
-Run `dev_plugin_status` and confirm the plugin fiber is active; optionally reload with `dev_reload_package` to confirm `ctx.effect` cleanup works.
+Also deferred with the runtime smoke test. The structural builder and
+repository validator are the only current DSH evidence.

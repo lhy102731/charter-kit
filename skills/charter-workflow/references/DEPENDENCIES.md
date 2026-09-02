@@ -20,7 +20,7 @@ Charter Kit 的核心协议是普通 Markdown；项目不需要安装某个特�
 | `git` | 分支、提交、祖先关系和合并后验证 | 版本证据较弱 | 使用宿主版本系统或人工不可变标识 |
 | `isolated-workspace` | 保护主工作树 | 隔离保证较弱 | 临时目录并在交接中声明 |
 | `executable-tests` | 自动验收和负向测试 | 只能做人工/静态检查 | 降低完成等级并保留覆盖限制 |
-| `independent-review` | 新鲜上下文的 Review B | 不能声称独立审阅 | 记录 `BLOCKED_TOOLING` 或取得明确 waiver |
+| `independent-review` | 风险或用户触发的新鲜 Review B / CHARTER_INDEPENDENT | 不能声称已完成被触发的独立审阅 | 未触发时记录省略理由；触发但不可用时记录 `BLOCKED_TOOLING` 或取得明确 waiver |
 
 ### 可选 provider
 
@@ -29,6 +29,11 @@ Charter Kit 的核心协议是普通 Markdown；项目不需要安装某个特�
 | Superpowers | brainstorming、writing-plans、TDD、系统调试、Review、完成验证 | `MISSING` 或 `UNVERIFIED`，说明影响 | Charter Kit 便携清单 |
 | J-space | 长任务 ledger、seam、resume 和状态自检 | `MISSING` 或 `UNVERIFIED`，说明影响 | `.charter/handoff.md` 与任务 ledger |
 | grill-me / grilling | 逐轮意图访谈和设计树拷问 | `MISSING` 或 `UNVERIFIED`，说明影响 | `references/design-interview.md` |
+| reuse-first | 项目内 helper、utility、mapper 和模块发现 | `MISSING` 或 `UNVERIFIED`，说明影响 | 便携的本地复用检查 |
+| framework-first-coding | 现有 framework、SDK、dependency 和 shared component 发现 | `MISSING` 或 `UNVERIFIED`，说明影响 | 便携的生态能力检查 |
+| reduce-reinvention | Build-vs-Reuse 的成本、风险和维护权衡 | `MISSING` 或 `UNVERIFIED`，说明影响 | 便携的候选决策清单 |
+| find-skills | 发现已有 Agent Skill（只发现，不安装） | `MISSING` 或 `UNVERIFIED`，说明影响 | 便携的 Skill inventory |
+| repo-to-skill | 对已选仓库进行转换为 Skill 的后续评估 | `MISSING` 或 `UNVERIFIED`，说明影响 | 不转换；先创建单独授权的后续任务 |
 
 检查器会识别常见的 provider 安装形态（例如独立 Skill 目录或宿主的插件缓存），但只读取目录元数据，不递归加载其中的指令。若你的宿主使用其他位置，可用 `--provider-dir id=path` 明确提供只读探测位置。
 
@@ -36,7 +41,7 @@ Charter Kit 的核心协议是普通 Markdown；项目不需要安装某个特�
 
 ## 2. 机器可读声明
 
-`dependencies.json` 是本包的轻量声明，使用 Python 标准库即可读取。它描述能力、探测位置、是否必需、影响和 fallback；它不是安装清单，也不授予网络或生产权限。独立 Skill 包含自己的同名副本，便于没有包根路径的宿主从零启动。
+`dependencies.json` 是本包的轻量声明，使用 Python 标准库即可读取。它描述能力、可选 provider 的角色、探测位置、是否必需、影响和 fallback；它不是安装清单，也不授予网络或生产权限。独立 Skill 包含自己的同名副本，便于没有包根路径的宿主从零启动。
 
 ## 3. 运行依赖检查器
 
@@ -57,7 +62,7 @@ python scripts/check_dependencies.py --project <project-dir> --log-file <project
 
 检查器只做本地元数据探测：查找可执行文件、读取目录可访问性和检查已声明的文件。它不会执行发现的程序，不会 import provider，不会联网、clone、build、install、copy 或写全局目录。日志会过滤控制字符、URL 用户信息和常见 secret/token 赋值；不要把凭据放进配置或命令行。
 
-每项检查输出四种状态之一：
+每项检查输出四种彼此独立的状态之一：
 
 ```text
 AVAILABLE   已检测到并可使用
@@ -67,6 +72,8 @@ FALLBACK    原能力不可用时可使用的便携替代记录
 ```
 
 输出和日志都必须包含 capability、reason、impact、fallback 和用户 action。必需能力为 `MISSING` 或 `UNVERIFIED` 时退出码非零，并把相关项目/叶任务保持为 `BLOCKED_TOOLING`；推荐/可选能力缺失时退出码仍可为零，但不得把 fallback 写成原 provider 已运行。
+
+依赖诊断状态与 Reuse Check 字段不要混用：`AVAILABLE`、`MISSING`、`UNVERIFIED`、`FALLBACK` 只描述本地能力探测；Reuse 记录另行使用 `SEARCHED`、`NOT_SEARCHED`、`NOT_AUTHORIZED`、`BLOCKED_TOOLING`（覆盖情况）以及 `MATCH`、`NO_MATCH`、`UNKNOWN`（搜索结果）。未授权、未搜索或工具阻塞都不能写成 `NO_MATCH`。
 
 若没有 Python 或脚本不可执行，宿主必须手工按同一字段写一条日志，例如：
 

@@ -12,8 +12,8 @@ Use this contract whenever a new requirement, clarification, defect, discovered 
 
 ## Routes
 
-- `IN_CONTRACT` — the current Leaf can absorb the change without changing the approved goal, non-goals, or invariants.
-- `LEAF_CHANGE` — the Leaf contract needs an adjustment, but the roadmap and charter still stand.
+- `IN_CONTRACT` — clarification, implementation detail, or defect repair that does not change the approved Goal, Non-goals, Invariants, or the current Leaf's result, interface, acceptance, or boundary.
+- `LEAF_CHANGE` — the current Leaf's result, interface, acceptance, or boundary must change, while the roadmap and charter still stand.
 - `ROADMAP_CHANGE` — the sequence, dependencies, or slice boundary must change, but the charter goal still stands.
 - `CHARTER_CHANGE` — the approved goal, non-goals, invariants, scope, or public meaning must change.
 - `OUT_OF_SCOPE` — the request is outside the approved charter or needs new authorization before it can be accepted.
@@ -31,5 +31,6 @@ If a route would change the approved goal, non-goals, invariants, or public mean
 - New requirement must not silently expand the current Leaf.
 - Record the triggering event kind before selecting a route.
 - Keep the current task contract as the active Leaf state authority; use the roadmap only as a projection.
+- If you cannot prove that the event is already inside the current Leaf contract, do not select `IN_CONTRACT`.
 - If a request can be satisfied by clarification alone, do not widen scope.
 - If the route is `OUT_OF_SCOPE`, stop and ask for the new authorization instead of folding the request into the current task.

@@ -61,7 +61,7 @@ memory or cross-Harness service is treated as state.
 
 **Observed baseline:** A host may treat the roadmap as optional and silently infer predecessor or authorization state.
 
-**Required behavior after the kit:** Read `project.md → roadmap.md → current-task.md → handoff.md (if present)`. Keep the run `BLOCKED` until the required roadmap is restored and its status, predecessor, active leaf, and authorization agree with the task contract.
+**Required behavior after the kit:** Read `project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md (if present)`. Keep the run `BLOCKED` until the required roadmap is restored and its status, predecessor, active leaf, reuse gate, and authorization agree with the task contract.
 
 ## Scenario 5: Control-plane drift
 

@@ -210,7 +210,7 @@ class CharterKitBehaviorTests(unittest.TestCase):
     def test_reuse_route_distinguishes_build_new_from_candidate_decision(self) -> None:
         package = self.make_package_copy()
         reuse = (package / "portable" / "templates" / "reuse-discovery.md").read_text(encoding="utf-8")
-        self.assertIn("BUILD_NEW is a capability-level route", reuse)
+        self.assertIn("`BUILD_NEW` is a capability-level route", reuse)
         candidate_header = next(line for line in reuse.splitlines() if line.startswith("| ID | Type"))
         self.assertNotIn("BUILD_NEW", candidate_header)
 
@@ -236,12 +236,34 @@ class CharterKitBehaviorTests(unittest.TestCase):
             "LOCAL_ONLY = workspace/history",
             "LOCAL_ECOSYSTEM = workspace/history + installed/cache + approved internal",
             "FULL_EXTERNAL = LOCAL_ECOSYSTEM + official/upstream/registries + authorized public web",
-            "MATCHES / NO_MATCH / NOT_SEARCHED / NOT_AUTHORIZED / BLOCKED_TOOLING",
-            "NO_MATCH requires an evidence reference",
+            "Coverage: `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`",
+            "Result: `MATCH | NO_MATCH | UNKNOWN`",
+            "`NO_MATCH` requires an evidence reference",
             "no unresolved high-value `UNKNOWN` or `DEFER`",
-            "fixed immutable commit/tag/package version",
+            "immutable Git commit/tag or package version",
         ):
             self.assertIn(phrase, reuse)
+
+    def test_change_triage_reference_is_packaged_in_codex_skill_mirrors(self) -> None:
+        package = self.make_package_copy()
+        expected = (package / "portable" / "references" / "change-triage.md").read_bytes()
+        for relative in (
+            "skills/charter-workflow/references/change-triage.md",
+            "targets/codex/skills/charter-workflow/references/change-triage.md",
+            "plugins/charter-kit/skills/charter-workflow/references/change-triage.md",
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual((package / relative).read_bytes(), expected)
+
+    def test_validator_allows_unimplemented_experimental_target(self) -> None:
+        package = self.make_package_copy()
+        shutil.rmtree(package / "targets" / "dsh")
+        shutil.rmtree(package / "plugins" / "dsh-charter-kit")
+
+        result = self.run_validator(package)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("experimental", result.stdout.lower())
 
     def test_entry_points_repeat_full_discovery_safety_and_immutable_revision_rule(self) -> None:
         package = self.make_package_copy()

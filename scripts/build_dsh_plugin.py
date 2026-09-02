@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Build the self-contained DSH distribution for Charter Kit.
+"""Build the experimental, unverified DSH adapter distribution for Charter Kit.
 
 The builder copies the portable core and the DSH adapter source into
-``plugins/dsh-charter-kit/``, then runs the DSH adapter build script to emit
-``lib/index.js``. It is read-only with respect to the source tree, rejects
-links/caches, and supports ``--check`` for deterministic byte comparison.
+``plugins/dsh-charter-kit/`` and emits ``lib/index.js`` from the adapter entry.
+It is read-only with respect to the source tree, rejects links/caches, and
+supports ``--check`` for deterministic byte comparison.
+The generated package is a structural development artifact only; this script
+does not establish DSH installation or runtime support.
 """
 
 from __future__ import annotations
@@ -371,9 +373,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.check:
-        print(f"Charter Kit DSH packager: PASS: {output_root}")
+        print(
+            "Charter Kit DSH packager: PASS (experimental / unverified structural check): "
+            f"{output_root}"
+        )
     else:
-        print(f"Charter Kit DSH packager: built {output_root}")
+        print(
+            "Charter Kit DSH packager: built experimental / unverified adapter: "
+            f"{output_root}"
+        )
     return 0
 
 

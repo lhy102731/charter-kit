@@ -9,7 +9,7 @@
   "keywords": [
     "development-charter",
     "task-contract",
-    "cross-agent",
+    "project-local",
     "handoff",
     "workflow"
   ],
@@ -17,7 +17,7 @@
   "interface": {
     "displayName": "Charter Kit",
     "shortDescription": "Portable project charter and leaf-task workflow",
-    "longDescription": "Start a project with a guided intent interview, then use one charter, task contract, evidence record, and handoff packet across agents and hosts. Optional providers enhance the workflow but are never required.",
+    "longDescription": "Start a project with a guided intent interview, then use one charter, task contract, evidence record, and handoff packet that compatible hosts can independently read from the same project-local working set. Optional providers enhance the workflow but are never required.",
     "developerName": "Charter Kit contributors",
     "category": "Developer Tools",
     "capabilities": [

@@ -24,7 +24,7 @@ Use this file as the resume packet for another actor. It records the current tas
 
 ### Change Triage
 
-- Record the event kind and route from `portable/references/change-triage.md` whenever a new requirement or constraint appears.
+- Record the event kind and route from the bundled Change Triage reference whenever a new requirement or constraint appears: `portable/references/change-triage.md` in the full kit or `references/change-triage.md` in the self-contained Skill.
 - New requirement must not silently expand the current Leaf.
 
 ## Current facts

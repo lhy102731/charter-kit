@@ -130,6 +130,10 @@ DISTRIBUTION_MANIFEST_RELATIVE = "plugins/charter-kit/.codex-plugin/plugin.json"
 DISTRIBUTION_SKILL_RELATIVE = "plugins/charter-kit/skills/charter-workflow"
 LEGACY_MANIFEST_RELATIVE = ".codex-plugin/plugin.json"
 LEGACY_SKILL_RELATIVE = "skills/charter-workflow"
+CHANGE_TRIAGE_REFERENCE = "portable/references/change-triage.md"
+SKILL_CHANGE_TRIAGE_REFERENCE = "skills/charter-workflow/references/change-triage.md"
+TARGET_CHANGE_TRIAGE_REFERENCE = "targets/codex/skills/charter-workflow/references/change-triage.md"
+DISTRIBUTION_CHANGE_TRIAGE_REFERENCE = "plugins/charter-kit/skills/charter-workflow/references/change-triage.md"
 
 # DSH target/distribution boundaries.
 DSH_TARGET_ROOT_RELATIVE = "targets/dsh"
@@ -181,8 +185,10 @@ REQUIRED_FILES = (
     *PORTABLE_TEMPLATES,
     *HOST_PROMPTS,
     "portable/commands/charter-workflow.md",
+    CHANGE_TRIAGE_REFERENCE,
     "portable/references/design-interview.md",
     "skills/charter-workflow/SKILL.md",
+    SKILL_CHANGE_TRIAGE_REFERENCE,
     "skills/charter-workflow/references/DEVELOPMENT_CHARTER.md",
     "skills/charter-workflow/references/DEPENDENCIES.md",
     "skills/charter-workflow/references/design-interview.md",
@@ -194,17 +200,8 @@ REQUIRED_FILES = (
     "scripts/validate_kit.py",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
-    "scripts/build_dsh_plugin.py",
-    DSH_TARGET_PACKAGE_JSON_RELATIVE,
-    DSH_TARGET_SRC_RELATIVE,
-    DSH_TARGET_BUILD_SCRIPT_RELATIVE,
-    DSH_TARGET_README_RELATIVE,
-    DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE,
-    DSH_DISTRIBUTION_SRC_RELATIVE,
-    DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
-    DSH_DISTRIBUTION_LIB_RELATIVE,
-    f"{DSH_DISTRIBUTION_SKILL_RELATIVE}/SKILL.md",
-    "tests/test_dsh_target.py",
+    TARGET_CHANGE_TRIAGE_REFERENCE,
+    DISTRIBUTION_CHANGE_TRIAGE_REFERENCE,
     "tests/test_charter_kit.py",
     "tests/test_dependencies.py",
     "tests/test_generic_bootstrap.py",
@@ -219,6 +216,7 @@ MIRRORS = (
     ("scripts/check_dependencies.py", "skills/charter-workflow/scripts/check_dependencies.py"),
     ("scripts/init_project.py", "skills/charter-workflow/scripts/init_project.py"),
     ("portable/references/design-interview.md", "skills/charter-workflow/references/design-interview.md"),
+    (CHANGE_TRIAGE_REFERENCE, SKILL_CHANGE_TRIAGE_REFERENCE),
     *((path, f"{SKILL_TEMPLATE_ROOT}/{Path(path).name}") for path in PORTABLE_TEMPLATES),
     (
         "portable/references/design-interview.md",
@@ -278,6 +276,104 @@ HOST_LEAF_APPROVAL_RULE = (
 )
 
 DEPENDENCY_STATUSES = ("AVAILABLE", "MISSING", "UNVERIFIED", "FALLBACK")
+
+# Reuse Check deliberately has one small gate state vocabulary.  Coverage,
+# result, and final route are recorded independently in the discovery record;
+# keeping the sets here prevents validators from accidentally reviving the
+# older all-in-one status field.
+REUSE_GATE_STATES = ("PENDING", "COMPLETE", "BLOCKED")
+REUSE_COVERAGE_VALUES = (
+    "SEARCHED",
+    "NOT_SEARCHED",
+    "NOT_AUTHORIZED",
+    "BLOCKED_TOOLING",
+)
+REUSE_RESULT_VALUES = ("MATCH", "NO_MATCH", "UNKNOWN")
+REUSE_FINAL_ROUTES = (
+    "ADOPT",
+    "ADAPT",
+    "REFERENCE_ONLY",
+    "BUILD_NEW",
+    "REUSE_SPIKE",
+    "NEEDS_DECISION",
+)
+
+# A high-value uncertainty must be visibly blocking until it is resolved.
+# Permit either Markdown code ticks or plain words, and allow ``or DEFER``
+# between UNKNOWN and the resolution phrase.  The order is intentional: it
+# makes the rule easy to audit in every host entry point.
+HIGH_VALUE_UNKNOWN_RULE = re.compile(
+    r"(?i)high-value\s+`?UNKNOWN`?"
+    r"[^\n]{0,140}(?:remains?\s+unresolved|unresolved)"
+)
+
+# A bounded waiver is a leaf-scoped readiness exception, not another gate
+# state.  Entry points repeat this compact rule because a host may load one
+# prompt without loading the full Skill.  Allow line wrapping between words,
+# but require the explicit COMPLETE-or-waiver relationship and the Leaf scope.
+REUSE_READY_WAIVER_RULE = re.compile(
+    r"(?is)A\s+Leaf\s+may\s+enter\s+`READY`\s+only\s+when"
+    r".{0,260}?`COMPLETE`.{0,260}?specific\s+Leaf"
+    r".{0,180}?bounded\s+waiver"
+)
+
+# The legacy aggregate vocabulary must never be presented as the Reuse Gate
+# state.  This catches stale mirrors even when all three new words happen to
+# be present elsewhere in the same document.
+LEGACY_REUSE_GATE_CONTRACTS = (
+    "NOT_STARTED | IN_PROGRESS | COMPLETE | LIMITED | WAIVED | BLOCKED_TOOLING",
+    "NOT_STARTED`, `IN_PROGRESS`, `BLOCKED_TOOLING",
+)
+
+# DSH is retained as an experimental adapter shell.  Its presence is useful
+# for structural checks, but it is not a verified installation target.  Keep
+# the claim detector narrow enough to allow ordinary words such as "build"
+# and the root README's Codex installation instructions while rejecting an
+# explicit DSH install command or a statement that DSH itself is supported.
+DSH_INSTALL_COMMAND_RE = re.compile(r"(?i)\bdev_(?:inject_plugin|install_package)\b")
+DSH_SUPPORTED_CLAIM_RE = re.compile(
+    r"(?i)\b(?:supported|official(?:ly)?|verified|production(?:[- ]ready)?)\b|"
+    r"正式(?:支持|安装)|官方(?:支持|安装)|已验证(?:支持|安装)|可安装"
+)
+
+
+def _contains_dsh_supported_claim(text: str) -> bool:
+    """Return whether a line positively claims verified DSH support.
+
+    The repository's shared README deliberately says that DSH is
+    experimental/unverified and makes *no* supported-install claim.  A broad
+    regex would flag that disclaimer itself, so inspect each DSH-containing
+    line and ignore explicit negative/disclaimer wording.
+    """
+
+    # Inspect short clauses rather than whole paragraphs.  A README commonly
+    # says that Codex is verified and then mentions DSH as experimental on the
+    # same line; treating that whole line as one claim would be a false
+    # positive.  Conversely, "experimental but supported" must still be
+    # rejected because the positive claim is in the DSH clause itself.
+    for line in text.splitlines():
+        for clause in re.split(r"[.!?;；。！？]+", line):
+            low = clause.lower().strip()
+            if "dsh" not in low and "@dsh-external" not in low:
+                continue
+            match = DSH_SUPPORTED_CLAIM_RE.search(clause)
+            if match is None:
+                continue
+            before = clause[: match.start()].lower()
+            after = clause[match.end() :].lower()
+            negative = re.search(
+                r"(?:not|no|never|cannot|can't|does\s+not|do\s+not|"
+                r"without|unverified|unsupported)\b[^\n]{0,50}$",
+                before,
+            )
+            negative = negative or re.search(
+                r"^\s*(?:installation\s+is\s+)?(?:not|never|unsupported|"
+                r"unverified)\b|\b(?:not|never|unsupported|unverified)\b",
+                after,
+            )
+            if negative is None:
+                return True
+    return False
 
 
 def _is_junction(path: Path) -> bool:
@@ -578,7 +674,7 @@ class Checker:
         print("- host prompts share the generic canonical entry")
         print("- plugin manifest and LICENSE valid")
         print("- marketplace, Codex target, and generated distribution valid")
-        print("- DSH target and generated distribution valid")
+        print("- DSH adapter checked only when present (experimental / unverified; no supported-install claim)")
         print("- target/distribution and legacy mirrors are byte-identical")
         print("- no install side effect is declared")
         return 0
@@ -1002,10 +1098,63 @@ class Checker:
             )
 
     def check_dsh_target_and_distribution(self) -> None:
-        """Check the DSH adapter source and its generated plugin distribution."""
+        """Check the optional DSH adapter without treating it as supported.
 
-        self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE)
-        distribution_root = self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE)
+        DSH source/distribution files are intentionally retained for future
+        host work. Core validation remains useful when either tree is absent;
+        when both are present, only structural consistency is checked.
+        """
+
+        target_root = self._path(DSH_TARGET_ROOT_RELATIVE)
+        distribution_root_path = self._path(DSH_DISTRIBUTION_ROOT_RELATIVE)
+        target_present = target_root.exists() or _is_link(target_root)
+        distribution_present = distribution_root_path.exists() or _is_link(distribution_root_path)
+        if not target_present and not distribution_present:
+            return
+
+        # Check the disclaimer independently of whether the optional source
+        # and generated trees are both present.  A partially checked-out
+        # experimental adapter must not accidentally acquire a supported
+        # installation claim simply because its counterpart is absent.
+        for relative in (
+            DSH_TARGET_README_RELATIVE,
+            f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/README.md",
+        ):
+            # README files are recommended metadata for an experimental
+            # adapter, but the adapter itself remains optional.  Do not turn
+            # a partial source checkout into a hard failure merely because a
+            # counterpart README is absent.
+            if not self._path(relative).is_file():
+                continue
+            readme = self.read(relative)
+            if not readme:
+                continue
+            self.require_regex(
+                readme,
+                r"(?i)experimental",
+                relative,
+                "experimental adapter must be labelled experimental",
+            )
+            self.require_regex(
+                readme,
+                r"(?i)unverified",
+                relative,
+                "experimental adapter must be labelled unverified",
+            )
+            if DSH_INSTALL_COMMAND_RE.search(readme):
+                self.errors.append(f"{relative}: DSH supported-install command is not allowed")
+            if _contains_dsh_supported_claim(readme):
+                self.errors.append(f"{relative}: DSH supported-install claim is not allowed")
+
+        if target_present and not distribution_present:
+            self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE, required=False)
+            return
+        if distribution_present and not target_present:
+            self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE, required=False)
+            return
+
+        self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE, required=False)
+        distribution_root = self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE, required=False)
 
         target_pkg = self._load_json_object(
             DSH_TARGET_PACKAGE_JSON_RELATIVE,
@@ -1048,32 +1197,7 @@ class Checker:
             DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
             label="DSH target/distribution build.sh",
         )
-        self._compare_trees(
-            LEGACY_SKILL_RELATIVE,
-            DSH_DISTRIBUTION_SKILL_RELATIVE,
-            label="DSH distribution skill mirror",
-        )
-
         if distribution_root is not None:
-            for item in DISTRIBUTION_ROOT_ITEMS:
-                source = self._path(item)
-                destination = self._path(f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}")
-                if source.is_dir():
-                    self._compare_trees(
-                        item,
-                        f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}",
-                        label="DSH distribution mirror",
-                    )
-                elif source.is_file():
-                    if not destination.is_file():
-                        self._missing_file(f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}")
-                    else:
-                        self._compare_file_bytes(
-                            item,
-                            f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/{item}",
-                            label="DSH distribution mirror",
-                        )
-
             lib_text = self.read(DSH_DISTRIBUTION_LIB_RELATIVE)
             if "export const name = 'dsh-charter-kit'" not in lib_text:
                 self.errors.append(f"{DSH_DISTRIBUTION_LIB_RELATIVE}: missing plugin name marker")
@@ -1228,9 +1352,18 @@ class Checker:
         leaf = self.read("portable/templates/leaf-task.md")
         self.require(leaf, "Status: `DRAFT`", "leaf-task.md")
         self.require(leaf, "- `BLOCKED_TOOLING` —", "leaf-task.md")
+        self.require(
+            leaf,
+            "Reuse assessment: `YES | NO_MATERIAL_TARGET`",
+            "leaf-task.md",
+        )
+        if "Reuse assessment: `MATERIAL_TARGET | NO_MATERIAL_TARGET`" in leaf:
+            self.errors.append(
+                "leaf-task.md: material-target values must be YES | NO_MATERIAL_TARGET"
+            )
         for phrase in (
             "Reuse discovery record: `.charter/reuse-discovery.md`",
-            "Reuse route / candidate IDs:",
+            "Reuse final route / candidate IDs:",
             "### Positive behavior",
             "### Negative behavior / boundaries",
             "### Evidence to attach",
@@ -1258,12 +1391,11 @@ class Checker:
             ".charter/reuse-discovery.md",
             "Reuse discovery gate:",
             "COMPLETE",
-            "LIMITED",
-            "WAIVED",
+            "limitation or waiver",
             "BLOCKED_TOOLING",
             "Dependency check evidence:",
             "PASS_CLOSED",
-            "Mirror every later leaf state transition",
+            "Mirror the full normal sequence",
             "recheck trigger/date",
             "readiness",
         ):
@@ -1278,24 +1410,29 @@ class Checker:
 
         reuse = self.read("portable/templates/reuse-discovery.md")
         for phrase in (
-            "Gate status: `NOT_STARTED | IN_PROGRESS | COMPLETE | LIMITED | WAIVED | BLOCKED_TOOLING`",
+            "Gate status: `PENDING | COMPLETE | BLOCKED`",
             "NO_MATCH",
-            "ADOPT / ADAPT / REFERENCE_ONLY / REJECT / DEFER / UNKNOWN / REUSE_SPIKE",
+            "ADOPT / ADAPT / REFERENCE_ONLY / REJECT / DEFER",
             "do not clone, build, run, import, copy, install",
             "Fixed revision/version",
             "Decision / waiver reference",
-            "BUILD_NEW is a capability-level route",
-            "blocks leaf approval/readiness",
+            "`BUILD_NEW` is a capability-level route",
+            "UNKNOWN` means the available evidence is insufficient",
             "Gate freshness for this leaf",
             "LOCAL_ONLY = workspace/history",
             "LOCAL_ECOSYSTEM = workspace/history + installed/cache + approved internal",
             "FULL_EXTERNAL = LOCAL_ECOSYSTEM + official/upstream/registries + authorized public web",
-            "MATCHES / NO_MATCH / NOT_SEARCHED / NOT_AUTHORIZED / BLOCKED_TOOLING",
-            "NO_MATCH requires an evidence reference",
+            "Coverage: `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`",
+            "Result: `MATCH | NO_MATCH | UNKNOWN`",
+            "`NO_MATCH` requires an evidence reference",
             "no unresolved high-value `UNKNOWN` or `DEFER`",
-            "fixed immutable commit/tag/package version",
+            "immutable Git commit/tag or package version",
         ):
             self.require(reuse, phrase, "portable/templates/reuse-discovery.md")
+        self._check_reuse_record_contract(
+            "portable/templates/reuse-discovery.md",
+            reuse,
+        )
 
         review = self.read("portable/templates/review.md")
         for phrase in (
@@ -1309,8 +1446,9 @@ class Checker:
 
         evidence = self.read("portable/templates/evidence-receipt.md")
         for phrase in (
-            "MATCHES | NO_MATCH | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING",
-            "fixed immutable commit/tag/package version",
+            "Discovery coverage (when `DISCOVERY`): `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`",
+            "Discovery result (when `DISCOVERY`): `MATCH | NO_MATCH | UNKNOWN`",
+            "immutable Git commit/tag or package version",
             "NO_MATCH` is valid only",
         ):
             self.require(evidence, phrase, "evidence-receipt.md")
@@ -1398,6 +1536,125 @@ class Checker:
             and ("before" in low and ("leaf" in low or "approv" in low))
         )
 
+    def _check_reuse_entry_contract(self, relative: str, text: str) -> None:
+        """Validate the small Reuse Gate contract in an entry point.
+
+        Entry points repeat the safety boundary because a host may load one
+        prompt or command without loading the full Skill.  Keep this check
+        semantic rather than requiring a particular paragraph layout: the
+        canonical wording may be translated or wrapped, while the gate must
+        still expose the same three states and stop conditions.
+        """
+
+        for state in REUSE_GATE_STATES:
+            self.require(text, state, relative)
+        for obsolete in LEGACY_REUSE_GATE_CONTRACTS:
+            if obsolete in text:
+                self.errors.append(
+                    f"{relative}: obsolete aggregate Reuse Gate state list {obsolete!r}"
+                )
+
+        if HIGH_VALUE_UNKNOWN_RULE.search(text) is None:
+            self.errors.append(
+                f"{relative}: high-value UNKNOWN remains unresolved rule is missing"
+            )
+        if REUSE_READY_WAIVER_RULE.search(text) is None:
+            self.errors.append(
+                f"{relative}: READY must require COMPLETE or a leaf-specific bounded waiver"
+            )
+
+        # Coverage is metadata about what was searched, not a fourth gate
+        # state.  Requiring the distinction here prevents a host entry from
+        # silently turning an unavailable tier into NO_MATCH.
+        coverage_pattern = re.compile(
+            r"(?i)(?:NOT_SEARCHED|NOT_AUTHORIZED|BLOCKED_TOOLING)"
+            r"[^\n]{0,320}(?:(?:not|never)\s+(?:a\s+)?|"
+            r"(?:visibly\s+)?(?:distinct|separate|different)\s+from\s+)"
+            r"(?:gate\s+state(?:s)?|gate|`?NO_MATCH`?)"
+        )
+        if coverage_pattern.search(text) is None:
+            self.errors.append(
+                f"{relative}: coverage values must remain distinct from gate state/result"
+            )
+
+        # A tooling block is a hard stop unless an explicit, bounded decision
+        # is recorded.  This is intentionally checked separately from the
+        # generic BLOCKED state so a stale prompt cannot pass by mentioning
+        # BLOCKED_TOOLING in an inventory only.
+        blocked_pattern = re.compile(
+            r"(?i)BLOCKED_TOOLING[^\n]{0,260}"
+            r"(?:(?:cannot|must\s+not|do\s+not)[^\n]{0,120}"
+            r"(?:READY|readiness)|blocks?\s+(?:leaf\s+)?readiness)"
+        )
+        if blocked_pattern.search(text) is None:
+            self.errors.append(
+                f"{relative}: BLOCKED_TOOLING cannot approve or move a leaf to READY"
+            )
+
+    def _check_reuse_record_contract(self, relative: str, text: str) -> None:
+        """Validate the canonical discovery-record field separation.
+
+        The record is the authoritative Reuse Check template.  It therefore
+        gets a slightly stricter check than host prose: gate state, tier
+        coverage, search result, candidate disposition, and capability-level
+        route must each remain separate fields.
+        """
+
+        self.require(
+            text,
+            "Gate status: `PENDING | COMPLETE | BLOCKED`",
+            relative,
+        )
+        for obsolete in LEGACY_REUSE_GATE_CONTRACTS:
+            if obsolete in text:
+                self.errors.append(
+                    f"{relative}: obsolete aggregate Reuse Gate state list {obsolete!r}"
+                )
+        for label, values in (
+            ("Coverage", " | ".join(REUSE_COVERAGE_VALUES)),
+            ("Result", " | ".join(REUSE_RESULT_VALUES)),
+        ):
+            self.require(text, f"{label}: `{values}`", relative)
+        self.require(text, "Final route:", relative)
+        for route in REUSE_FINAL_ROUTES:
+            self.require(text, route, relative)
+
+        # ``NO_MATCH`` is evidence-backed only; unavailable or out-of-scope
+        # tiers must not be collapsed into it.
+        self.require_regex(
+            text,
+            r"(?i)`?NO_MATCH`?[^\n]{0,180}(?:requires|only after)[^\n]{0,120}"
+            r"(?:evidence|query|ran)",
+            relative,
+            "NO_MATCH must follow an executed query and evidence",
+        )
+        self.require_regex(
+            text,
+            r"(?i)(?:NOT_SEARCHED|NOT_AUTHORIZED|BLOCKED_TOOLING)[^\n]{0,320}"
+            r"(?:(?:not|never)\s+(?:a\s+)?|(?:visibly\s+)?"
+            r"(?:distinct|separate|different)\s+from\s+)"
+            r"(?:gate\s+state(?:s)?|gate|`?NO_MATCH`?)",
+            relative,
+            "coverage values must stay distinct from NO_MATCH and gate state",
+        )
+        self.require_regex(
+            text,
+            r"(?i)(?:high-value\s+`?UNKNOWN`?[^\n]{0,180}(?:unresolved|remains)|"
+            r"(?:unresolved|remains)[^\n]{0,80}high-value\s+`?UNKNOWN`?)",
+            relative,
+            "high-value UNKNOWN/DEFER must be resolved before completion",
+        )
+        self.require_regex(
+            text,
+            r"(?i)UNKNOWN[^\n]{0,180}(?:not|never)\s+(?:permission|authorization|permission to build)",
+            relative,
+            "UNKNOWN must not authorize BUILD_NEW",
+        )
+        if REUSE_READY_WAIVER_RULE.search(text) is None:
+            self.errors.append(
+                f"{relative}: READY must require COMPLETE or a leaf-specific bounded waiver"
+            )
+
     def _ordered_bootstrap_section(self, text: str) -> str:
         """Return the actionable zero-start section, excluding inventories.
 
@@ -1467,12 +1724,7 @@ class Checker:
             self.errors.append(f"{relative}: unresolved charter findings must block approval")
         if not self._has_reuse_gate_rule(text):
             self.errors.append(f"{relative}: reuse discovery gate must be explicit")
-        self.require_regex(
-            text,
-            r"BLOCKED_TOOLING[^\n]{0,240}(?:(?:cannot|must not|do not).{0,100}(?:READY|readiness)|blocks?\s+(?:leaf\s+)?readiness)",
-            relative,
-            "BLOCKED_TOOLING cannot approve or move a leaf to READY",
-        )
+        self._check_reuse_entry_contract(relative, text)
         for phrase in ("workspace/history", ".charter/evidence/", "authoritative"):
             self.require(text, phrase, relative)
         self.require(text, "PASS_CLOSED", relative)
@@ -1727,8 +1979,18 @@ class Checker:
             "Portable fallback",
             "grill-me",
             "design-interview",
+            "PENDING",
+            "COMPLETE",
+            "BLOCKED",
+            "Coverage",
+            "Result",
+            "Final route",
         ):
             self.require(routing, phrase, "tool-routing reference")
+        self._check_reuse_entry_contract(
+            "skills/charter-workflow/references/tool-routing.md",
+            routing,
+        )
         interview = self.read("skills/charter-workflow/references/design-interview.md")
         for phrase in ("grilling", "Negative paths and boundaries", "Stop line", "Record"):
             self.require(interview, phrase, "design-interview reference")
@@ -1767,7 +2029,7 @@ class Checker:
             "name: charter-kit",
             "version: 0.2.0",
             "protocol: charter/v1",
-            "purpose: cross-agent-development-governance",
+            "purpose: project-local-development-governance",
             "source_of_truth:",
             "working_set:",
             ".charter/project.md",

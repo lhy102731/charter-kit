@@ -20,7 +20,7 @@ Charter Kit 的核心协议是普通 Markdown；项目不需要安装某个特�
 | `git` | 分支、提交、祖先关系和合并后验证 | 版本证据较弱 | 使用宿主版本系统或人工不可变标识 |
 | `isolated-workspace` | 保护主工作树 | 隔离保证较弱 | 临时目录并在交接中声明 |
 | `executable-tests` | 自动验收和负向测试 | 只能做人工/静态检查 | 降低完成等级并保留覆盖限制 |
-| `independent-review` | 新鲜上下文的 Review B | 不能声称独立审阅 | 记录 `BLOCKED_TOOLING` 或取得明确 waiver |
+| `independent-review` | 风险或用户触发的新鲜 Review B / CHARTER_INDEPENDENT | 不能声称已完成被触发的独立审阅 | 未触发时记录省略理由；触发但不可用时记录 `BLOCKED_TOOLING` 或取得明确 waiver |
 
 ### 可选 provider
 

@@ -17,12 +17,13 @@
 - Scope inspected: `<paths, inputs, dataset scope, or behavior>`
 - Predecessor evidence: `<IDs>`
 - Discovery query / source tier (when `DISCOVERY`): `<exact query or path; workspace / installed / internal / official / web>`
-- Discovery result status (when `DISCOVERY`): `MATCHES | NO_MATCH | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`
-- Candidate revision / license (when `DISCOVERY`): `<fixed immutable commit/tag/package version or NO_MATCH; SPDX and attribution status>`
+- Discovery coverage (when `DISCOVERY`): `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`
+- Discovery result (when `DISCOVERY`): `MATCH | NO_MATCH | UNKNOWN`
+- Candidate revision / license (when `DISCOVERY`): `<immutable Git commit/tag or package version, or none; SPDX and attribution status>`
 
 ## Change Triage
 
-- Record the event kind and route from `portable/references/change-triage.md` when this receipt supports a scope or authority decision.
+- Record the event kind and route from the bundled Change Triage reference when this receipt supports a scope or authority decision: `portable/references/change-triage.md` in the full kit or `references/change-triage.md` in the self-contained Skill.
 - Keep the precedence choice explicit: `CHARTER > ROADMAP > LEAF > IN_CONTRACT`.
 - New requirement must not silently expand the current Leaf.
 
@@ -39,7 +40,7 @@
 - Exit class: `PASS | FAIL | ERROR | SKIPPED | NOT_RUN`
 - Raw output reference: `<path, log, screenshot, or other artifact>`
 
-For `DISCOVERY`, `NO_MATCH` is valid only when the exact operation actually ran and this raw output reference is present; an omitted or unauthorized tier must use `NOT_SEARCHED`/`NOT_AUTHORIZED` instead.
+For `DISCOVERY`, `NO_MATCH` is valid only when the exact operation actually ran and this raw output reference is present; an omitted or unauthorized tier must use `NOT_SEARCHED`/`NOT_AUTHORIZED` instead. Keep coverage and result separate; `UNKNOWN` is not permission to build a replacement.
 
 ## Coverage and limitations
 

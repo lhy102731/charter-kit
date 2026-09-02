@@ -1,10 +1,12 @@
 # Charter Kit Implementation Plan
 
+> Historical implementation plan. Superseded by the lightweight, project-local v1 architecture in [`docs/superpowers/specs/2026-09-02-charter-kit-v1-architecture-design.md`](../specs/2026-09-02-charter-kit-v1-architecture-design.md); terminology below records the original draft and is not a current product promise.
+
 > Status: complete. All package and smoke checks below were performed. The surrounding workspace is not a Git repository, so the listed commit steps were recorded as not applicable rather than fabricated.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a lightweight, cross-agent development charter kit with a portable source of truth and an optional thin Codex entry point.
+**Goal (original draft):** Build a lightweight development charter kit with a portable source of truth and an optional thin Codex entry point.
 
 **Architecture:** The portable layer is Markdown/YAML templates and a practical development charter that can be read by any agent. The Codex layer contains only a short skill that routes an agent to the project `.charter/` files and the portable workflow. Optional Superpowers and J-space providers are documented, never required, and never installed silently.
 
@@ -155,7 +157,7 @@ Run `python <skill-creator>/scripts/quick_validate.py skills/charter-workflow`.
 
 - [x] **Step 3: Run the package validator and smoke scenarios**
 
-Run the standard-library validator and manually exercise a new project, a blocked task, and a cross-agent handoff using only the portable files.
+Run the standard-library validator and manually exercise a new project, a blocked task, and a project-local recovery snapshot using only the portable files.
 
 - [x] **Step 4: Review the final tree and dependency claims**
 

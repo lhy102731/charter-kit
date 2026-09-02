@@ -22,7 +22,7 @@
 
 ## Change Triage
 
-- Record the event kind and route from `portable/references/change-triage.md`.
+- Record the event kind and route from the bundled Change Triage reference: `portable/references/change-triage.md` in the full kit or `references/change-triage.md` in the self-contained Skill.
 - `CHARTER > ROADMAP > LEAF > IN_CONTRACT` decides whether the request stays local or needs a broader change.
 - New requirement must not silently expand the current Leaf.
 

@@ -10,8 +10,9 @@
 - Date: `<YYYY-MM-DD>`
 - Current status: `DRAFT | APPROVED | BLOCKED | BLOCKED_TOOLING | NEEDS_DECISION | PARTIAL | PAUSED | SUPERSEDED | CLOSED`
 - Current success level: `<project-defined level; name, entry condition, and evidence below>`
-- Reuse discovery gate: `NOT_STARTED | IN_PROGRESS | COMPLETE | LIMITED | WAIVED | BLOCKED_TOOLING`
+- Reuse discovery gate: `PENDING | COMPLETE | BLOCKED`
 - Reuse discovery record: `.charter/reuse-discovery.md`
+- Reuse material-target / final-route projection: `<YES | NO_MATERIAL_TARGET>` / `<ADOPT | ADAPT | REFERENCE_ONLY | BUILD_NEW | REUSE_SPIKE | NEEDS_DECISION>`
 - Intent interview evidence: `<path/ID; provider, rounds, unresolved branches, and user confirmation>`
 - Intent interview mode: `GRILL_ME | PORTABLE_FALLBACK | NOT_STARTED`
 
@@ -97,7 +98,7 @@ Sensitive data, release changes, credential changes, and irreversible external a
 
 ### Change Triage
 
-- Use `portable/references/change-triage.md` to classify new requirements, defects, discovered constraints, and risks.
+- Use the bundled Change Triage reference to classify new requirements, defects, discovered constraints, and risks: `portable/references/change-triage.md` in the full kit or `references/change-triage.md` in the self-contained Skill.
 - `CHARTER > ROADMAP > LEAF > IN_CONTRACT` is the precedence order when more than one route seems plausible.
 - New requirement must not silently expand the current Leaf.
 
@@ -112,20 +113,21 @@ Do not replace an asset merely because a new framework is attractive. Do not kee
 
 ### 6.1 Reuse discovery gate
 
-After this charter's direction is approved, complete `.charter/reuse-discovery.md` before approving or implementing the first leaf. A DRAFT leaf may be prepared during charter engineering, but it cannot move beyond DRAFT until the gate passes. Search in this order: workspace/history → installed skills/plugins/cache/manifest → approved internal resources → official docs/upstream/registries → authorized public web, with every non-workspace/installed tier requiring the selected scope and `External read authorization`. Scope meanings are fixed: `LOCAL_ONLY` = workspace/history; `LOCAL_ECOSYSTEM` = workspace/history + installed/cache + approved internal; `FULL_EXTERNAL` = LOCAL_ECOSYSTEM + official/upstream/registries + authorized public web. Record exact queries and raw outputs under `.charter/evidence/`, negative results, fixed immutable candidate revisions, license and security checks, integration cost, and the reason for every candidate decision (`ADOPT`, `ADAPT`, `REFERENCE_ONLY`, `REJECT`, `DEFER`, `UNKNOWN`, or `REUSE_SPIKE`). `BUILD_NEW` is a capability-level final route justified in the discovery hand-back, not a candidate-row decision.
+After this charter's direction is approved, complete the single `.charter/reuse-discovery.md` record before approving or implementing the first leaf. A DRAFT leaf may be prepared during charter engineering, but it cannot move beyond DRAFT while the gate is `PENDING` or `BLOCKED` unless that specific Leaf has an explicit, separately approved bounded waiver recorded in the decision fields. The waiver must name the approved/omitted scope, limitation, approver, and expiry/recheck condition; it is not a fourth gate state or project-wide bypass. First record whether the requested capability is a material target; even `NO_MATERIAL_TARGET` receives a local sanity check. For a material target, choose `FAST`, `STANDARD`, or `DEEP` and search progressively: workspace/history → installed skills/plugins/cache/manifest and framework/SDK/dependencies → approved internal resources → official docs/upstream/registries and other explicitly authorized public sources. Scope meanings are fixed: `LOCAL_ONLY` = workspace/history; `LOCAL_ECOSYSTEM` = workspace/history + installed/cache + approved internal; `FULL_EXTERNAL` = LOCAL_ECOSYSTEM + official/upstream/registries + authorized public web. Record exact queries, coverage (`SEARCHED`, `NOT_SEARCHED`, `NOT_AUTHORIZED`, or `BLOCKED_TOOLING`), results (`MATCH`, `NO_MATCH`, or `UNKNOWN`), raw outputs under `.charter/evidence/`, fixed immutable candidate revisions, and the final route. Candidate disposition and final route are separate fields; `BUILD_NEW` is a capability-level final route justified in the hand-back, not a candidate-row decision.
 
 - Discovery scope: `LOCAL_ONLY | LOCAL_ECOSYSTEM | FULL_EXTERNAL`
 - External read authorization: `yes | no`
 - Privacy restrictions: `<data that may not enter external queries>`
 - Search timebox / query budget: `<bounded limit>`
 - Stop condition: `<coverage and saturation rule>`
-- Gate result and reviewed on: `<COMPLETE / LIMITED / WAIVED / BLOCKED_TOOLING>` / `<date>`
+- Gate result and reviewed on: `<PENDING / COMPLETE / BLOCKED>` / `<date>`
+- Latest coverage / result: `<SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING>` / `<MATCH | NO_MATCH | UNKNOWN>`
 - Reuse discovery ID (mirrors the authoritative record): `<RD-...>`
 - Limitation, waiver, approver, and recheck trigger: `<reference or none>`
 
-The gate status in this file and in `.charter/roadmap.md` is a projection of the authoritative `.charter/reuse-discovery.md` record. Update all projections in the same change; any disagreement or expired recheck keeps the project/leaf `BLOCKED` until reconciled.
+The gate status in this file and in `.charter/roadmap.md` is a projection of the authoritative `.charter/reuse-discovery.md` record. Update all projections in the same change; any disagreement or expired recheck keeps the project/leaf `BLOCKED` until reconciled. A limited or waived search is recorded in the decision/waiver reference with its Leaf, omitted scope, accepted limitation, approver, and recheck condition. A valid leaf-specific waiver may authorize only that Leaf to reach `READY`; it does not create another gate state or change the project-wide projection.
 
-`COMPLETE` requires every material capability to cover its approved scope with raw evidence, explicit out-of-scope results, fixed immutable selected revisions, and no unresolved high-value `UNKNOWN`/`DEFER`; uncertain items must become a `REUSE_SPIKE`, explicit waiver, or blocking decision. `LIMITED` or `WAIVED` must name the omitted sources, accepted risk, approving person, and recheck condition. A candidate is not permission to install, execute, copy, or change the approved goal; any such action gets its own contract and authorization.
+`COMPLETE` requires every material capability to cover its approved scope with raw evidence, explicit out-of-scope coverage, fixed immutable selected revisions, and no unresolved high-value `UNKNOWN` or deferred candidate. `NO_MATCH` is valid only after an exact query ran in the declared scope; `NOT_SEARCHED`, `NOT_AUTHORIZED`, and `BLOCKED_TOOLING` are never `NO_MATCH`. An uncertain item must become a `REUSE_SPIKE`, an explicitly approved bounded waiver for the named Leaf, or a blocking decision; a waiver must explicitly address any high-value `UNKNOWN`/`DEFER` and may not silently turn it into `BUILD_NEW`. A candidate is not permission to install, execute, copy, or change the approved goal; each such action gets its own contract and authorization.
 
 ## 7. Capability map
 
@@ -176,7 +178,7 @@ Automatic continuation never includes a change to the Goal, Non-goals, Invariant
 ## 11. Approval record
 
 - Charter self-review evidence:
-- Independent charter review evidence, or explicit waiver / limitation:
+- Independent charter review evidence / applicability: `<REQUIRED with trigger/evidence, NOT_REQUIRED with bounded omission reason, or waiver/limitation>`
 - Approved goal and non-goals by:
 - Approved on:
 - Approved success level:
@@ -185,7 +187,7 @@ Automatic continuation never includes a change to the Goal, Non-goals, Invariant
 - Conditions or expiry:
 
 Project-charter approval does not approve the first leaf task. Record leaf approval or matching `AUTO_DEV` preauthorization separately in `.charter/current-task.md` before moving it from `DRAFT` to `APPROVED`.
-Before setting `Current status` to `APPROVED`, the self-review field and the independent-review field must contain non-empty evidence references. If a waiver is used, name the unavailable capability, the approving person, the limitation accepted, and its expiry or re-review condition.
+Before setting `Current status` to `APPROVED`, the self-review field must contain evidence and the independent-review field must record either required review evidence, a bounded `NOT_REQUIRED` reason, or an explicit waiver. If a waiver is used, name the unavailable capability, the approving person, the limitation accepted, and its expiry or re-review condition.
 
 ## 12. Change log
 
