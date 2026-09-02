@@ -24,7 +24,7 @@
 - WIP limit per parent: `1`
 - Current task contract: `.charter/current-task.md`
 - Reuse discovery record: `.charter/reuse-discovery.md`
-- Reuse discovery gate: `NOT_STARTED | IN_PROGRESS | COMPLETE | LIMITED | WAIVED | BLOCKED_TOOLING`
+- Reuse discovery gate: `PENDING | COMPLETE | BLOCKED`
 - Gate source of truth: `.charter/reuse-discovery.md`; this status is a synchronized projection and must match `project.md`.
 - Reuse discovery ID: `<RD-...; must match .charter/reuse-discovery.md and project.md>`
 - Discovery freshness: `<current, or targeted recheck ID/date when a trigger applies>`
@@ -38,6 +38,13 @@
 - Use `portable/references/change-triage.md` when a new requirement, defect, discovered constraint, or risk arrives.
 - New requirement must not silently expand the current Leaf.
 
+### Reuse Check projection
+
+- Material target: `YES | NO_MATERIAL_TARGET` (a `NO_MATERIAL_TARGET` leaf still records a local sanity check).
+- Coverage / result: `<SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING>` / `<MATCH | NO_MATCH | UNKNOWN>`.
+- Final route: `<ADOPT | ADAPT | REFERENCE_ONLY | BUILD_NEW | REUSE_SPIKE | NEEDS_DECISION>`.
+- The authoritative record is one project-local `.charter/reuse-discovery.md`; do not create a registry, scoring board, or second memory database.
+
 ## Leaf readiness check
 
 Before moving a leaf to `READY`, confirm:
@@ -50,15 +57,15 @@ Before moving a leaf to `READY`, confirm:
 - [ ] stop conditions and repair budget are written;
 - [ ] required host capabilities and approvals are available.
 - [ ] the dependency-check record is attached; every required capability is `AVAILABLE`, or an explicit `BLOCKED_TOOLING`/user waiver is recorded.
-- [ ] the reuse discovery gate is `COMPLETE`, or `LIMITED`/`WAIVED` has explicit user approval, limitations, and a recheck condition recorded in `.charter/reuse-discovery.md`;
+- [ ] the reuse discovery gate is `COMPLETE`; any approved limitation or waiver is recorded in `.charter/reuse-discovery.md` with its omitted scope, approver, and recheck condition;
 - [ ] the projected gate status matches `.charter/reuse-discovery.md` and `project.md`, and its recheck trigger/date is current; if a trigger applies, a targeted recheck is recorded before this leaf is approved;
 - [ ] when the gate is `COMPLETE`, every material capability has in-scope raw evidence, out-of-scope tiers are explicitly `NOT_SEARCHED`/`NOT_AUTHORIZED`, selected revisions are fixed immutable commit/tag/package versions, and no high-value `UNKNOWN`/`DEFER` remains unresolved;
 - [ ] every non-workspace/installed search tier used by this leaf is covered by the recorded discovery scope and `External read authorization`;
-- [ ] `BLOCKED_TOOLING` is treated as blocking: do not approve or move a leaf to `READY` until the capability is restored or the user approves a bounded `LIMITED`/`WAIVED` downgrade;
+- [ ] `BLOCKED` or `BLOCKED_TOOLING` is treated as blocking: do not approve or move a leaf to `READY` until the missing capability/evidence is restored or an explicit decision resolves the limitation;
 
-`BLOCKED_TOOLING` blocks leaf readiness and is never equivalent to approval.
+`BLOCKED` and `BLOCKED_TOOLING` block leaf readiness and are never equivalent to approval. `PENDING` likewise cannot authorize a leaf.
 
-Project approval does not bypass the reuse discovery gate. A pending or unsupported search keeps the leaf out of `APPROVED`/`READY`; `BLOCKED_TOOLING` requires restored capability or an explicit user-approved downgrade. For later leaves, do not repeat a full search unless a new capability, stack/boundary change, or expiry trigger applies; perform and link a targeted recheck instead. A selected candidate is still only a route decision until its own dependency, installation, and execution authorization exists.
+Project approval does not bypass the reuse discovery gate. A `PENDING` or `BLOCKED` record keeps the leaf out of `APPROVED`/`READY`; an explicit limitation or waiver is decision evidence, not a new gate state. For later leaves, do not repeat a full search unless a new capability, stack/boundary change, or expiry trigger applies; perform and link a targeted recheck instead. A selected candidate is still only a route decision until its own dependency, installation, and execution authorization exists.
 
 When the authoritative reuse record changes, update its status, this projection, and the project projection in the same change. Any mismatch is a blocking finding, not permission to choose the most optimistic copy.
 

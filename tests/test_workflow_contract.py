@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,63 @@ def read(relative: str) -> str:
 
 
 class WorkflowContractTests(unittest.TestCase):
+    def test_reuse_record_separates_coverage_result_and_route(self) -> None:
+        text = read("portable/templates/reuse-discovery.md")
+
+        for phrase in (
+            "SEARCHED",
+            "NOT_SEARCHED",
+            "NOT_AUTHORIZED",
+            "BLOCKED_TOOLING",
+            "MATCH",
+            "NO_MATCH",
+            "UNKNOWN",
+            "BUILD_NEW",
+            "NO_MATERIAL_TARGET",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+        self.assertIn("Gate status: `PENDING | COMPLETE | BLOCKED`", text)
+        self.assertIn("Coverage", text)
+        self.assertIn("Result", text)
+        self.assertIn("Final route", text)
+
+    def test_reuse_provider_roles_are_explicit(self) -> None:
+        manifest = read("agentpack.yaml")
+        for provider in (
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        ):
+            with self.subTest(provider=provider):
+                self.assertIn(f"id: {provider}", manifest)
+                self.assertRegex(manifest, rf"id: {provider}[\s\S]{{0,240}}role:")
+
+    def test_reuse_provider_metadata_is_mirrored_in_dependency_manifest(self) -> None:
+        payload = json.loads(read("dependencies.json"))
+        entries = [
+            *payload.get("providers", []),
+            *payload.get("capabilities", []),
+        ]
+        by_id = {entry.get("id"): entry for entry in entries}
+        for provider in (
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        ):
+            with self.subTest(provider=provider):
+                entry = by_id.get(provider)
+                self.assertIsNotNone(entry)
+                assert entry is not None
+                self.assertFalse(entry.get("required"))
+                self.assertTrue(entry.get("role"))
+                self.assertTrue(entry.get("fallback"))
+
     def test_all_entry_points_route_changes_through_change_triage(self) -> None:
         for relative in (
             "portable/commands/charter-workflow.md",

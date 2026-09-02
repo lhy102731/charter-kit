@@ -1,7 +1,7 @@
 name: charter-kit
 version: 0.2.0
 protocol: charter/v1
-purpose: cross-agent-development-governance
+purpose: project-local-development-governance
 
 source_of_truth:
   charter: DEVELOPMENT_CHARTER.md
@@ -48,6 +48,8 @@ recommended:
 optional_providers:
   - id: superpowers
     kind: host-workflow
+    role: design, TDD, debugging, review, and verification discipline
+    required: false
     capabilities:
       - brainstorming
       - planning
@@ -58,6 +60,8 @@ optional_providers:
     fallback: portable-checklists
   - id: j-space
     kind: host-state-support
+    role: long-task ledger, seam refresh, and resume support
+    required: false
     capabilities:
       - ledger
       - seam-review
@@ -65,9 +69,46 @@ optional_providers:
     fallback: project-handoff-and-ledger
   - id: grill-me
     kind: host-skill
+    role: goal and design interview pressure-testing
+    required: false
     capabilities:
       - design-interview
     fallback: portable-design-interview
+  - id: reuse-first
+    kind: reuse-provider
+    role: project-local helper, utility, mapper, and module discovery
+    required: false
+    capabilities:
+      - local-reuse-search
+    fallback: portable-local-search
+  - id: framework-first-coding
+    kind: reuse-provider
+    role: framework, SDK, dependency, and shared-component discovery
+    required: false
+    capabilities:
+      - ecosystem-reuse-search
+    fallback: portable-ecosystem-check
+  - id: reduce-reinvention
+    kind: reuse-provider
+    role: Build-vs-Reuse cost, risk, and maintenance trade-off
+    required: false
+    capabilities:
+      - reuse-decision-analysis
+    fallback: portable-decision-checklist
+  - id: find-skills
+    kind: reuse-provider
+    role: discovery of existing Agent Skills only
+    required: false
+    capabilities:
+      - skill-discovery
+    fallback: portable-skill-inventory
+  - id: repo-to-skill
+    kind: reuse-provider
+    role: authorized follow-up to turn a selected repository into a Skill
+    required: false
+    capabilities:
+      - repository-to-skill-assessment
+    fallback: do-not-convert-without-explicit-authorization
 
 # The generic entry is canonical for unknown hosts. Named entries below are
 # optional adapters; they do not change the portable protocol.
@@ -118,28 +159,46 @@ reuse_gate:
     LOCAL_ECOSYSTEM: workspace/history+installed/cache+approved-internal
     FULL_EXTERNAL: LOCAL_ECOSYSTEM+official/upstream/registries+authorized-public-web
   external_read_authorization_required_for: non-local-search-tiers
+  material_target_values:
+    - YES
+    - NO_MATERIAL_TARGET
+  search_depths:
+    - FAST
+    - STANDARD
+    - DEEP
   statuses:
-    - NOT_STARTED
-    - IN_PROGRESS
+    - PENDING
     - COMPLETE
-    - LIMITED
-    - WAIVED
+    - BLOCKED
+  coverage_values:
+    - SEARCHED
+    - NOT_SEARCHED
+    - NOT_AUTHORIZED
     - BLOCKED_TOOLING
+  result_values:
+    - MATCH
+    - NO_MATCH
+    - UNKNOWN
   candidate_decisions:
     - ADOPT
     - ADAPT
     - REFERENCE_ONLY
     - REJECT
     - DEFER
-    - UNKNOWN
+  final_routes:
+    - ADOPT
+    - ADAPT
+    - REFERENCE_ONLY
+    - BUILD_NEW
     - REUSE_SPIKE
+    - NEEDS_DECISION
   completion_requirements:
     - every-material-capability-covered-in-approved-scope
     - raw-evidence-for-every-searched-tier
     - explicit-not-searched-or-not-authorized-for-out-of-scope-tier
     - immutable-revision-required
     - no-unresolved-high-value-unknown-or-defer
-    - uncertain-item-requires-reuse-spike-waiver-or-block
+    - uncertain-item-requires-reuse-spike-decision-or-block
   evidence_required: true
 
 install_policy:
@@ -180,7 +239,7 @@ scope:
     - leaf-task-planning
     - bounded-agent-execution
     - review-and-verification
-    - cross-agent-handoff
+    - project-local-handoff
   excluded:
     - central-coordinator-service
     - silent-dependency-installation

@@ -14,6 +14,39 @@ SCRIPT = PACKAGE_ROOT / "scripts" / "check_dependencies.py"
 
 
 class DependencyDiagnosticTests(unittest.TestCase):
+    def test_package_manifest_declares_optional_reuse_providers_with_roles(self) -> None:
+        payload = json.loads((PACKAGE_ROOT / "dependencies.json").read_text(encoding="utf-8"))
+        providers = {entry["id"]: entry for entry in payload.get("providers", [])}
+        expected = {
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        }
+        self.assertTrue(expected.issubset(providers))
+        for provider in expected:
+            with self.subTest(provider=provider):
+                declaration = providers[provider]
+                self.assertFalse(declaration["required"])
+                self.assertTrue(declaration["role"])
+                self.assertTrue(declaration["fallback"])
+
+    def test_reuse_provider_gaps_remain_distinct_from_dependency_statuses(self) -> None:
+        payload = json.loads((PACKAGE_ROOT / "dependencies.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            set(payload.get("reuse_check", {}).get("coverage_values", [])),
+            {"SEARCHED", "NOT_SEARCHED", "NOT_AUTHORIZED", "BLOCKED_TOOLING"},
+        )
+        self.assertEqual(
+            set(payload.get("reuse_check", {}).get("result_values", [])),
+            {"MATCH", "NO_MATCH", "UNKNOWN"},
+        )
+        self.assertEqual(
+            set(payload.get("reuse_check", {}).get("gate_states", [])),
+            {"PENDING", "COMPLETE", "BLOCKED"},
+        )
+
     def run_checker(self, *arguments: object) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(SCRIPT), *(str(argument) for argument in arguments)],

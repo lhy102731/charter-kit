@@ -1,6 +1,92 @@
 {
   "schema": "charter-kit/dependencies/v1",
   "description": "Local capability declarations for the portable Charter Kit workflow. This file is diagnostic metadata only; it never installs or executes a dependency.",
+  "reuse_check": {
+    "gate_states": ["PENDING", "COMPLETE", "BLOCKED"],
+    "material_target_values": ["YES", "NO_MATERIAL_TARGET"],
+    "search_depths": ["FAST", "STANDARD", "DEEP"],
+    "coverage_values": ["SEARCHED", "NOT_SEARCHED", "NOT_AUTHORIZED", "BLOCKED_TOOLING"],
+    "result_values": ["MATCH", "NO_MATCH", "UNKNOWN"],
+    "final_routes": ["ADOPT", "ADAPT", "REFERENCE_ONLY", "BUILD_NEW", "REUSE_SPIKE", "NEEDS_DECISION"],
+    "installation": "explicit-user-action-only"
+  },
+  "providers": [
+    {
+      "id": "reuse-first",
+      "role": "project-local helper, utility, mapper, and module discovery",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/reuse-first",
+        "{home}/.codex/skills/reuse-first",
+        "{project}/.agents/skills/reuse-first",
+        "{project}/.codex/skills/reuse-first"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Project-local reuse search guidance is unavailable.",
+      "fallback": "Use the portable local reuse check; install only as a separate user action."
+    },
+    {
+      "id": "framework-first-coding",
+      "role": "framework, SDK, dependency, and shared-component discovery",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/framework-first-coding",
+        "{home}/.codex/skills/framework-first-coding",
+        "{project}/.agents/skills/framework-first-coding",
+        "{project}/.codex/skills/framework-first-coding"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Framework and ecosystem reuse guidance is unavailable.",
+      "fallback": "Inspect declared frameworks, SDKs, and dependencies manually; install only as a separate user action."
+    },
+    {
+      "id": "reduce-reinvention",
+      "role": "Build-vs-Reuse cost, risk, and maintenance trade-off",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/reduce-reinvention",
+        "{home}/.codex/skills/reduce-reinvention",
+        "{project}/.agents/skills/reduce-reinvention",
+        "{project}/.codex/skills/reduce-reinvention"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "A dedicated Build-vs-Reuse trade-off checklist is unavailable.",
+      "fallback": "Use the portable candidate and maintenance checklist; install only as a separate user action."
+    },
+    {
+      "id": "find-skills",
+      "role": "discovery of existing Agent Skills only",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/find-skills",
+        "{home}/.codex/skills/find-skills",
+        "{project}/.agents/skills/find-skills",
+        "{project}/.codex/skills/find-skills"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Installed or public Agent Skill discovery guidance is unavailable.",
+      "fallback": "Record a bounded Skill inventory manually; discovery never installs a Skill."
+    },
+    {
+      "id": "repo-to-skill",
+      "role": "authorized follow-up to turn a selected repository into a Skill",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/repo-to-skill",
+        "{home}/.codex/skills/repo-to-skill",
+        "{project}/.agents/skills/repo-to-skill",
+        "{project}/.codex/skills/repo-to-skill"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Repository-to-Skill follow-up guidance is unavailable.",
+      "fallback": "Do not convert a repository; create a separately authorized follow-up task first."
+    }
+  ],
   "capabilities": [
     {
       "id": "readable-markdown",
