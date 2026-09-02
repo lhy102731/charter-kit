@@ -1,10 +1,10 @@
 # AI 项目开发章程（通用版）
 
-这是一份可由不同 Agent、宿主、CI 和人工共同读取的开发治理协议。它把“要改变什么”“当前允许做什么”“什么证据才算完成”写进项目文件，而不是依赖某个 Agent 的隐藏记忆。具体领域、产品闭环、技术栈和工具由项目自己的 `.charter/project.md` 定义；本章程只规定方法和边界。
+这是一份项目本地的开发治理协议。它把“要改变什么”“当前允许做什么”“什么证据才算完成”写进项目文件，而不是依赖某个运行会话的隐藏记忆。任何能够读写项目文件的 Harness 都可以独立遵循同一份协议；协议不提供 Agent 间通信、Harness 间同步或中央服务。具体领域、产品闭环、技术栈和工具由项目自己的 `.charter/project.md` 定义；本章程只规定方法和边界。
 
 ## 0. 使用边界
 
-本章程适用于个人、团队、开源仓库、企业项目、研究项目和自动化流水线。它不是中央调度服务，也不要求所有宿主安装相同的 Agent、模型或插件。核心文件使用普通 Markdown 和可选的 JSON；任何能够读写项目文件的执行者都可以遵循它。
+本章程适用于个人、团队、开源仓库、企业项目、研究项目和自动化流水线。它不是中央调度服务，也不要求所有 Harness 安装相同的 Agent、模型或插件。核心文件使用普通 Markdown 和可选的 JSON；不同 Harness 只需独立读取项目工作集即可遵循它。
 
 规则优先级如下：
 
@@ -15,7 +15,9 @@
 
 低层规则不能悄悄推翻高层目标。工具能力不足时要报告限制，不把无法完成的动作写成完成。加载本包不会自动安装插件、Skill、包、模型、服务或全局配置；依赖检查只读并把缺失项写成可审计日志。
 
-## 1. 总体模型：两个循环
+## 1. 总体模型：一个主控制流
+
+Charter Kit 只有一条主控制流：`Charter → Roadmap → Leaf → Reuse Check → Design → Implement → Review → Verify → Integrate → Close`。下面的两个循环是便于阅读的阶段分组，不是互相独立的状态机，也不要求跨 Agent 或跨 Harness 协调。
 
 ### 循环 A：章程工程
 
@@ -52,7 +54,7 @@
 → 产生下一候选
 ```
 
-循环 A 决定方向，循环 B 交付一个可观察结果。不能用循环 B 的局部绿灯替代方向批准，也不能让流程维护取代真实产品工作。
+首启和 Resume 在 Leaf Contract 处汇合；实现、Review 或 Verification 中出现的新需求、新事实、缺陷或风险，都回到同一个 Change Triage 入口。循环 A 决定方向，循环 B 交付一个可观察结果。不能用循环 B 的局部绿灯替代方向批准，也不能让流程维护取代真实产品工作。
 
 ## 2. 章程工程：从需求到可执行方向
 
@@ -178,17 +180,32 @@ Epic
 - 自动继续的范围、修复次数和停止条件是否清楚？
 - 复用发现范围、查询预算、许可证/安全筛选和无结果证据是否明确？
 
-在自审前进行结构化设计访谈：由 `grill-me`（或宿主提供的 `grilling` 能力）逐轮追问目标、用户、接口、负向路径、失败模式和边界；事实由 Agent 调查，取舍交还用户。没有该 provider 时使用内置 `references/design-interview.md`，并记录 `FALLBACK`/限制。访谈结束后作者完成逐项自审并保留证据；随后由不同于作者的 Agent 在新鲜上下文或独立进程中执行 `CHARTER_INDEPENDENT` 审阅。换名字、在同一上下文重读或由作者代写，都不算独立审阅。
+在自审前进行结构化设计访谈：由 `grill-me`（或宿主提供的 `grilling` 能力）逐轮追问目标、用户、接口、负向路径、失败模式和边界；事实由执行者调查，取舍交还用户。没有该 provider 时使用内置 `references/design-interview.md`，并记录 `FALLBACK`/限制。访谈结束后作者完成逐项自审并保留证据；随后由不负责起草的审阅上下文或独立进程，在新鲜上下文中执行 `CHARTER_INDEPENDENT` 审阅。换名字、在同一上下文重读或由作者代写，都不算独立审阅。
 
 所有发现必须解决、降级为有明确限制的开放决定，或在批准记录中说明 waiver；未处置的发现保持项目 `BLOCKED`，不能请求项目批准。人工批准的是目标、非目标、关键不变量、高风险效果、成功等级和审阅限制；实现细节可在合同范围内演化。
 
+### 2.8.1 Change Triage：所有变化的统一入口
+
+用户提出的新需求、需求澄清、实现中发现的事实或约束、缺陷、Review 发现和风险，都先记录为一个 Change Triage 事件。新需求不能静默扩大当前 Leaf（New requirement must not silently expand the current Leaf）。
+
+固定回答四个问题：
+
+1. 它是否属于当前 Goal？
+2. 它影响 Charter、Roadmap 还是当前 Leaf？
+3. 它是否引入新的能力、依赖、版本、技术栈、风险或外部效果？
+4. 当前授权是否覆盖？
+
+事件类型为 `NEW_REQUIREMENT`、`CLARIFICATION`、`DEFECT`、`DISCOVERED_CONSTRAINT` 和 `RISK`；路由优先级为 `CHARTER > ROADMAP > LEAF > IN_CONTRACT`，可用路由是 `IN_CONTRACT`、`LEAF_CHANGE`、`ROADMAP_CHANGE`、`CHARTER_CHANGE` 和 `OUT_OF_SCOPE`。这些是路由和动作，不是第二套状态机。
+
+无法证明变化已经在当前合同内时，不得标记为 `IN_CONTRACT`。改变 Goal、Non-goals、Invariants、公共语义或效果边界的事件回到 Charter 决策；新增能力、依赖、版本、技术栈、安全、许可证、隐私或外部效果的事件，在重新授权前触发 targeted Reuse Check。处置动作可以是 `CONTINUE`、`REVISE_LEAF`、`CREATE_LEAF`、`REAPPROVE`、`BACKLOG`、`NEW_PROJECT`、`REJECT` 或 `NEEDS_DECISION`。
+
 ### 2.9 复用发现门（Reuse Discovery Gate）
 
-方向获批后、首叶从 `DRAFT` 推进到 `APPROVED`/`READY` 前，必须完成一次有界的复用发现。目标是减少重复造轮子，不让搜索结果替项目决定目标，也不把发现当作安装或执行授权。
+方向获批后、每个 Leaf 从 `DRAFT` 推进到 `APPROVED`/`READY` 前，必须完成一次轻量 Reuse Assessment / Reuse Check。目标是减少重复造轮子，不让搜索结果替项目决定目标，也不把发现当作安装或执行授权。没有 Material Target 时，做一次本地 sanity check 并记录 `NO_MATERIAL_TARGET`。
 
 复用发现使用已批准的 Goal、Non-goals、Invariants 和能力地图，主动检索：当前工作区/历史 → 已安装 skills/plugins、缓存和 manifest → 获准的内部资源 → 官方文档、上游项目和包注册表 → 获准的公开 Web。所有结果写入唯一事实源 `.charter/reuse-discovery.md`，原始输出放在 `.charter/evidence/`。记录 discovery ID、章程版本、目标能力、负责人、宿主和工具版本、搜索层级、精确查询、时间/查询预算、停止条件、候选路径或 URL、固定版本、许可证/安全/维护/可移植性、集成成本和决定。
 
-候选行决定只能是 `ADOPT`、`ADAPT`、`REFERENCE_ONLY`、`REJECT`、`DEFER`、`UNKNOWN` 或 `REUSE_SPIKE`；`BUILD_NEW` 是完成候选搜索后对能力的最终路线，不是候选行决定。没有合适候选也是有效结果，但必须保留查询、覆盖范围、时间和 `NO_MATCH` 证据。
+候选行决定只能是 `ADOPT`、`ADAPT`、`REFERENCE_ONLY`、`REJECT`、`DEFER` 或 `UNKNOWN`；`BUILD_NEW`、`REUSE_SPIKE` 和 `NEEDS_DECISION` 是完成检查后对能力的最终路线。没有合适候选也是有效结果，但必须保留查询、覆盖范围、时间和 `NO_MATCH` 证据。
 
 范围含义固定：
 
@@ -198,7 +215,11 @@ Epic
 
 非本地层级需要选定 discovery scope 和 `External read authorization`；范围外写 `NOT_SEARCHED` 或 `NOT_AUTHORIZED`，不能写成 `NO_MATCH`。发现阶段只读，禁止 clone、build、run、import、install、copy、加载候选指令、写全局目录或上传私有源代码/秘密/敏感数据。候选版本必须固定为 immutable commit/tag/package version；浮动分支和 `latest` 不算证据。
 
-门状态为 `NOT_STARTED | IN_PROGRESS | COMPLETE | LIMITED | WAIVED | BLOCKED_TOOLING`。`COMPLETE` 要求每个重要能力覆盖获准范围、每个已搜索层有原始证据、范围外层级有明确状态、选定版本不可变，且没有未解决的高价值 `UNKNOWN`/`DEFER`。`LIMITED`/`WAIVED` 要有批准人、遗漏范围、接受的限制和复查条件；`BLOCKED_TOOLING` 在能力恢复或取得有边界的用户批准前阻止首叶授权。项目和 roadmap 中的门状态只是该记录的同步投影，三处不一致或记录过期时保持 `BLOCKED`。
+门状态只保留 `PENDING | COMPLETE | BLOCKED`。记录字段分开：Coverage 为 `SEARCHED | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`；Result 为 `MATCH | NO_MATCH | UNKNOWN`；Final route 为 `ADOPT | ADAPT | REFERENCE_ONLY | BUILD_NEW | REUSE_SPIKE | NEEDS_DECISION`。有限搜索或 waiver 写入决定、遗漏范围、限制和复查条件，不扩展门状态。`COMPLETE` 要求每个 Material Target 覆盖获准范围、每个已搜索层有证据、范围外层级有明确状态，并处理高价值 `UNKNOWN`。项目和 roadmap 中的门状态只是记录的投影；三处不一致、工具阻塞或记录过期时保持 `BLOCKED`。
+
+搜索深度按成本和风险选择：`FAST` 只查项目与历史，`STANDARD` 再查已安装能力、manifest、框架和依赖，`DEEP` 才查获准的官方、上游、注册表或公开资料。搜索到足够证据就停止，不要求每个 Leaf 做深度外部搜索。
+
+五个可选 Reuse Provider 按需使用：`reuse-first` 查项目内 helper/utility/module；`framework-first-coding` 查框架、SDK、依赖和共享组件；`reduce-reinvention` 评估 Build vs Reuse；`find-skills` 只发现 Skill，不安装；`repo-to-skill` 只在选定仓库后、得到单独授权时执行。Provider 是插槽而非固定串行流程，缺失时记录 `MISSING`/`FALLBACK` 或 `BLOCKED_TOOLING`。
 
 ### 2.10 首次启动访谈
 
@@ -246,7 +267,7 @@ A/B/C 描述拟议修复需要的授权，不是影响大小。Review 另填缺�
 7. 工作区、分支和用户已有改动已记录；
 8. 依赖检查结果、宿主能力和效果授权存在；
 9. 验收能被实际观察或测试；
-10. 复用门为 `COMPLETE`，或有明确批准的 `LIMITED`/`WAIVED`；
+10. 复用门为 `COMPLETE`，或有明确批准、遗漏范围、限制和复查条件的有界 waiver；
 11. 下一动作具体且唯一。
 
 必需文件、依赖、授权或能力缺失时保持 `BLOCKED` 或 `BLOCKED_TOOLING`，不得以实现代替补齐门禁。
@@ -328,9 +349,11 @@ DRAFT
 
 在说“完成”前重新阅读目标，逐条标记已满足、部分满足、未满足和未检查边界，并给出验证命令/观察、候选版本、审阅结果、集成和合并后状态。证据先于结论。
 
-## 7. 跨 Agent 交接
+## 7. 项目本地恢复快照
 
-Agent 之间传 `.charter/handoff.md`，不传整段聊天记录。交接包必须让新 Agent 快速回答：目标、当前叶、已验证事实、未解决问题和唯一下一动作；还要写禁止动作、依赖状态、候选版本、复用 discovery ID、证据和授权引用。导入后重新按 `project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md（如存在）` 检查，口头承诺不算授权。
+`.charter/handoff.md` 是可选的项目本地恢复快照，不是跨 Agent 通道、消息队列或同步服务。需要暂停、压缩上下文或在另一 Harness 独立继续时，可以更新它；重要状态仍以 `project.md`、`roadmap.md`、`current-task.md` 和 `reuse-discovery.md` 为准，不能只依赖快照或口头承诺。
+
+快照应让下一次运行快速回答：目标、当前叶、已验证事实、未解决问题、唯一下一动作、禁止动作、依赖状态、复用 discovery ID、证据和授权引用。恢复时重新按 `project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md（如存在）` 检查；文件缺失或互相冲突时保持 `BLOCKED`，先修复工作集。
 
 ## 8. 工具路由
 
@@ -342,7 +365,7 @@ Agent 之间传 `.charter/handoff.md`，不传整段聊天记录。交接包必�
 | 多步计划 | Superpowers writing-plans | 叶任务合同 + 手写计划 |
 | 新功能/Bug | Superpowers TDD | 普通 RED/GREEN 记录 |
 | 根因调查 | Superpowers systematic-debugging | 复现、假设、实验和结论记录 |
-| 独立审阅 | 新鲜上下文中的 Review 工具 | 新 Agent/进程或明确 `BLOCKED_TOOLING` |
+| 独立审阅 | 新鲜上下文中的 Review 工具 | 新鲜进程/上下文，或明确 `BLOCKED_TOOLING` |
 | 完成验证 | Superpowers verification-before-completion | 证据清单逐条复核 |
 | 方案拷问 | grill-me（grilling 原语） | `references/design-interview.md` |
 | 长任务状态 | J-space ledger/seam/resume | handoff + ledger 区块 |
@@ -365,7 +388,7 @@ Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。�
 - 任务合同与现实实现冲突，继续修补会改变语义；
 - 修复预算耗尽或同类失败重复出现；
 - 关键依赖/工具不可用，无法提供承诺的独立证据；
-- 复用发现工具不可用、记录仍为 `NOT_STARTED`/`IN_PROGRESS` 或已过期；
+- 复用发现工具不可用、记录仍为 `PENDING` 或已过期；
 - 候选的来源、版本、许可证或安全影响无法确认；
 - 发现用户已有改动可能被覆盖。
 
@@ -384,7 +407,7 @@ Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。�
 3. 用 `grill-me` 优先访谈用户意图；不可用时明确记录缺失并使用内置 `design-interview`；
 4. 起草 Goal、Non-goals、Invariants、产品闭环、成功等级、效果边界、资产审计、能力地图、任务树和开放决定；
 5. 起草 roadmap 与首个 `DRAFT` 叶任务，完成自审和 `CHARTER_INDEPENDENT` 审阅（或有边界 waiver），取得项目批准；
-6. 按 `.charter/reuse-discovery.md` 完成复用发现并校准路线；工具不足先停在 `BLOCKED_TOOLING`；
+6. 按 `.charter/reuse-discovery.md` 完成轻量 Reuse Assessment / Reuse Check 并校准路线；覆盖为 `NOT_AUTHORIZED` 或 `BLOCKED_TOOLING` 时先停下，不得写成 `NO_MATCH`；
 7. 单独批准首叶或引用匹配的 `AUTO_DEV` 预授权，把任务和 roadmap 同步推进到 `APPROVED`、`READY`；
 8. 按叶任务逐一执行 RED/GREEN、审阅、合并、fresh verification 和关闭，并为下一叶重新检查授权。
 

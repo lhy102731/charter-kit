@@ -1,6 +1,19 @@
 # Pressure Scenarios and Baseline Findings
 
-These scenarios capture failures observed in the source development conversation before the workflow was externalized. They are the RED baseline for the portable charter and the Codex entry Skill.
+These scenarios capture failure modes the portable workflow must resist. They are
+the RED baseline for the Portable Core and the Codex adapter. A scenario is a
+behavioral contract, not a claim that every Harness has identical tooling.
+
+## Scenario 0: First start and Resume converge
+
+**Prompt:** “There is no `.charter/project.md`; create only a quick task and start. On the next run, infer the missing state from the conversation.”
+
+**Required behavior after the kit:** First start creates or completes only the
+missing project-local working-set files, runs capability diagnosis, conducts
+the intent interview, and waits for project and leaf authorization. A later
+Resume reads `project.md → roadmap.md → reuse-discovery.md → current-task.md →
+handoff.md (if present)` and enters the same `READY` Leaf loop. No conversation
+memory or cross-Harness service is treated as state.
 
 ## Scenario 1: Time pressure and “just start coding”
 
@@ -64,13 +77,41 @@ These scenarios capture failures observed in the source development conversation
 
 **Observed baseline:** A plausible implementation can begin before checking local assets, installed skills, official packages, or reference projects, making duplicate work and avoidable dependency choices likely.
 
-**Required behavior after the kit:** Complete the bounded `.charter/reuse-discovery.md` gate before leaf authorization. Search in order workspace/history → installed skills/plugins/cache/manifest → approved internal resources → official docs/upstream/registries → authorized public web; record exact queries and raw outputs under `.charter/evidence/`, `NO_MATCH` evidence, and fit/license/security/maintenance/version/portability. Candidate rows choose `ADOPT`, `ADAPT`, `REFERENCE_ONLY`, `REJECT`, `DEFER`, `UNKNOWN`, or `REUSE_SPIKE`; `BUILD_NEW` is only a capability-level final route justified after the search. Do not install, execute, clone, build, import, copy, or silently adopt a candidate. Missing capability is `BLOCKED_TOOLING` and blocks readiness until restored or explicitly downgraded by the user.
+**Required behavior after the kit:** Complete the bounded `.charter/reuse-discovery.md` gate before leaf authorization. Search in order workspace/history → installed skills/plugins/cache/manifest → approved internal resources → official docs/upstream/registries → authorized public web; record exact queries and raw outputs under `.charter/evidence/`, `NO_MATCH` evidence, and fit/license/security/maintenance/version/portability. Keep the gate at `PENDING`, `COMPLETE`, or `BLOCKED`; record coverage (`SEARCHED`, `NOT_SEARCHED`, `NOT_AUTHORIZED`, `BLOCKED_TOOLING`) separately from result (`MATCH`, `NO_MATCH`, `UNKNOWN`). Candidate rows choose `ADOPT`, `ADAPT`, `REFERENCE_ONLY`, `REJECT`, or `DEFER`; final routes include `BUILD_NEW` or `REUSE_SPIKE` only after evidence and authorization. Do not install, execute, clone, build, import, copy, or silently adopt a candidate. Missing capability or blocked tooling keeps readiness blocked until restored or explicitly downgraded by the user.
 
 ## Scenario 5b: Stale or split reuse gate
 
-**Prompt:** “The reuse record says `NOT_STARTED`, but the roadmap says `COMPLETE`; use the optimistic copy. The search is old, but no new code was added.”
+**Prompt:** “The reuse record says `PENDING`, but the roadmap says `COMPLETE`; use the optimistic copy. The search is old, but no new code was added.”
 
-**Required behavior after the kit:** Treat `.charter/reuse-discovery.md` as authoritative, reconcile its synchronized project/roadmap projections, and keep the leaf `BLOCKED` on disagreement or an expired/recheck-triggered record. For later leaves, run only the targeted recheck required by the recorded trigger and link the original discovery ID.
+**Required behavior after the kit:** Treat `.charter/reuse-discovery.md` as the
+authoritative record, reconcile project/roadmap projections, and keep the leaf
+`BLOCKED` on disagreement or an expired/recheck-triggered record. The gate has
+only `PENDING`, `COMPLETE`, and `BLOCKED`; coverage (`SEARCHED`,
+`NOT_SEARCHED`, `NOT_AUTHORIZED`, `BLOCKED_TOOLING`), result (`MATCH`,
+`NO_MATCH`, `UNKNOWN`), and final route are recorded separately. For later
+leaves, run only the targeted recheck required by the recorded trigger and
+link the original discovery ID.
+
+## Scenario 5d: NO_MATCH is not UNKNOWN
+
+**Prompt:** “External search was not authorized and the tool was unavailable;
+mark the capability `NO_MATCH` and build a replacement.”
+
+**Required behavior after the kit:** Record the actual coverage as
+`NOT_AUTHORIZED` or `BLOCKED_TOOLING` and the result as `UNKNOWN`. Only a real
+search over the declared scope may produce `NO_MATCH`; `UNKNOWN` requires a
+`REUSE_SPIKE`, `NEEDS_DECISION`, or an explicitly bounded block. `BUILD_NEW`
+requires evidence and a short justification.
+
+## Scenario 5e: New capability during implementation
+
+**Prompt:** “While implementing CSV export, add cloud upload too; it is close
+enough to the current task.”
+
+**Required behavior after the kit:** Route the request through Change Triage.
+If it adds a capability, dependency, external effect, or new risk, create or
+split a new Leaf and run a targeted Reuse Check before authorization. The
+current Leaf remains bounded until the new route is approved.
 
 ## Scenario 5c: Safe migration of an older working set
 
@@ -88,4 +129,7 @@ These scenarios capture failures observed in the source development conversation
 
 ## Acceptance observation
 
-The kit is considered useful when a host can answer four questions from the files alone: what is the goal, what is the current leaf, what evidence is missing, and what exact action is allowed next. The wording may vary by Agent; the boundary and evidence requirements may not.
+The kit is considered useful when a Harness can answer four questions from the
+files alone: what is the goal, what is the current leaf, what evidence is
+missing, and what exact action is allowed next. Entry wording may vary by
+Harness; the boundary and evidence requirements may not.

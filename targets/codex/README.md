@@ -1,155 +1,147 @@
-# Charter Kit Codex Target
-This directory is the Codex target source. It adapts the portable Charter Kit core for Codex, but it is not the installable package itself. The installable artifact is generated at `plugins/charter-kit/`. You can begin from an empty directory, use the built-in workflow entry, and keep the same working set across hosts such as Codex, Claude, or any AGENTS.md/CLAUDE.md-based setup.
+# Charter Kit — Codex Target
 
-Links:
-
-- GitHub repository: [lhy102731/charter-kit](https://github.com/lhy102731/charter-kit)
-- Core charter path: [DEVELOPMENT_CHARTER.md](../../DEVELOPMENT_CHARTER.md)
-- Target source path: [targets/codex/](.)
-- Marketplace path: [`.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json)
-- Codex target distribution: [plugins/charter-kit/](../../plugins/charter-kit/)
-- Official Codex docs: [Codex plugins](https://developers.openai.com/codex/plugins/) or the stable fallback [Codex docs](https://developers.openai.com/codex/)
-
-Dependency checks are recorded for dependencies in `.charter/evidence/dependency-check.log` and capabilities are classified as `AVAILABLE`, `MISSING`, `UNVERIFIED`, and `FALLBACK`. If `grill-me` or `grilling` is unavailable, the portable `design-interview` fallback is used instead. The project lifecycle keeps charter work explicit with `DRAFT`, `APPROVED`, `READY`, and `PASS_CLOSED`; the reuse gate remains unresolved while any high-value `UNKNOWN` or `DEFER` remains unresolved, and each selected reuse record must include an immutable commit/tag/package version reference. Discovery is read-only and never clones, builds, runs, imports, copies, installs anything, and it never exposes private source.
+This directory is the thin Codex adapter source. It maps the portable Charter
+Kit workflow to a Codex plugin entry point; it is not a host installer or an
+external harness installer, and it is not the installable package itself. The
+self-contained installable distribution is
+`plugins/charter-kit/`.
 
 ## 中文
 
-### 这是什么
+### 目标边界
 
-`targets/codex/` 是 Codex 的目标封装源。它描述 Codex 如何进入、加载并分发 Charter Kit 核心，但它本身不是可安装包。真正可安装的产物是 `plugins/charter-kit/`。你可以从空目录开始，使用内置工作流入口，在 Codex、Claude 或基于 AGENTS.md/CLAUDE.md 的宿主中保持同一份工作集。
+`portable/` 和根目录的 `DEVELOPMENT_CHARTER.md` 是唯一的语义来源。本目录只提供 Codex 的入口、Skill 映射和打包所需的宿主元数据，不重新定义 Charter、Change Triage、Reuse Check、授权或关闭语义，也不安装 Codex 以外的 Harness。
 
-### 可移植核心与目标封装
+Codex 是当前仓库唯一有真实安装与启动 smoke-test 记录的目标。未来的 Claude、Gemini、DSH 或其他目标必须在真实宿主完成验证后才能标记为 supported；在此之前只能标记为 `experimental` / `unverified`，不能从本仓库文档推导出正式安装命令。
 
-`portable/` 仍然是唯一的语义事实源。这个目录只负责 Codex 适配，所以它可以包含生成所需的本地镜像，但不能把镜像当成独立维护的第二份核心。它也不会把宿主当成产品来安装或分发。
+### 工作流入口
 
-依赖检查会写入 `.charter/evidence/dependency-check.log`，能力状态使用 `AVAILABLE`、`MISSING`、`UNVERIFIED` 和 `FALLBACK`。如果 `grill-me` 或 `grilling` 不可用，就改用 portable 的 `design-interview` 备选方案。项目生命周期明确使用 `DRAFT`、`APPROVED`、`READY` 和 `PASS_CLOSED`，复用门禁会一直保持打开，直到所有高价值 `UNKNOWN` 或 `DEFER` 都被清除，并且为固定的 `immutable commit/tag/package version` 留下依据。发现过程只读，绝不会 clone、build、run、import、copy 或 install 任何内容。
+首启、继续和变化都使用同一套 Portable Core：
 
-### 安装到 Codex
+```text
+INIT / RESUME / CHANGE
+  → Charter → Roadmap → Leaf
+  → Reuse Assessment / Reuse Check
+  → READY（WIP = 1）
+  → Design → Implement → Review → Verify
+  → Git 集成与合并后验证 → PASS_CLOSED
+```
 
-先把 marketplace 加到 Codex，再安装插件。
+新需求不能静默扩大当前 Leaf；发现的新事实、缺陷和风险回到 `Change Triage`。复用发现默认只读，并把覆盖情况、结果、候选处置、最终路线和证据写入项目 `.charter/reuse-discovery.md`。
+
+Reuse Check 的门状态只有 `PENDING`、`COMPLETE`、`BLOCKED`；Coverage、Result 和最终路线分开记录。只有有真实查询和证据时才可写 `NO_MATCH`。
+
+### 安装、更新与卸载
+
+请先阅读 [Codex 插件文档](https://developers.openai.com/codex/plugins/)。
 
 ```text
 codex plugin marketplace add lhy102731/charter-kit
 codex plugin add charter-kit@charter-kit
 ```
 
-### 更新与卸载
-
-更新时，刷新 marketplace，再重新安装：
-
 ```text
+# 更新
 codex plugin marketplace upgrade charter-kit
 codex plugin add charter-kit@charter-kit
-```
 
-卸载时，移除已安装插件：
-
-```text
+# 卸载
 codex plugin remove charter-kit@charter-kit
 ```
 
-### 未来目标状态
+### 能力与安全
 
-当前仓库只准备了 Codex 目标。后续新增目标也会是适配器源，而不是外部 harness 安装器。它们只适配对应宿主的入口和分发方式，不会安装宿主本身。
-
-### 验证
-
-仓库维护者在源码仓库中先做仓库级验证，再在 Codex 中确认插件状态。构建器和仓库校验器属于维护工具，不会被放进可安装插件。
+- `superpowers`、`j-space`、`grill-me` 和 Reuse Skills 是可选 provider；缺少时记录 `MISSING` / `UNVERIFIED` / `FALLBACK` 并使用便携替代。
+- 依赖诊断、插件加载和 Reuse Discovery 默认只读，不会自动安装 Skill、插件、包、服务或 Harness。
+- Discovery 不会 clone、build、run、import、copy 或 install 候选内容，也不会上传私有源代码、凭据或敏感数据。
+- `plugins/charter-kit/` 是生成产物，不要手工编辑。修改 Portable Core 后，从仓库根目录重新构建并运行校验：
 
 ```text
 python scripts/validate_kit.py .
+python scripts/build_codex_plugin.py --check
 ```
 
-验证通过后，再在 Codex 里确认插件状态。
+### 相关链接
 
-### 安全
-
-- 不要手工编辑生成的发行包。
-- 不要把未审阅的远程脚本直接管道进 shell。
-- 不要让目标封装依赖仓库外的核心目录。
-- 不要把目标封装当成宿主安装器或外部服务代理。
-- 不要把发现过程当成安装许可。
-- 发现过程绝不会 clone、build、run、import、copy 或 install 候选内容。
-
-### 贡献
-
-- 改核心时，优先改 `portable/` 和 `DEVELOPMENT_CHARTER.md`。
-- 改 Codex 适配时，优先改这里。
-- 分发前，重新生成 `plugins/charter-kit/` 并运行验证。
-- 提交前确保中英文本、命令和链接都一致。
-- 如果宿主使用 `AGENTS.md` 或 `CLAUDE.md`，请把它们视为宿主入口说明，而不是 Charter Kit 的事实来源。
-
-### 许可证
-
-MIT License.
+- [通用开发章程](../../DEVELOPMENT_CHARTER.md)
+- [Portable Core](../../portable/)
+- [Marketplace 清单](../../.agents/plugins/marketplace.json)
+- [GitHub 仓库](https://github.com/lhy102731/charter-kit)
 
 ## English
 
-### What It Is
+This directory is the thin Codex adapter source. It maps the portable
+Charter Kit workflow to a Codex plugin entry point; it is not a host installer
+or an external harness installer, and it is not the installable package
+itself. The self-contained installable distribution is `plugins/charter-kit/`.
 
-`targets/codex/` is the Codex target source. It describes how Codex enters, loads, and distributes the Charter Kit core, but it is not the installable package itself. The installable artifact is generated at `plugins/charter-kit/`. You can begin from an empty directory, use the built-in workflow entry, and keep the same working set across hosts such as Codex, Claude, or any AGENTS.md/CLAUDE.md-based setup.
+### Boundary
 
-### Portable Core vs Target Packaging
+`portable/` and the root `DEVELOPMENT_CHARTER.md` are the only semantic source
+of truth. This directory supplies the Codex entry point, Skill mapping, and
+packaging metadata. It does not redefine Charter, Change Triage, Reuse Check,
+authorization, or closure semantics, and it does not install any Harness.
 
-`portable/` remains the single semantic source of truth. This directory only handles Codex adaptation, so it may include generated local mirrors for packaging, but those mirrors are not a separately maintained second core. It also does not package or install the host itself.
+Codex is the only target in this repository with real installation and startup
+smoke-test evidence. A future Claude, Gemini, DSH, or other target may be
+marked `supported` only after a real-host verification; until then it is
+`experimental` / `unverified`, with no supported-install command implied by
+this repository.
 
-Dependency checks are recorded in `.charter/evidence/dependency-check.log`, and capabilities are classified as `AVAILABLE`, `MISSING`, `UNVERIFIED`, and `FALLBACK`. If `grill-me` or `grilling` is unavailable, the portable `design-interview` fallback is used instead. The project lifecycle keeps charter work explicit with `DRAFT`, `APPROVED`, `READY`, and `PASS_CLOSED`, and the reuse gate stays unresolved until every high-value `UNKNOWN` or `DEFER` is cleared with an immutable commit/tag/package version reference. Discovery is read-only and never clones, builds, runs, imports, copies, or installs anything.
+### Workflow entry
 
-### Install in Codex
+First start, resume, and change requests use the same Portable Core:
 
-Add the marketplace to Codex first, then install the plugin.
+```text
+INIT / RESUME / CHANGE
+  → Charter → Roadmap → Leaf
+  → Reuse Assessment / Reuse Check
+  → READY (WIP = 1)
+  → Design → Implement → Review → Verify
+  → Git integration and post-merge verification → PASS_CLOSED
+```
+
+A new requirement must not silently expand the current Leaf. Discovered facts,
+defects, and risks return to `Change Triage`. Reuse discovery is read-only by
+default and records coverage, result, candidate disposition, final route, and
+evidence in the project `.charter/reuse-discovery.md`. The Reuse Check has only
+`PENDING`, `COMPLETE`, and `BLOCKED` gate states; Coverage, Result, and final
+route remain separate, and `NO_MATCH` requires an actual query and evidence.
+
+### Install, update, and uninstall
+
+Read the [Codex plugin documentation](https://developers.openai.com/codex/plugins/)
+first.
 
 ```text
 codex plugin marketplace add lhy102731/charter-kit
 codex plugin add charter-kit@charter-kit
 ```
 
-### Update and Uninstall
-
-To update, refresh the marketplace and then reinstall:
-
 ```text
+# Update
 codex plugin marketplace upgrade charter-kit
 codex plugin add charter-kit@charter-kit
-```
 
-To uninstall, remove the installed plugin:
-
-```text
+# Uninstall
 codex plugin remove charter-kit@charter-kit
 ```
 
-### Future Target Status
+### Capabilities and safety
 
-This repository currently prepares only the Codex target. Any future target will also be an adapter source, not a host installer or external harness package. It only adapts the entry and distribution path for the host, not the host itself.
-
-### Validation
-
-From a source checkout, repository validation still comes first. The packager and repository validator are maintenance tools and are intentionally omitted from the installable plugin.
+- `superpowers`, `j-space`, `grill-me`, and the Reuse Skills are optional providers. Missing capabilities are recorded as `MISSING`, `UNVERIFIED`, or `FALLBACK` with a portable substitute.
+- Dependency diagnostics, plugin loading, and Reuse Discovery are read-only by default. Nothing automatically installs a Skill, plugin, package, service, or Harness.
+- Discovery never clones, builds, runs, imports, copies, or installs candidate content, and never uploads private source, credentials, or sensitive data.
+- `plugins/charter-kit/` is generated; do not hand-edit it. After changing the Portable Core, rebuild and validate from the repository root:
 
 ```text
 python scripts/validate_kit.py .
+python scripts/build_codex_plugin.py --check
 ```
 
-After that passes, confirm the plugin state in Codex.
+### Links
 
-### Safety
-
-- Do not hand-edit the generated distribution.
-- Do not pipe unreviewed remote scripts into a shell or reveal private source.
-- Do not let the target depend on a core directory outside the repository.
-- Do not treat the target as a host installer or external service proxy.
-- Do not treat discovery as installation permission.
-- Discovery never clones, builds, runs, imports, copies, installs candidate content.
-
-### Contribution
-
-- When changing the core, update `portable/` and `DEVELOPMENT_CHARTER.md` first.
-- When changing the Codex adapter, work here first.
-- Before distributing, regenerate `plugins/charter-kit/` and rerun validation.
-- Before opening a change, make sure the Chinese and English text, commands, and links still match.
-- If the host uses `AGENTS.md` or `CLAUDE.md`, treat those as host-entry instructions, not the Charter Kit source of truth.
-
-### License
-
-MIT License.
+- [Generic development charter](../../DEVELOPMENT_CHARTER.md)
+- [Portable Core](../../portable/)
+- [Marketplace manifest](../../.agents/plugins/marketplace.json)
+- [GitHub repository](https://github.com/lhy102731/charter-kit)
