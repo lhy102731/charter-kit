@@ -238,3 +238,43 @@ Output:
 ## Concerns
 
 - The pre-existing untracked items `$null`, `docs/superpowers/plans/2026-09-02-charter-kit-v1-implementation.md`, and `docs/superpowers/specs/2026-09-02-charter-kit-v1-architecture-design.md` were left untouched by design.
+
+## Fix round 1
+
+Date: 2026-09-02
+
+Status: DONE
+
+Commit hash: `566d7af2560ab8362d2004a99e2d05dbecdb6484`
+
+### Files changed in this round
+
+- Updated the generated plugin mirrors of the bootstrap entry points so they now create `decision.md`, `review.md`, and `evidence-receipt.md` instead of the legacy `*-template.md` names:
+  - `plugins/charter-kit/portable/commands/charter-workflow.md`
+  - `plugins/charter-kit/portable/prompts/claude-bootstrap.md`
+  - `plugins/charter-kit/portable/prompts/codex-bootstrap.md`
+  - `plugins/charter-kit/portable/prompts/deepseek-bootstrap.md`
+  - `plugins/charter-kit/portable/prompts/gemini-bootstrap.md`
+  - `plugins/charter-kit/portable/prompts/generic-bootstrap.md`
+  - `plugins/charter-kit/scripts/init_project.py`
+  - `plugins/charter-kit/skills/charter-workflow/scripts/init_project.py`
+  - `plugins/dsh-charter-kit/portable/commands/charter-workflow.md`
+  - `plugins/dsh-charter-kit/portable/prompts/claude-bootstrap.md`
+  - `plugins/dsh-charter-kit/portable/prompts/codex-bootstrap.md`
+  - `plugins/dsh-charter-kit/portable/prompts/deepseek-bootstrap.md`
+  - `plugins/dsh-charter-kit/portable/prompts/gemini-bootstrap.md`
+  - `plugins/dsh-charter-kit/portable/prompts/generic-bootstrap.md`
+  - `plugins/dsh-charter-kit/scripts/init_project.py`
+  - `plugins/dsh-charter-kit/skills/charter-workflow/scripts/init_project.py`
+
+### Verification
+
+- `pytest tests/test_workflow_contract.py tests/test_generic_bootstrap.py -q`
+  - `18 passed, 16 subtests passed in 1.04s`
+- `pytest tests/test_workflow_contract.py tests/test_generic_bootstrap.py tests/test_charter_kit.py -q`
+  - `78 passed, 16 subtests passed in 37.81s`
+
+### Notes
+
+- The contract test now covers all Change Triage event kinds and routes, plus representative portable/skill template mirror checks.
+- Legacy `*-template.md` names remain only as compatibility for already-existing files that predate the canonical bootstrap names.
