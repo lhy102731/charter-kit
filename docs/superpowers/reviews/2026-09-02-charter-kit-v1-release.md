@@ -41,7 +41,7 @@
 - 新 Codex CLI 进程只读加载检查返回：
 
   ```text
-  AVAILABLE C:/Users/Administrator/.codex/plugins/cache/personal/charter-kit/0.2.0+codex.20260902153901/skills/charter-workflow/SKILL.md
+  AVAILABLE $CODEX_HOME/plugins/cache/personal/charter-kit/0.2.0+codex.20260902153901/skills/charter-workflow/SKILL.md
   ```
 
 - 官方 Codex 本地插件校验器通过。
