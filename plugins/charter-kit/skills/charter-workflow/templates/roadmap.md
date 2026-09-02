@@ -32,6 +32,12 @@
 - Next candidate: `<informational ID; initially the first DRAFT leaf>`
 - Next authorization: `NOT_GRANTED`
 
+### Change Triage
+
+- current-task.md is the active Leaf state authority; roadmap.md is a projection.
+- Use `portable/references/change-triage.md` when a new requirement, defect, discovered constraint, or risk arrives.
+- New requirement must not silently expand the current Leaf.
+
 ## Leaf readiness check
 
 Before moving a leaf to `READY`, confirm:

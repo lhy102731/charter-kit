@@ -20,6 +20,12 @@
 - Discovery result status (when `DISCOVERY`): `MATCHES | NO_MATCH | NOT_SEARCHED | NOT_AUTHORIZED | BLOCKED_TOOLING`
 - Candidate revision / license (when `DISCOVERY`): `<fixed immutable commit/tag/package version or NO_MATCH; SPDX and attribution status>`
 
+## Change Triage
+
+- Record the event kind and route from `portable/references/change-triage.md` when this receipt supports a scope or authority decision.
+- Keep the precedence choice explicit: `CHARTER > ROADMAP > LEAF > IN_CONTRACT`.
+- New requirement must not silently expand the current Leaf.
+
 ## Operation
 
 - Command, test, or manual operation:

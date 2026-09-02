@@ -95,6 +95,12 @@ Mark only what this charter authorizes; add project-specific effects when needed
 
 Sensitive data, release changes, credential changes, and irreversible external actions require a separate decision record even if the project later needs them.
 
+### Change Triage
+
+- Use `portable/references/change-triage.md` to classify new requirements, defects, discovered constraints, and risks.
+- `CHARTER > ROADMAP > LEAF > IN_CONTRACT` is the precedence order when more than one route seems plausible.
+- New requirement must not silently expand the current Leaf.
+
 ## 6. Current-state and asset audit
 
 | Asset / capability | Evidence of current state | Classification (`KEEP / ADAPT / REPLACE / ARCHIVE / UNKNOWN`) | Why it serves the goal | Next action |

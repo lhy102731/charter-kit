@@ -20,6 +20,12 @@
 - If we continue without a decision:
 - Goal or invariant at risk:
 
+## Change Triage
+
+- Record the event kind and route from `portable/references/change-triage.md`.
+- `CHARTER > ROADMAP > LEAF > IN_CONTRACT` decides whether the request stays local or needs a broader change.
+- New requirement must not silently expand the current Leaf.
+
 ## Options
 
 | Option | Effect on goal | Cost / risk | Reversibility | Evidence needed |

@@ -2,6 +2,8 @@
 
 > Copy this file to `.charter/handoff.md` whenever another Agent or host may continue the work. Keep it short and factual; link to detailed evidence instead of copying a transcript.
 
+Use this file as the resume packet for another actor. It records the current task state, evidence, and exact next action; it is not a second state machine or a transcript.
+
 ## Snapshot
 
 - Protocol / kit version: `charter/v1 / 0.2.0`
@@ -19,6 +21,11 @@
 - Invariants that must remain true:
 - Allowed effects:
 - Forbidden effects:
+
+### Change Triage
+
+- Record the event kind and route from `portable/references/change-triage.md` whenever a new requirement or constraint appears.
+- New requirement must not silently expand the current Leaf.
 
 ## Current facts
 

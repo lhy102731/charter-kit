@@ -35,6 +35,12 @@ For `CHARTER_INDEPENDENT` and `B_FRESH_BEHAVIOR`, the reviewer must be different
 - [ ] Existing user changes and unrelated failures are separated.
 - [ ] Integration and post-merge requirements are understood.
 
+## Change Triage
+
+- Record the observed event kind and route from `portable/references/change-triage.md`.
+- Confirm whether the reviewed change stayed `IN_CONTRACT` or required `LEAF_CHANGE`, `ROADMAP_CHANGE`, or `CHARTER_CHANGE`.
+- New requirement must not silently expand the current Leaf.
+
 ## Findings
 
 | ID | Finding severity (`P0 / P1 / P2 / P3`) | Remediation change class (`A / B / C`) | Finding | Evidence reference | Required action |

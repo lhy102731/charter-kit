@@ -24,6 +24,11 @@
 
 `<Which part of the approved product loop does this unlock?>`
 
+### Change Triage
+
+- Record the Change Triage event kind and route from `portable/references/change-triage.md`.
+- New requirement must not silently expand the current Leaf.
+
 ### Explicit non-results
 
 - This task does not:
