@@ -4,7 +4,9 @@
 This is an explicit, local-only convenience command. It never installs
 dependencies or contacts the network. By default it refuses to overwrite
 existing files; --add-missing only fills absent working-set files, while
---force creates a complete backup before replacing generated files.
+--force creates a complete backup before replacing generated files. New
+projects use the canonical runtime filenames, and existing projects keep any
+legacy ``*-template.md`` files that are already present.
 """
 
 from __future__ import annotations
@@ -26,9 +28,9 @@ FILES = {
     "leaf-task.md": "current-task.md",
     "reuse-discovery.md": "reuse-discovery.md",
     "handoff.md": "handoff.md",
-    "decision.md": "decision-template.md",
-    "review.md": "review-template.md",
-    "evidence-receipt.md": "evidence-template.md",
+    "decision.md": "decision.md",
+    "review.md": "review.md",
+    "evidence-receipt.md": "evidence-receipt.md",
 }
 
 

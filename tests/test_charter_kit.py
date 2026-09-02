@@ -1016,7 +1016,7 @@ class CharterKitBehaviorTests(unittest.TestCase):
         charter = project / ".charter"
         marker = "PRESERVE_ON_PREFLIGHT_FAILURE"
         (charter / "project.md").write_text(marker, encoding="utf-8")
-        review_template = charter / "review-template.md"
+        review_template = charter / "review.md"
         review_template.unlink()
         review_template.mkdir()
 

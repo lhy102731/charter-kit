@@ -73,6 +73,23 @@ class GenericBootstrapTests(unittest.TestCase):
             self.assertIn("fallback", content.lower(), relative)
             self.assertIn("dependency", content.lower(), relative)
 
+    def test_bootstrap_docs_use_canonical_runtime_working_set_filenames(self) -> None:
+        for relative in (
+            "portable/commands/charter-workflow.md",
+            "portable/prompts/generic-bootstrap.md",
+            "portable/prompts/codex-bootstrap.md",
+            "portable/prompts/claude-bootstrap.md",
+            "portable/prompts/gemini-bootstrap.md",
+            "portable/prompts/deepseek-bootstrap.md",
+        ):
+            content = self.read(relative)
+            self.assertIn("decision.md", content, relative)
+            self.assertIn("review.md", content, relative)
+            self.assertIn("evidence-receipt.md", content, relative)
+            self.assertNotIn("decision-template.md", content, relative)
+            self.assertNotIn("review-template.md", content, relative)
+            self.assertNotIn("evidence-template.md", content, relative)
+
     def test_dependency_checker_reports_missing_capability_and_writes_log(self) -> None:
         script = PACKAGE_ROOT / "scripts" / "check_dependencies.py"
         self.assertTrue(script.is_file())
@@ -125,6 +142,31 @@ class GenericBootstrapTests(unittest.TestCase):
             self.assertIn("grill-me", text)
             self.assertIn("action:", text)
             self.assertNotIn("pip install", text.lower())
+
+    def test_initializer_creates_canonical_runtime_working_set_names(self) -> None:
+        script = PACKAGE_ROOT / "scripts" / "init_project.py"
+        with tempfile.TemporaryDirectory(prefix="charter-init-") as directory:
+            project = Path(directory) / "project"
+            first = self.run_script(script, project)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+
+            charter = project / ".charter"
+            legacy_markers = {
+                "decision-template.md": "LEGACY_DECISION",
+                "review-template.md": "LEGACY_REVIEW",
+                "evidence-template.md": "LEGACY_EVIDENCE",
+            }
+            for relative, marker in legacy_markers.items():
+                (charter / relative).write_text(marker, encoding="utf-8")
+
+            second = self.run_script(script, project, "--add-missing")
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+
+            for relative, marker in legacy_markers.items():
+                self.assertEqual((charter / relative).read_text(encoding="utf-8"), marker)
+
+            for relative in ("decision.md", "review.md", "evidence-receipt.md"):
+                self.assertTrue((charter / relative).is_file(), second.stdout + second.stderr)
 
     def test_skill_bundle_is_self_contained_for_zero_start(self) -> None:
         skill = PACKAGE_ROOT / "skills" / "charter-workflow"
