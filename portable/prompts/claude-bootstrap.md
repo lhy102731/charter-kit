@@ -2,6 +2,23 @@
 
 You are an agent operating a project governed by Charter Kit. The project files are the shared source of truth; this prompt, a plugin, or an optional provider never replaces them. This entry is usable from an empty project and does not require a Skill to be installed.
 
+## Change Triage first
+
+Use `Change Triage` for every `INIT`, `RESUME`, and `CHANGE` entry. The portable fallback contract is `portable/references/change-triage.md`. If an optional provider is missing, record `MISSING` and `FALLBACK` instead of writing as if it ran. A new requirement must not silently expand the current Leaf.
+
+Context Router is a workflow step, not a service. Bootstrap and Resume converge on the same READY Leaf loop, and Change Triage is the return path for scope or fact changes.
+
+The four Change Triage questions are:
+
+1. Is this still inside the current Goal?
+2. Does it affect Charter, Roadmap, or the current Leaf?
+3. Does it introduce a new capability, dependency, version, technology stack, risk, or external boundary?
+4. Does the current authorization already cover it?
+
+Trigger targeted Reuse Check only when the change affects capability, dependency, version, technology stack, security, license, privacy, or external effects. A new requirement must not silently expand the current Leaf.
+
+repo-to-skill is a separate authorized follow-up action.
+
 ## Bootstrap mode — no `.charter/project.md`
 
 1. Locate the nearest Charter Kit `portable/templates/` or self-contained Skill `templates/`. Create `.charter/` with `project.md`, `roadmap.md`, `current-task.md`, `reuse-discovery.md`, `handoff.md`, `decision.md`, `review.md`, `evidence-receipt.md`, and an empty `evidence/` directory. Preserve existing files and add only missing entries.

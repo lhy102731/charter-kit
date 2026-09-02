@@ -13,6 +13,33 @@ def read(relative: str) -> str:
 
 
 class WorkflowContractTests(unittest.TestCase):
+    def test_all_entry_points_route_changes_through_change_triage(self) -> None:
+        for relative in (
+            "portable/commands/charter-workflow.md",
+            "portable/prompts/generic-bootstrap.md",
+            "portable/prompts/codex-bootstrap.md",
+            "portable/prompts/claude-bootstrap.md",
+            "portable/prompts/gemini-bootstrap.md",
+            "portable/prompts/deepseek-bootstrap.md",
+            "skills/charter-workflow/SKILL.md",
+            "skills/charter-workflow/references/tool-routing.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                self.assertIn("Change Triage", text)
+                self.assertIn("INIT", text)
+                self.assertIn("RESUME", text)
+                self.assertIn("CHANGE", text)
+                self.assertIn("Context Router is a workflow step", text)
+                self.assertIn("same READY Leaf loop", text)
+                self.assertIn("four Change Triage questions", text)
+                self.assertIn("targeted Reuse Check", text)
+                self.assertIn("repo-to-skill is a separate authorized follow-up action", text)
+                self.assertIn("new requirement", text.lower())
+                self.assertIn("must not silently expand", text.lower())
+                self.assertIn("MISSING", text)
+                self.assertIn("FALLBACK", text)
+
     def test_change_triage_reference_defines_event_and_route_contract(self) -> None:
         text = read("portable/references/change-triage.md")
         for event_kind in (

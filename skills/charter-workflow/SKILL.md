@@ -7,6 +7,23 @@ description: Use when starting, continuing, reviewing, handing off, or closing a
 
 Use `.charter/` as the shared source of truth across agents and hosts. This Skill is self-contained: it includes the full charter in `references/DEVELOPMENT_CHARTER.md`, the dependency guide and manifest, eight templates, a design-interview fallback, and safe initialization/diagnostic scripts. Loading it never installs a provider or changes a global directory.
 
+## Change Triage first
+
+Use `Change Triage` for every `INIT`, `RESUME`, and `CHANGE` entry. The portable fallback contract is `portable/references/change-triage.md`. If an optional provider is missing, record `MISSING` and `FALLBACK` instead of writing as if it ran. A new requirement must not silently expand the current Leaf.
+
+Context Router is a workflow step, not a service. Bootstrap and Resume converge on the same READY Leaf loop, and Change Triage is the return path for scope or fact changes.
+
+The four Change Triage questions are:
+
+1. Is this still inside the current Goal?
+2. Does it affect Charter, Roadmap, or the current Leaf?
+3. Does it introduce a new capability, dependency, version, technology stack, risk, or external boundary?
+4. Does the current authorization already cover it?
+
+Trigger targeted Reuse Check only when the change affects capability, dependency, version, technology stack, security, license, privacy, or external effects.
+
+repo-to-skill is a separate authorized follow-up action.
+
 ## First-start mode
 
 When there is no `.charter/project.md`:

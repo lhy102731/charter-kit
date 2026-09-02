@@ -2,6 +2,24 @@
 
 This reference maps common tools to responsibilities. It does not make any tool a dependency.
 
+## Change Triage first
+
+Route every `INIT`, `RESUME`, and `CHANGE` request through `Change Triage` first. Use `portable/references/change-triage.md` as the portable fallback contract. If any optional provider is missing, record `MISSING` and `FALLBACK` instead of claiming it ran. A new requirement must not silently expand the current Leaf.
+
+Context Router is a workflow step, not a service. Bootstrap and Resume converge on the same READY Leaf loop, and Change Triage is the return path for scope or fact changes.
+
+## Reuse Skills by need
+
+The five Reuse Skills are routed by need, not sequence.
+
+| Need | Reuse Skill | Portable fallback |
+|---|---|---|
+| Existing helper, utility, mapper, or module may already exist | `reuse-first` | Inspect the current repo before inventing new code |
+| Existing framework, SDK, dependency, or shared component may already fit | `framework-first-coding` | Compare the current stack before adding a new one |
+| The tradeoff is whether to reuse or build | `reduce-reinvention` | Write the cost, risk, and maintenance comparison |
+| There may already be a Skill to reuse | `find-skills` | Search only; do not install or claim success if absent |
+| A selected repository might be worth turning into a Skill | `repo-to-skill` | Separate authorized follow-up after the current task |
+
 | Responsibility | Preferred provider | Portable fallback |
 |---|---|---|
 | Requirements and design | `superpowers:brainstorming` | Project charter sections 2–8 |
@@ -14,6 +32,17 @@ This reference maps common tools to responsibilities. It does not make any tool 
 | Long task state | `j-space` (`ledger`, `seam`, `resume`) | `.charter/handoff.md` plus the ledger block in the task |
 | Reuse / prior-art discovery | Search in order: workspace/history → installed skills/plugins/cache/manifest → approved internal resources → official docs/upstream/registries → authorized public web; non-local tiers require the selected scope and `External read authorization` | A capability query matrix in `.charter/reuse-discovery.md` with exact queries, raw outputs under `.charter/evidence/`, fixed immutable revisions, explicit `NO_MATCH`/`NOT_SEARCHED`/`NOT_AUTHORIZED` results, and evidence receipts |
 | Isolation and integration | Git worktree/branch tools | Temporary workspace; mark integration as unavailable |
+
+The four Change Triage questions are:
+
+1. Is this still inside the current Goal?
+2. Does it affect Charter, Roadmap, or the current Leaf?
+3. Does it introduce a new capability, dependency, version, technology stack, risk, or external boundary?
+4. Does the current authorization already cover it?
+
+Trigger targeted Reuse Check only when the change affects capability, dependency, version, technology stack, security, license, privacy, or external effects.
+
+repo-to-skill is a separate authorized follow-up action.
 
 ## Dependency rule
 
