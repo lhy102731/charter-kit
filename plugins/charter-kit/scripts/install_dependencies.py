@@ -61,16 +61,35 @@ def expand_target(raw: str) -> Path:
 
 
 def clone_checkout(repo: str, ref: str) -> tuple[tempfile.TemporaryDirectory[str], Path]:
-    """Clone the repo into a temp dir; caller must call cleanup()."""
+    """Clone the repo into a temp dir; caller must call cleanup().
+
+    ``ref`` may be a branch, tag, or full commit SHA. A shallow clone of the
+    default branch is taken first, then the requested ref is fetched and
+    checked out. This works for arbitrary commit SHAs, which ``git clone
+    --branch`` cannot reliably target on every git version.
+    """
     temp = tempfile.TemporaryDirectory(prefix="charter-kit-deps-")
     checkout = Path(temp.name)
     try:
         subprocess.run(
-            ["git", "clone", "--depth", "1", "--branch", ref, "--single-branch", repo, str(checkout)],
+            ["git", "clone", "--depth", "1", "--single-branch", repo, str(checkout)],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        if ref:
+            subprocess.run(
+                ["git", "-C", str(checkout), "fetch", "--depth", "1", "origin", ref],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(
+                ["git", "-C", str(checkout), "checkout", "--detach", ref],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
     except subprocess.CalledProcessError as exc:
         temp.cleanup()
         raise SystemExit(f"git clone failed for {repo}@{ref}: {exc}") from exc
