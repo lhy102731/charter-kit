@@ -5,7 +5,6 @@ import { dirname, join } from 'node:path'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKILL_DIR = join(ROOT, 'skills', 'charter-workflow')
 const SKILL_FILE = join(SKILL_DIR, 'SKILL.md')
-const COMMAND_FILE = join(ROOT, 'portable', 'commands', 'charter-workflow.md')
 
 function parseFrontmatter(text) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text)
@@ -24,35 +23,20 @@ function parseFrontmatter(text) {
   return {
     description: meta.description || 'Charter Kit development workflow',
     whenToUse: meta['when-to-use'] || meta.whenToUse,
-    argumentHint: meta['argument-hint'] || meta.argumentHint,
     body: (match[2] || '').trimEnd() + '\n',
   }
 }
 
-function readCommandText() {
-  return parseFrontmatter(readFileSync(COMMAND_FILE, 'utf8')).body
-}
-
-function readCommandHint() {
-  return parseFrontmatter(readFileSync(COMMAND_FILE, 'utf8')).argumentHint
-}
-
 export const name = 'dsh-charter-kit'
-export const inject = ['commands', 'skills']
+export const inject = ['skills']
 
 export function apply(ctx) {
   const skill = parseFrontmatter(readFileSync(SKILL_FILE, 'utf8'))
 
-  ctx.effect(() => ctx.commands.register({
-    name: 'charter-workflow',
-    description: 'Start, resume, or run change triage for the Charter Kit development workflow',
-    input: { hint: readCommandHint() || 'optional one-sentence requirement' },
-    handler: () => ({
-      kind: 'success',
-      text: `Charter Kit DSH plugin package root: ${ROOT}\n\n${readCommandText()}`,
-    }),
-  }), 'charter-kit: /charter-workflow')
-
+  // No handler-style slash command is registered. A typed line such as
+  // `/charter-workflow <requirement>` therefore reaches the model as an
+  // ordinary user message (matching Codex behavior); the model loads the
+  // `charter-workflow` skill below and actually starts the workflow.
   ctx.effect(() => ctx.skills.register({
     name: 'charter-workflow',
     description: skill.description,

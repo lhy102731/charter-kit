@@ -9,7 +9,9 @@ Build the DSH distribution from the repository root:
 python scripts/build_dsh_plugin.py
 ```
 
-The built plugin registers the `charter-workflow` skill and the
-`/charter-workflow` command. It supports starting, resuming, and change
-triage for the Charter Kit workflow. It does not install or download
-superpowers / j-space / grill-me.
+The built plugin registers the `charter-workflow` skill. It deliberately
+does NOT register a handler-style `/charter-workflow` slash command, so a
+typed line such as `/charter-workflow <requirement>` reaches the model as an
+ordinary user message — the model loads the skill and starts, resumes, or
+runs change triage exactly like the Codex target. It does not install or
+download superpowers / j-space / grill-me.

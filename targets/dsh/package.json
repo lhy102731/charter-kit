@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-charter-kit",
   "version": "0.2.0",
-  "description": "DSH plugin distribution for Charter Kit: portable charter workflow, charter-workflow skill, and /charter-workflow command.",
+  "description": "DSH plugin distribution for Charter Kit: portable charter workflow and the model-driven charter-workflow skill.",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
