@@ -43,7 +43,7 @@ class DocumentationContractTests(unittest.TestCase):
             "Change Triage",
             "Reuse Assessment / Reuse Check",
             "new requirement must not silently expand the current Leaf",
-            "Codex and DSH are the targets",
+            "Claude Code and Codex are the targets",
             "experimental",
             "unverified",
             "不会自动安装",

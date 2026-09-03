@@ -40,7 +40,30 @@ Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。叶�
 
 运行时的核心恢复文件（core Resume files）只有 `.charter/project.md`、`roadmap.md`、`reuse-discovery.md` 和 `current-task.md`；`handoff.md` 是可选恢复快照。初始化器还会准备 `decision.md`、`review.md`、`evidence-receipt.md` 和 `evidence/` 作为辅助收据（auxiliary receipts）及证据容器；它们只在被当前记录引用时读取，不构成第二套状态源。`current-task.md` 是活动叶状态的权威来源，`roadmap.md` 只是投影。
 
-### 安装到 Codex 与 DSH
+### 安装到 Claude Code
+
+```bash
+claude plugin marketplace add lhy102731/charter-kit
+claude plugin install charter-kit@charter-kit
+```
+
+重启 Claude Code 后用 `/charter-kit:charter-workflow` 调用。
+
+更新：
+
+```bash
+claude plugin marketplace update charter-kit
+claude plugin update charter-kit
+```
+
+卸载：
+
+```bash
+claude plugin uninstall charter-kit@charter-kit
+claude plugin marketplace remove charter-kit
+```
+
+### 安装到 Codex
 
 请先阅读 [Codex 插件文档](https://developers.openai.com/codex/plugins/)，再执行：
 
@@ -74,7 +97,7 @@ dev_install_package <repo>/plugins/dsh-charter-kit
 
 ### 目标状态
 
-Codex 和 DSH 是当前仓库经过安装与启动 smoke test 验证的目标。其他 Harness 目录在完成真实宿主验证前仍标记为 `experimental` / `unverified`，本仓库不会为未验证目标提供正式安装承诺。
+Claude Code 和 Codex 是当前仓库经过安装与启动 smoke test 验证的目标。DSH 和其他 Harness 目录在完成真实宿主验证前仍标记为 `experimental` / `unverified`，本仓库不会为未验证目标提供正式安装承诺。
 
 ### 可选依赖安装（显式）
 
@@ -102,9 +125,9 @@ python scripts/install_dependencies.py --only j-space grill-me
 
 - [通用开发章程](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
 - [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
+- [Claude Code 目标源](https://github.com/lhy102731/charter-kit/tree/main/.claude-plugin)
 - [Codex 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
 - [DSH 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/dsh)
-- [Codex Marketplace 清单](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
 - [GitHub 仓库](https://github.com/lhy102731/charter-kit)
 
 以下维护命令只在源码仓库 checkout 中运行：修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`，修改 DSH 入口时编辑 `targets/dsh/`。发布前运行 `python scripts/validate_kit.py .`，并分别运行 `python scripts/build_codex_plugin.py --check` 与 `python scripts/build_dsh_plugin.py --check`。MIT License.
@@ -142,7 +165,30 @@ Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. A 
 
 The four core Resume files are `.charter/project.md`, `roadmap.md`, `reuse-discovery.md`, and `current-task.md`; `handoff.md` is an optional recovery snapshot. The initializer also prepares `decision.md`, `review.md`, `evidence-receipt.md`, and `evidence/` as auxiliary receipts and an evidence container. Read those when the active records reference them; they are not another state authority. `current-task.md` is authoritative for the active leaf state, while `roadmap.md` is a projection.
 
-### Install in Codex and DSH
+### Install in Claude Code
+
+```bash
+claude plugin marketplace add lhy102731/charter-kit
+claude plugin install charter-kit@charter-kit
+```
+
+Restart Claude Code, then invoke with `/charter-kit:charter-workflow`.
+
+Update:
+
+```bash
+claude plugin marketplace update charter-kit
+claude plugin update charter-kit
+```
+
+Uninstall:
+
+```bash
+claude plugin uninstall charter-kit@charter-kit
+claude plugin marketplace remove charter-kit
+```
+
+### Install in Codex
 
 Read the [Codex plugin documentation](https://developers.openai.com/codex/plugins/) first, then run:
 
@@ -176,7 +222,7 @@ dev_install_package <repo>/plugins/dsh-charter-kit
 
 ### Target status
 
-Codex and DSH are the targets in this repository with verified installation and startup smoke-test evidence. Any future Claude, Gemini, or other Harness adapter remains `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim for an unverified target.
+Claude Code and Codex are the targets in this repository with verified installation and startup smoke-test evidence. DSH and any future Gemini or other Harness adapter remain `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim for an unverified target.
 
 ### Optional dependency installation (explicit)
 
@@ -205,9 +251,9 @@ The command installs into `~/.agents/skills` from the GitHub repositories record
 
 - [Generic development charter](https://github.com/lhy102731/charter-kit/blob/main/DEVELOPMENT_CHARTER.md)
 - [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
+- [Claude Code target source](https://github.com/lhy102731/charter-kit/tree/main/.claude-plugin)
 - [Codex target source](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
 - [DSH target source](https://github.com/lhy102731/charter-kit/tree/main/targets/dsh)
-- [Codex marketplace manifest](https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json)
 - [GitHub repository](https://github.com/lhy102731/charter-kit)
 
 In a source repository checkout, update `portable/` and `DEVELOPMENT_CHARTER.md` first when changing the core, and update `targets/codex/` when changing the Codex entry. Before publishing, run `python scripts/validate_kit.py .`, `python scripts/build_codex_plugin.py --check`, and `python scripts/build_dsh_plugin.py --check`, then confirm the installation state in both hosts. These maintainer paths and commands are not expected inside an installed plugin package. MIT License.

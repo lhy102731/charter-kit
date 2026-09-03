@@ -293,8 +293,8 @@ class WorkflowContractTests(unittest.TestCase):
     def test_packaged_readme_uses_repository_links_for_unshipped_sources(self) -> None:
         readme = read("README.md")
         for repository_path in (
+            "https://github.com/lhy102731/charter-kit/tree/main/.claude-plugin",
             "https://github.com/lhy102731/charter-kit/tree/main/targets/codex",
-            "https://github.com/lhy102731/charter-kit/blob/main/.agents/plugins/marketplace.json",
         ):
             self.assertIn(repository_path, readme)
         self.assertIn("In a source repository checkout", readme)

@@ -1,0 +1,18 @@
+{
+  "name": "charter-kit",
+  "description": "A lightweight, host-neutral development charter that can bootstrap a project from zero. Provides the charter-workflow skill: intent interview, project charter, roadmap, bounded leaf-task contracts, reuse checks, review, and verification receipts kept in project-local files.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Charter Kit contributors"
+  },
+  "homepage": "https://github.com/lhy102731/charter-kit",
+  "repository": "https://github.com/lhy102731/charter-kit",
+  "license": "MIT",
+  "keywords": [
+    "development-charter",
+    "task-contract",
+    "project-local",
+    "handoff",
+    "workflow"
+  ]
+}

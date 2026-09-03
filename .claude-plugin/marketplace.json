@@ -1,0 +1,21 @@
+{
+  "name": "charter-kit",
+  "description": "Charter Kit marketplace: portable project charter and leaf-task workflow for Claude Code",
+  "owner": {
+    "name": "Charter Kit contributors"
+  },
+  "plugins": [
+    {
+      "name": "charter-kit",
+      "description": "A lightweight, host-neutral development charter that can bootstrap a project from zero. Provides the charter-workflow skill: intent interview, project charter, roadmap, bounded leaf-task contracts, reuse checks, review, and verification receipts kept in project-local files.",
+      "version": "0.2.0",
+      "source": "./",
+      "author": {
+        "name": "Charter Kit contributors"
+      },
+      "category": "workflow",
+      "homepage": "https://github.com/lhy102731/charter-kit",
+      "license": "MIT"
+    }
+  ]
+}
