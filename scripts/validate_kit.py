@@ -148,6 +148,14 @@ DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE = "plugins/dsh-charter-kit/scripts/build.
 DSH_DISTRIBUTION_LIB_RELATIVE = "plugins/dsh-charter-kit/lib/index.js"
 DSH_DISTRIBUTION_SKILL_RELATIVE = "plugins/dsh-charter-kit/skills/charter-workflow"
 
+ZCODE_TARGET_ROOT_RELATIVE = "targets/zcode"
+ZCODE_TARGET_MANIFEST_RELATIVE = "targets/zcode/.zcode-plugin/plugin.json"
+ZCODE_TARGET_COMMAND_RELATIVE = "targets/zcode/commands/charter-workflow.md"
+ZCODE_DISTRIBUTION_ROOT_RELATIVE = "plugins/zcode-charter-kit"
+ZCODE_DISTRIBUTION_MANIFEST_RELATIVE = "plugins/zcode-charter-kit/.zcode-plugin/plugin.json"
+ZCODE_DISTRIBUTION_COMMAND_RELATIVE = "plugins/zcode-charter-kit/commands/charter-workflow.md"
+ZCODE_DISTRIBUTION_SKILL_RELATIVE = "plugins/zcode-charter-kit/skills/charter-workflow"
+
 # These are the root files copied into the self-contained distribution by the
 # deterministic packager.  Keeping the list explicit makes an accidental
 # omission visible and avoids treating arbitrary repository files as package
@@ -185,6 +193,7 @@ REQUIRED_FILES = (
     MARKETPLACE_RELATIVE,
     "scripts/build_codex_plugin.py",
     "scripts/build_dsh_plugin.py",
+    "scripts/build_zcode_plugin.py",
     DSH_TARGET_PACKAGE_JSON_RELATIVE,
     DSH_TARGET_SRC_RELATIVE,
     DSH_TARGET_BUILD_SCRIPT_RELATIVE,
@@ -668,6 +677,7 @@ class Checker:
         self.check_marketplace()
         self.check_target_and_distribution()
         self.check_dsh_target_and_distribution()
+        self.check_zcode_target_and_distribution()
         self.check_readme()
         self.check_tests_and_docs()
         self.check_mirrors()
@@ -689,6 +699,7 @@ class Checker:
         print("- plugin manifest and LICENSE valid")
         print("- marketplace, Codex target, and generated distribution valid")
         print("- DSH target and generated distribution valid")
+        print("- ZCode target and generated distribution valid")
         print("- target/distribution and legacy mirrors are byte-identical")
         print("- no install side effect is declared")
         return 0
@@ -1179,6 +1190,83 @@ class Checker:
                 if relative_parts and relative_parts[0] in {"plugins", "targets"}:
                     self.errors.append(
                         f"{DSH_DISTRIBUTION_ROOT_RELATIVE}: nested {relative_parts[0]}/ tree is not allowed"
+                    )
+
+    def check_zcode_target_and_distribution(self) -> None:
+        """Check the ZCode adapter target and its generated plugin distribution."""
+
+        self._check_tree_safety(ZCODE_TARGET_ROOT_RELATIVE, required=True)
+        distribution_root = self._check_tree_safety(ZCODE_DISTRIBUTION_ROOT_RELATIVE, required=True)
+        if distribution_root is None:
+            return
+
+        target_manifest = self._load_json_object(
+            ZCODE_TARGET_MANIFEST_RELATIVE,
+            "ZCode target manifest",
+        )
+        dist_manifest = self._load_json_object(
+            ZCODE_DISTRIBUTION_MANIFEST_RELATIVE,
+            "ZCode distribution manifest",
+        )
+        for relative, data in (
+            (ZCODE_TARGET_MANIFEST_RELATIVE, target_manifest),
+            (ZCODE_DISTRIBUTION_MANIFEST_RELATIVE, dist_manifest),
+        ):
+            if data is None:
+                continue
+            if data.get("name") != "charter-kit":
+                self.errors.append(f"{relative}: ZCode manifest name must be charter-kit")
+            version = data.get("version")
+            if not isinstance(version, str) or SEMVER_RE.fullmatch(version) is None:
+                self.errors.append(f"{relative}: version must be strict semver")
+            if data.get("license") != "MIT":
+                self.errors.append(f"{relative}: license must be MIT")
+            if data.get("skills") != "skills" or data.get("commands") != "commands":
+                self.errors.append(f"{relative}: manifest must declare component directories skills and commands")
+
+        self._compare_file_bytes(
+            ZCODE_TARGET_MANIFEST_RELATIVE,
+            ZCODE_DISTRIBUTION_MANIFEST_RELATIVE,
+            label="ZCode target/distribution manifest",
+        )
+        self._compare_file_bytes(
+            ZCODE_TARGET_COMMAND_RELATIVE,
+            ZCODE_DISTRIBUTION_COMMAND_RELATIVE,
+            label="ZCode target/distribution command",
+        )
+
+        dist_command = self.read(ZCODE_DISTRIBUTION_COMMAND_RELATIVE)
+        if dist_command and "skills: charter-workflow" not in dist_command:
+            self.errors.append(
+                f"{ZCODE_DISTRIBUTION_COMMAND_RELATIVE}: command must mount the charter-workflow skill"
+            )
+
+        dist_skill_skill = f"{ZCODE_DISTRIBUTION_SKILL_RELATIVE}/SKILL.md"
+        self._compare_file_bytes(
+            "skills/charter-workflow/SKILL.md",
+            dist_skill_skill,
+            label="ZCode distribution skill mirror",
+        )
+        root_charter = "DEVELOPMENT_CHARTER.md"
+        dist_charter = f"{ZCODE_DISTRIBUTION_SKILL_RELATIVE}/references/DEVELOPMENT_CHARTER.md"
+        self._compare_file_bytes(root_charter, dist_charter, label="ZCode distribution charter mirror")
+
+        if distribution_root.is_dir():
+            expected_top_level = {
+                Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
+            } | {".zcode-plugin", "commands", "skills"}
+            for child in distribution_root.iterdir():
+                if child.name not in expected_top_level:
+                    self.errors.append(
+                        f"{ZCODE_DISTRIBUTION_ROOT_RELATIVE}: unexpected top-level entry {child.name!r}"
+                    )
+            for child in distribution_root.rglob("*"):
+                if not child.exists():
+                    continue
+                relative_parts = child.relative_to(distribution_root).parts
+                if relative_parts and relative_parts[0] in {"plugins", "targets"}:
+                    self.errors.append(
+                        f"{ZCODE_DISTRIBUTION_ROOT_RELATIVE}: nested {relative_parts[0]}/ tree is not allowed"
                     )
 
     def check_license(self) -> None:

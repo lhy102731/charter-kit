@@ -1,0 +1,200 @@
+{
+  "schema": "charter-kit/dependencies/v1",
+  "description": "Local capability declarations for the portable Charter Kit workflow. This file is diagnostic metadata only; it never installs or executes a dependency.",
+  "reuse_check": {
+    "gate_states": ["PENDING", "COMPLETE", "BLOCKED"],
+    "material_target_values": ["YES", "NO_MATERIAL_TARGET"],
+    "search_depths": ["FAST", "STANDARD", "DEEP"],
+    "coverage_values": ["SEARCHED", "NOT_SEARCHED", "NOT_AUTHORIZED", "BLOCKED_TOOLING"],
+    "result_values": ["MATCH", "NO_MATCH", "UNKNOWN"],
+    "final_routes": ["ADOPT", "ADAPT", "REFERENCE_ONLY", "BUILD_NEW", "REUSE_SPIKE", "NEEDS_DECISION"],
+    "installation": "explicit-user-action-only"
+  },
+  "providers": [
+    {
+      "id": "reuse-first",
+      "role": "project-local helper, utility, mapper, and module discovery",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/reuse-first",
+        "{home}/.codex/skills/reuse-first",
+        "{project}/.agents/skills/reuse-first",
+        "{project}/.codex/skills/reuse-first"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Project-local reuse search guidance is unavailable.",
+      "fallback": "Use the portable local reuse check; install only as a separate user action."
+    },
+    {
+      "id": "framework-first-coding",
+      "role": "framework, SDK, dependency, and shared-component discovery",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/framework-first-coding",
+        "{home}/.codex/skills/framework-first-coding",
+        "{project}/.agents/skills/framework-first-coding",
+        "{project}/.codex/skills/framework-first-coding"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Framework and ecosystem reuse guidance is unavailable.",
+      "fallback": "Inspect declared frameworks, SDKs, and dependencies manually; install only as a separate user action."
+    },
+    {
+      "id": "reduce-reinvention",
+      "role": "Build-vs-Reuse cost, risk, and maintenance trade-off",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/reduce-reinvention",
+        "{home}/.codex/skills/reduce-reinvention",
+        "{project}/.agents/skills/reduce-reinvention",
+        "{project}/.codex/skills/reduce-reinvention"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "A dedicated Build-vs-Reuse trade-off checklist is unavailable.",
+      "fallback": "Use the portable candidate and maintenance checklist; install only as a separate user action."
+    },
+    {
+      "id": "find-skills",
+      "role": "discovery of existing Agent Skills only",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/find-skills",
+        "{home}/.codex/skills/find-skills",
+        "{project}/.agents/skills/find-skills",
+        "{project}/.codex/skills/find-skills"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Installed or public Agent Skill discovery guidance is unavailable.",
+      "fallback": "Record a bounded Skill inventory manually; discovery never installs a Skill."
+    },
+    {
+      "id": "repo-to-skill",
+      "role": "authorized follow-up to turn a selected repository into a Skill",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/repo-to-skill",
+        "{home}/.codex/skills/repo-to-skill",
+        "{project}/.agents/skills/repo-to-skill",
+        "{project}/.codex/skills/repo-to-skill"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Repository-to-Skill follow-up guidance is unavailable.",
+      "fallback": "Do not convert a repository; create a separately authorized follow-up task first."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "readable-markdown",
+      "kind": "path",
+      "paths": [
+        "{package}/DEVELOPMENT_CHARTER.md",
+        "{package}/references/DEVELOPMENT_CHARTER.md"
+      ],
+      "required": true,
+      "impact": "The shared charter and evidence documents cannot be read reliably.",
+      "fallback": "Read the supplied Markdown manually and record the limitation."
+    },
+    {
+      "id": "project-directory-access",
+      "kind": "directory",
+      "paths": ["{project}"],
+      "required": true,
+      "impact": "The project working set and evidence cannot be persisted.",
+      "fallback": "Ask the user to provide a writable project directory before continuing."
+    },
+    {
+      "id": "python",
+      "kind": "command",
+      "command": "python",
+      "required": true,
+      "impact": "The bundled initializer and dependency diagnostics cannot run automatically.",
+      "fallback": "Create the working set manually and record a host-native check."
+    },
+    {
+      "id": "git",
+      "kind": "command",
+      "command": "git",
+      "required": false,
+      "impact": "Branch, commit, and post-integration provenance cannot be checked automatically.",
+      "fallback": "Record the host or manual version identifier in the charter."
+    },
+    {
+      "id": "superpowers",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/brainstorming",
+        "{home}/.agents/skills/test-driven-development",
+        "{home}/.codex/skills/brainstorming",
+        "{home}/.codex/skills/test-driven-development",
+        "{home}/.codex/plugins/cache/openai-api-curated/superpowers",
+        "{home}/.codex/plugins/cache/openai-bundled/superpowers",
+        "{home}/.claude/skills/brainstorming",
+        "{project}/.agents/skills/brainstorming",
+        "{project}/.codex/skills/brainstorming",
+        "{project}/.claude/skills/brainstorming"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Native planning, TDD, debugging, review, and verification helpers are unavailable.",
+      "fallback": "Use the portable Charter Kit checklists."
+    },
+    {
+      "id": "j-space",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/j-space",
+        "{home}/.codex/skills/j-space",
+        "{project}/.agents/skills/j-space",
+        "{project}/.codex/skills/j-space"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Native long-task ledger, seam refresh, and resume support are unavailable.",
+      "fallback": "Use .charter/handoff.md and the task ledger sections."
+    },
+    {
+      "id": "grill-me",
+      "kind": "provider",
+      "paths": [
+        "{home}/.agents/skills/grill-me",
+        "{home}/.agents/skills/grilling",
+        "{home}/.codex/skills/grill-me",
+        "{home}/.codex/skills/grilling",
+        "{project}/.agents/skills/grill-me",
+        "{project}/.agents/skills/grilling",
+        "{project}/.codex/skills/grill-me",
+        "{project}/.codex/skills/grilling"
+      ],
+      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "required": false,
+      "impact": "Interactive provider-backed questioning is unavailable during intent clarification.",
+      "fallback": "Use the bundled design-interview checklist and record FALLBACK."
+    },
+    {
+      "id": "design-interview",
+      "kind": "path",
+      "paths": [
+        "{package}/portable/references/design-interview.md",
+        "{package}/references/design-interview.md",
+        "{package}/skills/charter-workflow/references/design-interview.md"
+      ],
+      "required": true,
+      "impact": "The from-zero intent interview has no bundled portable implementation.",
+      "fallback": "Ask the same questions manually and record the limitation."
+    },
+    {
+      "id": "independent-review",
+      "kind": "capability",
+      "probe": "unverified",
+      "required": false,
+      "impact": "A fresh reviewer or independent process cannot be confirmed by a local file probe.",
+      "fallback": "When independent review is not triggered, record a bounded omission reason. When triggered but unavailable, record BLOCKED_TOOLING or obtain an explicit user waiver.",
+      "action": "if triggered, remain BLOCKED_TOOLING until a fresh reviewer is available or an explicit user waiver with limitation and expiry is recorded"
+    }
+  ]
+}

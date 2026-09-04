@@ -1,0 +1,9 @@
+{
+  "name": "charter-kit",
+  "version": "0.2.0",
+  "description": "Project-local, host-neutral development workflow: charter, roadmap, leaf-task contracts, reuse discovery gate, and change triage in ordinary files any compatible harness can resume.",
+  "author": { "name": "charter-kit contributors" },
+  "license": "MIT",
+  "skills": "skills",
+  "commands": "commands"
+}

@@ -85,6 +85,16 @@ codex plugin add charter-kit@charter-kit
 codex plugin remove charter-kit@charter-kit
 ```
 
+### 安装到 ZCode
+
+ZCode 插件发行包位于 `plugins/zcode-charter-kit/`。在 ZCode 的 **Settings → Plugin Management → Discover** 中点 `+`，添加本仓库（`lhy102731/charter-kit`）或本地目录（仓库根的 `.agents/plugins/marketplace.json` 已注册 `zcode-charter-kit` 条目），然后安装即可。安装后：
+
+- `/charter-workflow` 出现在命令菜单（`commands/charter-workflow.md`，自动挂载技能）；
+- `charter-workflow` 技能进入 Skills 分组（触发式发现）；
+- 同名资源的优先级：用户级 `~/.zcode/skills` / `~/.agents/skills` 高于插件根——若此前手动复制过副本，请删除旧副本以免遮蔽插件版本。
+
+不想用市场时，可手动复制：`skills/charter-workflow` → `~/.agents/skills/`、`commands/charter-workflow.md` → `~/.agents/commands/`；但市场安装是主路径，二者不要同时使用。
+
 ### 安装到 DSH
 
 DSH 插件发行包位于 `plugins/dsh-charter-kit/`，可通过 DSH 插件工具链安装：
@@ -209,6 +219,16 @@ Uninstall:
 ```text
 codex plugin remove charter-kit@charter-kit
 ```
+
+### Install in ZCode
+
+The ZCode plugin distribution lives in `plugins/zcode-charter-kit/`. In ZCode, open **Settings → Plugin Management → Discover**, press `+`, and add this repository (`lhy102731/charter-kit`) or a local checkout directory (the repository root `.agents/plugins/marketplace.json` already registers the `zcode-charter-kit` entry), then install. After installation:
+
+- `/charter-workflow` appears in the command menu (`commands/charter-workflow.md`, with the skill auto-mounted);
+- the `charter-workflow` skill is listed under Skills (trigger-based discovery);
+- same-name resource precedence: user-level `~/.zcode/skills` / `~/.agents/skills` outrank the plugin root — if you previously copied a manual snapshot, delete it so it cannot shadow the plugin copy.
+
+Without the marketplace, copy manually: `skills/charter-workflow` → `~/.agents/skills/` and `commands/charter-workflow.md` → `~/.agents/commands/`; the marketplace is the primary path, so do not use both.
 
 ### Install in DSH
 

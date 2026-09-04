@@ -1,0 +1,252 @@
+name: charter-kit
+version: 0.2.0
+protocol: charter/v1
+purpose: project-local-development-governance
+
+source_of_truth:
+  charter: DEVELOPMENT_CHARTER.md
+  templates: portable/templates
+  prompts: portable/prompts
+  roadmap_template: portable/templates/roadmap.md
+  reuse_template: portable/templates/reuse-discovery.md
+  reuse_record: .charter/reuse-discovery.md
+
+# A project may start with this package, the bundled Skill, or a manual copy of
+# the portable templates. The package does not require a particular host.
+working_set:
+  required:
+    - .charter/project.md
+    - .charter/roadmap.md
+    - .charter/reuse-discovery.md
+    - .charter/current-task.md
+  optional:
+    - .charter/handoff.md
+  auxiliary:
+    - .charter/decision.md
+    - .charter/review.md
+    - .charter/evidence-receipt.md
+    - .charter/evidence/
+
+dependencies:
+  manifest: dependencies.json
+  checker: scripts/check_dependencies.py
+  log: .charter/evidence/dependency-check.log
+  statuses:
+    - AVAILABLE
+    - MISSING
+    - UNVERIFIED
+    - FALLBACK
+  required_missing_exit: 1
+  optional_missing_exit: 0
+  installation: explicit-user-action-only
+  secret_logging: redacted
+
+required:
+  - readable-markdown
+  - project-directory-access
+
+recommended:
+  - git
+  - isolated-workspace
+  - executable-project-tests
+
+optional_providers:
+  - id: superpowers
+    kind: host-workflow
+    role: design, TDD, debugging, review, and verification discipline
+    required: false
+    capabilities:
+      - brainstorming
+      - planning
+      - tdd
+      - systematic-debugging
+      - code-review
+      - verification
+    fallback: portable-checklists
+  - id: j-space
+    kind: host-state-support
+    role: long-task ledger, seam refresh, and resume support
+    required: false
+    capabilities:
+      - ledger
+      - seam-review
+      - resume
+    fallback: project-handoff-and-ledger
+  - id: grill-me
+    kind: host-skill
+    role: goal and design interview pressure-testing
+    required: false
+    capabilities:
+      - design-interview
+    fallback: portable-design-interview
+  - id: reuse-first
+    kind: reuse-provider
+    role: project-local helper, utility, mapper, and module discovery
+    required: false
+    capabilities:
+      - local-reuse-search
+    fallback: portable-local-search
+  - id: framework-first-coding
+    kind: reuse-provider
+    role: framework, SDK, dependency, and shared-component discovery
+    required: false
+    capabilities:
+      - ecosystem-reuse-search
+    fallback: portable-ecosystem-check
+  - id: reduce-reinvention
+    kind: reuse-provider
+    role: Build-vs-Reuse cost, risk, and maintenance trade-off
+    required: false
+    capabilities:
+      - reuse-decision-analysis
+    fallback: portable-decision-checklist
+  - id: find-skills
+    kind: reuse-provider
+    role: discovery of existing Agent Skills only
+    required: false
+    capabilities:
+      - skill-discovery
+    fallback: portable-skill-inventory
+  - id: repo-to-skill
+    kind: reuse-provider
+    role: authorized follow-up to turn a selected repository into a Skill
+    required: false
+    capabilities:
+      - repository-to-skill-assessment
+    fallback: do-not-convert-without-explicit-authorization
+
+# The generic entry is canonical for unknown hosts. Named entries below are
+# optional adapters; they do not change the portable protocol.
+host_neutral_entry: portable/prompts/generic-bootstrap.md
+host_entries:
+  generic: portable/prompts/generic-bootstrap.md
+  codex: portable/prompts/generic-bootstrap.md
+  claude: portable/prompts/claude-bootstrap.md
+  gemini: portable/prompts/gemini-bootstrap.md
+  deepseek: portable/prompts/deepseek-bootstrap.md
+
+# Target adapters and generated distributions.  Target sources describe how a
+# host loads the portable core; they never install or bundle an external host.
+targets:
+  codex:
+    source: targets/codex
+    manifest: targets/codex/.codex-plugin/plugin.json
+    skill: targets/codex/skills/charter-workflow
+
+distributions:
+  codex:
+    path: plugins/charter-kit
+    generated_from: targets/codex
+    self_contained: true
+
+marketplace:
+  path: .agents/plugins/marketplace.json
+  name: charter-kit
+  source_path: ./plugins/charter-kit
+
+mirror_policy:
+  canonical_core: portable
+  byte_identity: true
+  newline_sensitive: true
+  legacy_snapshot: generated
+
+instruction_files:
+  generic: portable/prompts/generic-bootstrap.md
+  AGENTS.md: portable/prompts/generic-bootstrap.md
+  CLAUDE.md: portable/prompts/claude-bootstrap.md
+
+user_commands:
+  charter-workflow: portable/commands/charter-workflow.md
+
+reuse_gate:
+  scope_mapping:
+    LOCAL_ONLY: workspace/history
+    LOCAL_ECOSYSTEM: workspace/history+installed/cache+approved-internal
+    FULL_EXTERNAL: LOCAL_ECOSYSTEM+official/upstream/registries+authorized-public-web
+  external_read_authorization_required_for: non-local-search-tiers
+  material_target_values:
+    - YES
+    - NO_MATERIAL_TARGET
+  search_depths:
+    - FAST
+    - STANDARD
+    - DEEP
+  statuses:
+    - PENDING
+    - COMPLETE
+    - BLOCKED
+  coverage_values:
+    - SEARCHED
+    - NOT_SEARCHED
+    - NOT_AUTHORIZED
+    - BLOCKED_TOOLING
+  result_values:
+    - MATCH
+    - NO_MATCH
+    - UNKNOWN
+  candidate_decisions:
+    - ADOPT
+    - ADAPT
+    - REFERENCE_ONLY
+    - REJECT
+    - DEFER
+  final_routes:
+    - ADOPT
+    - ADAPT
+    - REFERENCE_ONLY
+    - BUILD_NEW
+    - REUSE_SPIKE
+    - NEEDS_DECISION
+  completion_requirements:
+    - every-material-capability-covered-in-approved-scope
+    - raw-evidence-for-every-searched-tier
+    - explicit-not-searched-or-not-authorized-for-out-of-scope-tier
+    - immutable-revision-required
+    - no-unresolved-high-value-unknown-or-defer
+    - uncertain-item-requires-reuse-spike-decision-or-block
+  evidence_required: true
+
+install_policy:
+  plugin_load: read-only
+  reuse_discovery: read-only-no-install-or-execution
+  reuse_discovery_policy:
+    search_order:
+      - workspace/history
+      - installed-skills-plugins/cache/manifest
+      - approved-internal-resources
+      - official-docs/upstream/registries
+      - authorized-public-web
+    prohibited_actions:
+      - clone
+      - build
+      - run
+      - import
+      - copy
+      - install
+      - load-candidate-instructions
+      - write-global-directories
+    prohibited_data:
+      - private_source
+      - secrets
+      - credentials
+      - sensitive_data
+      - identifying_project_details
+    blocked_tooling: stop-until-restored-or-user-approved-limited-waiver
+  dependency_installation: explicit-user-action
+  network_by_default: false
+  global_writes_by_default: false
+  auto_update: false
+
+scope:
+  included:
+    - requirements-to-charter
+    - reuse-prior-art-discovery
+    - leaf-task-planning
+    - bounded-agent-execution
+    - review-and-verification
+    - project-local-handoff
+  excluded:
+    - central-coordinator-service
+    - silent-dependency-installation
+    - unapproved-release
+    - unapproved-sensitive-data-access
