@@ -237,6 +237,22 @@ install_policy:
   global_writes_by_default: false
   auto_update: false
 
+# Provider fallback protocol: a failing call may be retried once; after that
+# the downgrade is surfaced to the user and recorded — never silent.
+provider_protocol:
+  on_missing: record-MISSING-and-use-portable-fallback
+  on_call_failure:
+    retry: once
+    then: user-visible-FALLBACK-in-events-and-handoff
+    user_may_direct: BLOCKED_TOOLING-wait-for-provider
+  silent_downgrade: violation
+  reuse_stage_routing:
+    local: reuse-first
+    installed-skills-cache-manifest: find-skills
+    registries-upstream-framework: framework-first-coding
+    build-vs-reuse-disposition: reduce-reinvention
+    post-adopt-repo-to-skill: repo-to-skill
+
 scope:
   included:
     - requirements-to-charter

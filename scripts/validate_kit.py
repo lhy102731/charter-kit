@@ -1857,6 +1857,12 @@ class Checker:
                 "reuse",
             ".charter/reuse-discovery.md",
             "DRAFT` to `APPROVED",
+            "jspace.py seam",
+            "jspace.py resume",
+            "allows one retry",
+            "silent downgrades are violations",
+            "reduce-reinvention",
+            "repo-to-skill",
         ):
             self.require(text, phrase, relative)
         self._check_bootstrap_semantics(relative, text)

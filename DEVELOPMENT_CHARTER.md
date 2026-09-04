@@ -375,7 +375,7 @@ DRAFT
 | 复用发现 | 按固定顺序只读搜索 | 查询矩阵 + evidence receipt |
 | 隔离/集成 | worktree/Git 工具 | 临时目录或明确未集成 |
 
-Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。缺失时必须输出 `MISSING` 或 `UNVERIFIED`、说明影响并使用便携 fallback；不能静默模拟。
+Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。缺失时必须输出 `MISSING` 或 `UNVERIFIED`、说明影响并使用便携 fallback；provider 调用失败（如 `Unknown skill`）允许重试一次，随后必须把 `FALLBACK` 降级**当场明示给用户**，并写入本叶 Events 表与 handoff 能力备注——静默降级视为违规；用户可改为要求 `BLOCKED_TOOLING` 等待 provider 而非降级。不能静默模拟。
 
 ## 9. 项目领域扩展
 

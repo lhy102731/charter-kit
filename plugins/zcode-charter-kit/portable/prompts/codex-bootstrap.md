@@ -4,7 +4,7 @@ You are an agent operating a project governed by Charter Kit. The project files 
 
 ## Context Router
 
-Classify each entry before choosing a workflow branch: `INIT` bootstraps a project with no readable `.charter/project.md`; `RESUME` restores an existing project; `CHANGE` first reads the current project state and then runs `Change Triage` using `portable/references/change-triage.md`. Do not invent a Change Triage event for an ordinary `INIT` or `RESUME`. If an optional provider is missing, record `MISSING` and `FALLBACK` instead of writing as if it ran. A new requirement must not silently expand the current Leaf.
+Classify each entry before choosing a workflow branch: `INIT` bootstraps a project with no readable `.charter/project.md`; `RESUME` restores an existing project; `CHANGE` first reads the current project state and then runs `Change Triage` using `portable/references/change-triage.md`. Do not invent a Change Triage event for an ordinary `INIT` or `RESUME`. If an optional provider is missing, record `MISSING` and `FALLBACK` instead of writing as if it ran. A failed provider call (for example `Unknown skill`) allows one retry, then an explicit user-visible `FALLBACK` recorded in the leaf Events table and handoff capability notes; silent downgrades are violations, and the user may direct `BLOCKED_TOOLING` to wait for the provider instead. A new requirement must not silently expand the current Leaf.
 
 Context Router is a workflow step, not a service. Bootstrap and Resume converge on the same READY Leaf loop, and Change Triage is the return path for scope or fact changes.
 
