@@ -1743,6 +1743,17 @@ class Checker:
         self.require(text, ".charter/evidence/dependency-check.log", relative)
         for field in ("capability", "reason", "impact", "fallback", "action"):
             self.require(text, field, relative)
+        # Provider protocol: j-space operational guidance and the one-retry,
+        # user-visible fallback rule must survive in every shared entry file.
+        for phrase in (
+            "jspace.py seam",
+            "jspace.py resume",
+            "allows one retry",
+            "silent downgrades are violations",
+            "reduce-reinvention",
+            "repo-to-skill",
+        ):
+            self.require(text, phrase, relative)
         self.require(text, "grill-me", relative)
         self.require(text, "design-interview", relative)
         # A provider may be named in an introductory inventory before the
@@ -1857,12 +1868,6 @@ class Checker:
                 "reuse",
             ".charter/reuse-discovery.md",
             "DRAFT` to `APPROVED",
-            "jspace.py seam",
-            "jspace.py resume",
-            "allows one retry",
-            "silent downgrades are violations",
-            "reduce-reinvention",
-            "repo-to-skill",
         ):
             self.require(text, phrase, relative)
         self._check_bootstrap_semantics(relative, text)
