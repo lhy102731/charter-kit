@@ -1,0 +1,7 @@
+# Charter Kit compares canonical files against their target and distribution
+# mirrors byte-for-byte, so a single CRLF commit from any host would break the
+# identity checks and every reproducible-build --check comparison.  Normalize
+# text files to LF in the repository and in the working tree, independent of a
+# contributor's local core.autocrlf setting.  Binary files stay untouched:
+# text=auto only applies the rule to content Git detects as text.
+* text=auto eol=lf

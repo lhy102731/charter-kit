@@ -349,6 +349,18 @@ LEGACY_REUSE_GATE_CONTRACTS = (
     "NOT_STARTED`, `IN_PROGRESS`, `BLOCKED_TOOLING",
 )
 
+# The session ledger must be declared before the first state transition, so
+# the first-start section may carry exactly one declaration and it has to sit
+# in the step that performs `DRAFT` -> `APPROVED`.  A second copy elsewhere in
+# that section is what re-creates the contradiction this rule exists to close:
+# a leftover "before the first state transition of the first leaf" wording lets
+# an executor defer the declaration past the transition it guards.  Presence
+# checks cannot see duplication, so match whole lines and count them.
+LEDGER_DECLARATION_LINE_RE = re.compile(r"(?i)(?:session )?ledger (?:mode|declaration)")
+LEDGER_BEFORE_TRANSITION_RE = re.compile(
+    r"Before moving `DRAFT` to `APPROVED`[^.]*?declare the session ledger mode"
+)
+
 # DSH is retained as an experimental adapter shell.  Its presence is useful
 # for structural checks, but it is not a verified installation target.  Keep
 # the claim detector narrow enough to allow ordinary words such as "build"
@@ -1788,6 +1800,21 @@ class Checker:
             self.errors.append(f"{relative}: grill-me must be preferred before design-interview fallback")
         if "fallback" not in low:
             self.errors.append(f"{relative}: design-interview fallback is missing")
+        # The ledger declaration is an ordering rule, so check position and
+        # uniqueness, not presence: two declarations in one first-start section
+        # mean one of them can still point past the transition it guards.
+        declarations = [
+            line for line in ordered.splitlines() if LEDGER_DECLARATION_LINE_RE.search(line)
+        ]
+        if len(declarations) != 1:
+            self.errors.append(
+                f"{relative}: first-start section must declare the session ledger exactly once "
+                f"(found {len(declarations)})"
+            )
+        elif LEDGER_BEFORE_TRANSITION_RE.search(declarations[0]) is None:
+            self.errors.append(
+                f"{relative}: session ledger declaration must precede DRAFT to APPROVED in the same step"
+            )
         if not self._has_missing_working_set_rule(text):
             self.errors.append(f"{relative}: missing required-file BLOCKED rule")
         # Accept either the compact host wording or the fuller MANUAL/AUTO_DEV

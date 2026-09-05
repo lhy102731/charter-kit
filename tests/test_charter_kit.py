@@ -440,6 +440,50 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("generic-bootstrap.md: missing required-file BLOCKED rule", result.stdout)
 
+    def test_validator_rejects_duplicate_session_ledger_declaration(self) -> None:
+        """A second declaration re-opens the ordering hole the rule closes.
+
+        Presence checks pass while one copy still says "before the first state
+        transition of the first leaf", which lets an executor declare the mode
+        after the transition it is supposed to guard.
+        """
+        package = self.make_package_copy()
+        prompt = package / "portable" / "prompts" / "generic-bootstrap.md"
+        prompt.write_text(
+            prompt.read_text(encoding="utf-8").replace(
+                "## Resume mode",
+                "**Session ledger declaration:** before the first state transition of the "
+                "first leaf, declare the ledger mode.\n\n## Resume mode",
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "generic-bootstrap.md: first-start section must declare the session ledger exactly once",
+            result.stdout,
+        )
+
+    def test_validator_requires_ledger_declaration_before_first_transition(self) -> None:
+        package = self.make_package_copy()
+        prompt = package / "portable" / "prompts" / "generic-bootstrap.md"
+        prompt.write_text(
+            prompt.read_text(encoding="utf-8").replace(
+                "Before moving `DRAFT` to `APPROVED` — the first state transition of this "
+                "session — declare the session ledger mode",
+                "After moving `DRAFT` to `APPROVED`, declare the session ledger mode",
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "generic-bootstrap.md: session ledger declaration must precede DRAFT to APPROVED",
+            result.stdout,
+        )
+
     def test_validator_requires_approved_state_mirroring(self) -> None:
         package = self.make_package_copy()
         for roadmap in (
