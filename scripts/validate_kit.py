@@ -1752,6 +1752,9 @@ class Checker:
             "silent downgrades are violations",
             "reduce-reinvention",
             "repo-to-skill",
+            "Session ledger",
+            "NOT_ENABLED",
+            "must not close as `PASS_CLOSED`",
         ):
             self.require(text, phrase, relative)
         self.require(text, "grill-me", relative)

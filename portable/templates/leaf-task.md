@@ -123,7 +123,7 @@ Stop and write a decision record when:
 - Design note: `<path or short description>`
 - Design interview record: `<path or summary; design tree fully resolved before implementation>`
 - Reuse discovery evidence reviewed: `<discovery ID, coverage/result, candidate revision, targeted recheck, NO_MATERIAL_TARGET sanity check, or BUILD_NEW rationale>`
-- Long-task ledger: `<expected: yes/no; controller: jspace.py seam/resume at state transitions, or manual five-line ledger; .charter/ stays the governance source of truth>`
+- Long-task ledger: `<session ledger mode: jspace.py controller (seam/resume at state transitions, continuing across leaf boundaries), or manual five-line ledger with FALLBACK, or NOT_ENABLED waiver with reason recorded in Events>; .charter/ stays the governance source of truth>`
 - First failing check (RED): `<test or inspection>`
 - Minimal implementation plan:
   1.
@@ -146,7 +146,7 @@ Stop and write a decision record when:
 
 - Review A: `<path, reviewer, candidate, verdict>`
 - Review B / fresh behavior check: `<REQUIRED with trigger/path/reviewer/freshness/verdict, or NOT_REQUIRED with bounded omission reason>`
-- Ledger reconciliation: `<execution-ledger Verified summary mirrored into Events/Evidence, or ledger explicitly NOT_ENABLED>`
+- Ledger reconciliation: `<execution-ledger Verified summary mirrored into Events/Evidence>` — a leaf with neither reconciliation nor a recorded `NOT_ENABLED` waiver in its Events table must not close as `PASS_CLOSED` (close `PARTIAL` with the reason instead)
 - Pre-integration verification receipt: `<path, command, candidate, result>`
 - Final candidate: `<revision>`
 - Target-branch integration receipt: `<path or not yet>`

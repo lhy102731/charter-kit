@@ -48,13 +48,15 @@ Read, in order:
 
 If a required file is missing or unreadable, add only the missing template and stop until the working set is readable. State the goal, active leaf/status, authoritative reuse gate and ID, allowed effects, authorization reference, open finding, and one exact next action.
 
+**Session ledger declaration:** before the first state transition of this session, declare the ledger mode and record it in the active leaf's Events table. If this session will implement or continue any leaf, open or resume the execution ledger (J-space controller, or the manual five-line ledger with `FALLBACK` recorded) — enabled by default, so an implementation session needs a reason not to. The ledger follows the session, not the leaf: it continues naturally across leaf boundaries, and `NOT_ENABLED` is a recorded waiver with a reason (for example "single-session, no cross-context risk"), never a silent omission.
+
 ## Operating rules
 
 - Keep `WIP = 1`; `NEXT_CANDIDATE` is information, not authorization.
 - Stay within the leaf's allowed paths, effects, acceptance, stop conditions, and repair budget.
 - Before implementation, resolve the design tree with `grill-me` or the bundled design interview and record it.
 - For a feature, bug fix, or refactor, observe RED before GREEN. Route to available Superpowers skills for brainstorming, planning, TDD, debugging, review, and verification; otherwise use the portable checks and record `FALLBACK`.
-- For leaves expected to span sessions or multiple stages, use J-space as the execution ledger: run `jspace.py seam` at every state transition and `jspace.py resume` after gaps, then mirror the Verified summary into the task record at closure; `.charter/` remains the governance source of truth. Without the controller, keep the ledger in `.charter/handoff.md` and the task record, and record `FALLBACK`.
+- Session ledger (default on): declare the ledger mode at session start in the active leaf's Events table, run `jspace.py seam` at every state transition and `jspace.py resume` after gaps, and let the ledger continue across leaf boundaries within the session. At closure, mirror the Verified summary into the task record; a leaf with neither reconciliation nor a recorded `NOT_ENABLED` waiver in its Events table must not close as `PASS_CLOSED` (close `PARTIAL` with the reason). `.charter/` remains the governance source of truth. Without the controller, keep the manual five-line ledger in `.charter/handoff.md` and the task record, and record `FALLBACK`.
 - Use Review A for every Leaf's contract/implementation coverage. Review B is required only for security/authentication, external dependencies, public APIs, high-risk or irreversible effects, or explicit user requests. Low-risk leaves may record a bounded omission reason. When Review B is required, use a different reviewer in a fresh context/process; if unavailable, record `BLOCKED_TOOLING` or a bounded user-approved waiver.
 - Treat P0–P3 finding severity and A/B/C remediation change class as independent axes. C-class changes always require a decision.
 - Mirror every task state in the roadmap. `PASS_CLOSED` requires the final candidate, acceptance evidence, Review, pre-integration Verification, target-branch integration, and post-integration verification.
