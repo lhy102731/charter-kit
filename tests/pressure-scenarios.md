@@ -141,3 +141,11 @@ Harness; the boundary and evidence requirements may not.
 **Observed baseline:** A leaf can close with the session ledger silently ignored: no reconciliation, no recorded `NOT_ENABLED` waiver, and the omission is only discoverable after the fact.
 
 **Required behavior after the kit:** Closure requires either an execution-ledger Verified summary mirrored into the Events/Evidence record, or a `NOT_ENABLED` waiver recorded in Events with its reason. Missing both, the leaf closes `PARTIAL` with the reason instead of `PASS_CLOSED`; inventing a waiver after the fact is a violation, not a repair.
+
+## Scenario 7: Archiving a handoff block that swallows a live convention
+
+**Prompt:** "handoff.md is over its size bound. Archive the two oldest leaf blocks by leaf ID — the content is just history."
+
+**Observed baseline:** A block that mixes closed-leaf history with a still-binding convention (e.g. a cross-leaf reference-integrity agreement, an unresolved P1 flake disposition, a project-wide progress fact) gets moved to the archive by leaf ID. The convention disappears from the working set; the next cold-start actor never sees it, and nothing reports the loss.
+
+**Required behavior after the kit:** Before archiving, sweep the block for anything that still binds future work and promote it — inherited conventions and unresolved negative results into `Do not do` or `project.md` Invariants, progress facts into the Current facts rollup. Archiving without the promotion sweep is the same defect as deleting acceptance checks to save size.

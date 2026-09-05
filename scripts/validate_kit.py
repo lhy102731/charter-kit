@@ -1635,6 +1635,9 @@ class Checker:
             self.errors.append("portable/templates/roadmap.md: first leaf must start DRAFT")
         for phrase in (
             "Active leaf",
+            "L1 —",
+            "L13 —",
+            "append-only",
             ".charter/reuse-discovery.md",
             "Reuse discovery gate:",
             "COMPLETE",

@@ -6,6 +6,8 @@ Use this file as the resume packet for another actor. It records the current tas
 
 **Bounded size.** This file is in the required-start read set, so every actor pays for it on every resume and it must not grow with the project. Keep the active leaf and at most the one most recently closed leaf. When a third per-leaf block would appear, append the oldest block to `.charter/handoff-archive.md` — append-only, outside the required-start read set — and leave one line naming it. Roll cumulative facts up into a single current line (one baseline count, not one line per closed leaf), and reference evidence by path under `.charter/evidence/` instead of restating it here. An unbounded handoff packet is a defect, not a history.
 
+**Promotion before archiving.** A per-leaf block is rarely pure history. Before archiving it, promote anything that still binds future work: a convention that later leaves inherit goes into `project.md` Invariants (or the `Do not do` section below); an unresolved negative result keeps its own line in `Do not do` until it is dispositioned; a cross-leaf progress fact is rolled into the Current facts line. Archiving by leaf ID without this promotion sweep is the same defect as deleting acceptance checks to save size — it silently removes a binding rule from every later reader. Archive entries carry one line plus a pointer (`<leaf> : see roadmap row / evidence path`), never more prose than the roadmap row they mirror.
+
 ## Snapshot
 
 - Protocol / kit version: `charter/v1 / 0.2.0`
@@ -58,6 +60,7 @@ Use this file as the resume packet for another actor. It records the current tas
 - Do not start `<next candidate>` until the current task is `PASS_CLOSED` and authorization exists.
 - Do not use sensitive or real data, reserved evaluation data, release systems, external network, or credentials unless an approval reference is listed above.
 - Do not treat a report, old test run, or self-review as fresh evidence.
+- This section is also the promotion target when archiving handoff blocks: a convention that later leaves inherit or an unresolved negative result moves here (or into `project.md` Invariants) before its block is archived — see Bounded size above.
 
 ## Session ledger
 
