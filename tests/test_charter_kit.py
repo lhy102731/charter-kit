@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -206,6 +207,128 @@ class CharterKitBehaviorTests(unittest.TestCase):
         )
         self.assertIn("Reuse Discovery", (charter / "reuse-discovery.md").read_text(encoding="utf-8"))
         self.assertIn("missing", migrated.stdout.lower())
+
+    def test_init_ignores_the_session_ledger_once_without_rewriting_user_lines(self) -> None:
+        """The ledger stays untracked by repository rule, not by discipline.
+
+        A sentence in a template does not stop `git add -A`, so the initializer
+        appends one entry. It must be append-only and idempotent: a rewritten
+        user `.gitignore` would be a worse defect than the habit it replaces.
+        """
+        package = self.make_package_copy()
+        project = package.parent / "ledger-project"
+        project.mkdir()
+        (project / ".git").mkdir()
+        (project / ".gitignore").write_text("node_modules\n", encoding="utf-8")
+        init_script = package / "scripts" / "init_project.py"
+
+        first = self.run_script(init_script, project)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        ignore_text = (project / ".gitignore").read_text(encoding="utf-8")
+        self.assertTrue(ignore_text.startswith("node_modules\n"), ignore_text)
+        self.assertIn(".jspace/", ignore_text)
+        self.assertIn("ADDED", first.stdout)
+
+        second = self.run_script(init_script, project, "--add-missing")
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        repeated = (project / ".gitignore").read_text(encoding="utf-8")
+        self.assertEqual(repeated.count(".jspace/"), 1, repeated)
+        self.assertIn("UNCHANGED", second.stdout)
+
+    def test_init_preserves_an_explicit_decision_to_track_the_ledger(self) -> None:
+        """A negation is a user decision; convenience must not overrule it."""
+        package = self.make_package_copy()
+        project = package.parent / "tracked-ledger-project"
+        project.mkdir()
+        (project / ".git").mkdir()
+        original = "!.jspace\n"
+        (project / ".gitignore").write_text(original, encoding="utf-8")
+
+        result = self.run_script(package / "scripts" / "init_project.py", project)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((project / ".gitignore").read_text(encoding="utf-8"), original)
+        self.assertIn("UNCHANGED", result.stdout)
+
+    def test_init_does_not_create_a_gitignore_outside_a_repository(self) -> None:
+        """Without a repository there is nothing to keep out of version control."""
+        package = self.make_package_copy()
+        project = package.parent / "bare-project"
+
+        result = self.run_script(package / "scripts" / "init_project.py", project)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((project / ".gitignore").exists())
+        self.assertIn("SKIPPED", result.stdout)
+        self.assertTrue((project / ".charter" / "project.md").is_file())
+
+    def test_initializer_output_stays_ascii_for_restricted_stdout_encodings(self) -> None:
+        """A host with an ASCII stdout must not crash after files are created.
+
+        The initializer writes the working set first and reports afterwards, so a
+        non-encodable character in a status line would fail the run at the point
+        where the user can least tell what happened.
+        """
+        package = self.make_package_copy()
+        for relative in (
+            Path("scripts") / "init_project.py",
+            Path("skills") / "charter-workflow" / "scripts" / "init_project.py",
+        ):
+            text = (package / relative).read_text(encoding="utf-8")
+            for number, line in enumerate(text.splitlines(), 1):
+                if not re.match(r"\s*(print|handle\.write)\b", line):
+                    continue
+                offending = [character for character in line if ord(character) > 127]
+                self.assertEqual(
+                    offending,
+                    [],
+                    f"{relative}:{number} emits non-ASCII {offending!r}: {line.strip()}",
+                )
+
+    def test_validator_requires_initializer_ledger_ignore_rule(self) -> None:
+        """Dropping the helper returns the ledger to relying on discipline."""
+        package = self.make_package_copy()
+        for relative in (
+            Path("scripts") / "init_project.py",
+            Path("skills") / "charter-workflow" / "scripts" / "init_project.py",
+            Path("targets") / "codex" / "skills" / "charter-workflow" / "scripts" / "init_project.py",
+            Path("targets") / "zcode" / "skills" / "charter-workflow" / "scripts" / "init_project.py",
+        ):
+            initializer = package / relative
+            if not initializer.is_file():
+                continue
+            initializer.write_text(
+                initializer.read_text(encoding="utf-8").replace(
+                    "ensure_ledger_ignored", "skip_ledger_rule"
+                ),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("missing 'ensure_ledger_ignored'", result.stdout)
+
+    def test_validator_rejects_a_zcode_command_that_drifts_from_its_source(self) -> None:
+        """The shipped adapter command is a derivative, so drift is a defect.
+
+        It is hand-maintained and was byte-identical to its own generated copy
+        while several rules its source had gained were missing, so the only gate
+        that can catch this compares it to the portable command it derives from.
+        """
+        package = self.make_package_copy()
+        command = package / "targets" / "zcode" / "commands" / "charter-workflow.md"
+        command.write_text(
+            command.read_text(encoding="utf-8").replace(
+                "- Version control and read-set size:", "- Housekeeping:"
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "targets/zcode/commands/charter-workflow.md: must equal "
+            "portable/commands/charter-workflow.md",
+            result.stdout,
+        )
 
     def test_reuse_route_distinguishes_build_new_from_candidate_decision(self) -> None:
         package = self.make_package_copy()
@@ -483,6 +606,116 @@ class CharterKitBehaviorTests(unittest.TestCase):
             "generic-bootstrap.md: session ledger declaration must precede DRAFT to APPROVED",
             result.stdout,
         )
+
+    def test_validator_requires_bounded_handoff_packet(self) -> None:
+        """The resume packet is re-read on every start, so its bound is a rule.
+
+        Without it the packet accumulates one block per closed leaf and every
+        later actor pays for finished work on every resume.
+        """
+        package = self.make_package_copy()
+        for handoff in (
+            package / "portable" / "templates" / "handoff.md",
+            package / "skills" / "charter-workflow" / "templates" / "handoff.md",
+        ):
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8").replace("**Bounded size.**", "**Size.**"),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "portable/templates/handoff.md: missing '**Bounded size.**'",
+            result.stdout,
+        )
+
+    def test_validator_requires_handoff_overflow_target(self) -> None:
+        """A size bound with nowhere to put the overflow deletes history."""
+        package = self.make_package_copy()
+        for handoff in (
+            package / "portable" / "templates" / "handoff.md",
+            package / "skills" / "charter-workflow" / "templates" / "handoff.md",
+        ):
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8").replace(".charter/handoff-archive.md", "elsewhere"),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "portable/templates/handoff.md: missing '.charter/handoff-archive.md'",
+            result.stdout,
+        )
+
+    def test_validator_requires_delta_rule_to_keep_its_limits(self) -> None:
+        """Delta-writing without its limit becomes a way to hide a deviation.
+
+        The headline permission is cheap to keep and useless alone: the gate has
+        to hold the two sentences that forbid referencing away a narrowing,
+        widening, or contradiction, and any leaf-specific field.
+        """
+        package = self.make_package_copy()
+        for leaf in (
+            package / "portable" / "templates" / "leaf-task.md",
+            package / "skills" / "charter-workflow" / "templates" / "leaf-task.md",
+        ):
+            leaf.write_text(
+                leaf.read_text(encoding="utf-8").replace(
+                    "Anything that narrows, widens, or contradicts that baseline is written out here in full.",
+                    "Use judgement.",
+                ),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("leaf-task.md: missing 'Anything that narrows", result.stdout)
+
+    def test_validator_requires_version_control_rule_in_shared_entry_doc(self) -> None:
+        """An untracked charter cannot be cited as authoritative history."""
+        package = self.make_package_copy()
+        skill = package / "skills" / "charter-workflow" / "SKILL.md"
+        skill.write_text(
+            skill.read_text(encoding="utf-8").replace(
+                "- Version control and read-set size:", "- Housekeeping:"
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "skills/charter-workflow/SKILL.md: missing 'Version control and read-set size'",
+            result.stdout,
+        )
+
+    def test_every_shared_entry_document_carries_the_read_set_rules(self) -> None:
+        """All seven entry documents, not just the one the gate names."""
+        package = self.make_package_copy()
+        entries = [
+            package / "portable" / "prompts" / name
+            for name in (
+                "generic-bootstrap.md",
+                "claude-bootstrap.md",
+                "codex-bootstrap.md",
+                "deepseek-bootstrap.md",
+                "gemini-bootstrap.md",
+            )
+        ] + [
+            package / "portable" / "commands" / "charter-workflow.md",
+            package / "skills" / "charter-workflow" / "SKILL.md",
+        ]
+        for entry in entries:
+            text = entry.read_text(encoding="utf-8")
+            for phrase in (
+                "Version control and read-set size",
+                "cannot be cited as authoritative",
+                "`.gitignore` entry",
+                ".charter/handoff-archive.md",
+            ):
+                self.assertIn(phrase, text, f"{entry.name} is missing {phrase!r}")
 
     def test_validator_requires_approved_state_mirroring(self) -> None:
         package = self.make_package_copy()

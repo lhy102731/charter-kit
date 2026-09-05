@@ -2,6 +2,8 @@
 
 > Copy this file to `.charter/current-task.md`. This contract is for one bounded behavior. If the result sentence contains “and” twice, split the task.
 
+> **Write the delta, not the project.** A clause whose authoritative source is already in the required-start read set may be carried by an explicit reference plus this leaf's delta — for example `project.md section 5 baseline, plus: <leaf-specific item>` for forbidden effects, or `roadmap.md verification commands` for the standard checks. Anything that narrows, widens, or contradicts that baseline is written out here in full. Never replace a leaf-specific field with a reference: the result sentence, allowed paths, acceptance checks, repair budget, and any stop condition that differs from the standard list are always inline. A reference names its source file and section so the archived contract stays resolvable at the commit that recorded it.
+
 ## 1. Identity
 
 - Task ID: `<TASK-ID>`
@@ -70,7 +72,7 @@
 
 ### Forbidden effects
 
--
+- `<project.md section 5 forbidden-effects baseline>` — cite the baseline, then write out every addition or narrowing below
 -
 
 ## 5. Acceptance

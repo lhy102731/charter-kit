@@ -7,6 +7,12 @@ existing files; --add-missing only fills absent working-set files, while
 --force creates a complete backup before replacing generated files. New
 projects use the canonical runtime filenames, and existing projects keep any
 legacy ``*-template.md`` files that are already present.
+
+The one file it touches outside ``.charter/`` is ``.gitignore``: a single
+``.jspace/`` entry is appended when no existing line already decides that
+directory, so the session ledger stays out of version control by rule instead of
+by discipline. No existing line is ever rewritten, and a failure here is
+reported without failing initialization.
 """
 
 from __future__ import annotations
@@ -32,6 +38,68 @@ FILES = {
     "review.md": "review.md",
     "evidence-receipt.md": "evidence-receipt.md",
 }
+
+
+# The session execution ledger lives beside the working set but is host state,
+# not project history.  The handoff template records it as untracked, and a
+# sentence in a document does not stop ``git add -A`` from committing it, so the
+# initializer turns that assertion into a rule the repository itself carries.
+LEDGER_DIRECTORY = ".jspace"
+LEDGER_IGNORE_ENTRY = f"{LEDGER_DIRECTORY}/"
+LEDGER_IGNORE_COMMENT = (
+    "# Charter Kit: the session execution ledger is host state, not project history.\n"
+    "# .charter/ carries the governance record and stays tracked; this directory does not.\n"
+)
+
+
+def covers_ledger(pattern: str) -> bool:
+    """Report whether one .gitignore line already decides the ledger directory.
+
+    This is a deliberately small subset of gitignore matching: the realistic
+    spellings of a directory entry, plus negations, which are reported so an
+    explicit user decision to track the ledger is never overwritten.
+    """
+
+    candidate = pattern.strip()
+    if not candidate or candidate.startswith("#"):
+        return False
+    candidate = candidate.removeprefix("!").removeprefix("/")
+    candidate = candidate.removesuffix("/**").removesuffix("/*").removesuffix("/")
+    return candidate == LEDGER_DIRECTORY
+
+
+def ensure_ledger_ignored(project_dir: Path) -> str:
+    """Append the ledger ignore entry once, without rewriting user lines.
+
+    Never raises: the working set matters more than this convenience, so every
+    failure is reported as a status string and initialization continues.
+    """
+
+    gitignore = project_dir / ".gitignore"
+    if not (project_dir / ".git").exists() and not gitignore.exists():
+        return "SKIPPED - no repository or .gitignore in the project root"
+    try:
+        if is_link(gitignore):
+            return "UNVERIFIED - refusing to write a linked .gitignore"
+        if gitignore.exists() and not gitignore.is_file():
+            return "UNVERIFIED - .gitignore is not a regular file"
+        existing = gitignore.read_text(encoding="utf-8", errors="replace") if gitignore.is_file() else ""
+        for line in existing.splitlines():
+            if covers_ledger(line):
+                if line.strip().startswith("!"):
+                    return f"UNCHANGED - an explicit negation keeps {LEDGER_IGNORE_ENTRY} tracked"
+                return f"UNCHANGED - {LEDGER_IGNORE_ENTRY} is already ignored"
+        if not existing:
+            prefix = ""
+        elif existing.endswith("\n"):
+            prefix = "\n"
+        else:
+            prefix = "\n\n"
+        with gitignore.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(f"{prefix}{LEDGER_IGNORE_COMMENT}{LEDGER_IGNORE_ENTRY}\n")
+        return f"ADDED - {LEDGER_IGNORE_ENTRY} appended to .gitignore"
+    except OSError as exc:
+        return f"UNVERIFIED - .gitignore could not be updated ({exc.__class__.__name__})"
 
 
 def find_template_dir(package_root: Path) -> Path:
@@ -208,7 +276,7 @@ def init_project(
     project_dir: Path,
     force: bool = False,
     add_missing: bool = False,
-) -> tuple[list[Path], Path | None]:
+) -> tuple[list[Path], Path | None, str]:
     source_dir = find_template_dir(package_root)
     target_dir = project_dir.resolve() / ".charter"
 
@@ -236,7 +304,12 @@ def init_project(
     # capability miss leaves the working set available for inspection and is
     # represented in the log as BLOCKED_TOOLING by the workflow.
     run_dependency_check(package_root, project_dir.resolve(), evidence_dir)
-    return created, backup_dir
+    # Governance records belong in version control and the session ledger does
+    # not.  Both halves of that rule are cheap to apply here and expensive to
+    # discover later, when an untracked charter can no longer be cited as
+    # authoritative history.
+    ledger_status = ensure_ledger_ignored(project_dir.resolve())
+    return created, backup_dir, ledger_status
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -257,7 +330,7 @@ def main(argv: list[str] | None = None) -> int:
     package_root = Path(__file__).resolve().parents[1]
     project_dir = Path(args.project_dir).expanduser()
     try:
-        created, backup_dir = init_project(package_root, project_dir, args.force, args.add_missing)
+        created, backup_dir, ledger_status = init_project(package_root, project_dir, args.force, args.add_missing)
     except (FileExistsError, FileNotFoundError, OSError) as exc:
         print(f"Charter project initialization: FAIL: {exc}", file=sys.stderr)
         return 1
@@ -269,7 +342,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- {path.relative_to(project_dir.resolve())}")
     if args.add_missing and not created:
         print("- no missing generated files")
+    print(f"Session ledger ignore rule: {ledger_status}")
     print("Next: fill .charter/project.md and .charter/roadmap.md, complete .charter/reuse-discovery.md, then approve the first bounded current-task.md.")
+    print("Then commit .charter/ (project.md and reuse-discovery.md included) so the charter and the reuse gate carry auditable history.")
     return 0
 
 

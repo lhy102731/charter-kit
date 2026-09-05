@@ -4,6 +4,8 @@
 
 Use this file as the resume packet for another actor. It records the current task state, evidence, and exact next action; it is not a second state machine or a transcript.
 
+**Bounded size.** This file is in the required-start read set, so every actor pays for it on every resume and it must not grow with the project. Keep the active leaf and at most the one most recently closed leaf. When a third per-leaf block would appear, append the oldest block to `.charter/handoff-archive.md` — append-only, outside the required-start read set — and leave one line naming it. Roll cumulative facts up into a single current line (one baseline count, not one line per closed leaf), and reference evidence by path under `.charter/evidence/` instead of restating it here. An unbounded handoff packet is a defect, not a history.
+
 ## Snapshot
 
 - Protocol / kit version: `charter/v1 / 0.2.0`
@@ -34,7 +36,7 @@ Use this file as the resume packet for another actor. It records the current tas
 - Current candidate revision:
 - Predecessor receipts:
 - Reuse discovery ID / gate status / selected revisions:
-- Verified facts:
+- Verified facts (current rollup; superseded per-leaf detail belongs in `.charter/handoff-archive.md`):
   -
   -
 - Open findings:
@@ -60,7 +62,7 @@ Use this file as the resume packet for another actor. It records the current tas
 ## Session ledger
 
 - Ledger mode (this session): `jspace.py controller ENABLED | manual five-line ledger (FALLBACK) | NOT_ENABLED waiver: <reason>`
-- Ledger location: `.jspace/` (workspace root, untracked) — on a fresh clone the ledger itself is gone; this section is its only carrier
+- Ledger location: `.jspace/` (workspace root; kept out of version control by an explicit `.gitignore` entry, not by discipline) — on a fresh clone the ledger itself is gone; this section is its only carrier
 - Last seam / state: `<what the ledger recorded last>`
 - Five-line snapshot (if controller unavailable):
 
@@ -77,6 +79,7 @@ Next:      <the single next action>
 - Dependency/independent-review gaps: `AVAILABLE | MISSING | UNVERIFIED | FALLBACK | BLOCKED_TOOLING` — `<record>`
 
 - Git / isolated workspace:
+- Governance tracked / ledger ignored: `<.charter/ committed including project.md and reuse-discovery.md; .jspace/ present in .gitignore>`
 - Subprocess / test runner:
 - Fresh context or independent reviewer:
 - Network / external service:

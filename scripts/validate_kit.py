@@ -1253,6 +1253,7 @@ class Checker:
             self.errors.append(
                 f"{ZCODE_DISTRIBUTION_COMMAND_RELATIVE}: command must mount the charter-workflow skill"
             )
+        self._check_zcode_command_derivation()
 
         dist_skill_skill = f"{ZCODE_DISTRIBUTION_SKILL_RELATIVE}/SKILL.md"
         self._compare_file_bytes(
@@ -1281,6 +1282,30 @@ class Checker:
                     self.errors.append(
                         f"{ZCODE_DISTRIBUTION_ROOT_RELATIVE}: nested {relative_parts[0]}/ tree is not allowed"
                     )
+
+    def _check_zcode_command_derivation(self) -> None:
+        """Require the ZCode command to be the portable command plus its mount line.
+
+        The adapter command is hand-maintained and shipped, but nothing else
+        compares it to its source, so it can fall silently behind the portable
+        command while every other gate still passes — which is exactly what
+        happened: it lost the provider-protocol and session-ledger rules while
+        remaining byte-identical to its own generated copy. The only sanctioned
+        difference is the ZCode frontmatter line that mounts the Skill.
+        """
+
+        portable = self.read("portable/commands/charter-workflow.md")
+        adapter = self.read(ZCODE_TARGET_COMMAND_RELATIVE)
+        if not portable or not adapter:
+            return
+        mount_line = "skills: charter-workflow"
+        kept = [line for line in adapter.split("\n") if line.strip() != mount_line]
+        if "\n".join(kept) != portable:
+            self.errors.append(
+                f"{ZCODE_TARGET_COMMAND_RELATIVE}: must equal "
+                "portable/commands/charter-workflow.md apart from the "
+                f"{mount_line!r} frontmatter line; regenerate it from the portable command"
+            )
 
     def check_license(self) -> None:
         text = self.read("LICENSE")
@@ -1437,6 +1462,16 @@ class Checker:
             "Review A",
             "Review B",
             "PASS_CLOSED",
+            # Delta-writing keeps the per-leaf contract from restating the
+            # charter, but only while its limit travels with it: a reference may
+            # stand in for a baseline already in the read set, never for a
+            # leaf-specific field or a deviation from that baseline.
+            "**Write the delta, not the project.**",
+        ):
+            self.require(leaf, phrase, "leaf-task.md")
+        for phrase in (
+            "Anything that narrows, widens, or contradicts that baseline is written out here in full.",
+            "Never replace a leaf-specific field with a reference",
         ):
             self.require(leaf, phrase, "leaf-task.md")
 
@@ -1446,6 +1481,14 @@ class Checker:
             "Ledger mode (this session):",
             "NOT_ENABLED waiver:",
             "Five-line snapshot",
+            # The packet is re-read on every resume, so its size bound and the
+            # archive that absorbs superseded blocks are part of the contract:
+            # without them the required read set grows for the life of the
+            # project and every future actor pays for closed leaves.
+            "**Bounded size.**",
+            ".charter/handoff-archive.md",
+            "Governance tracked / ledger ignored:",
+            ".gitignore",
         ):
             self.require(handoff, phrase, "portable/templates/handoff.md")
 
@@ -1781,6 +1824,14 @@ class Checker:
             "Session ledger",
             "NOT_ENABLED",
             "must not close as `PASS_CLOSED`",
+            # Two rules that only hold if every entry document carries them: the
+            # governance record must be committed to be citable as history, and
+            # the mandatory read set must stay bounded or every later resume pays
+            # for work that is already closed.
+            "Version control and read-set size",
+            "cannot be cited as authoritative",
+            "`.gitignore` entry",
+            ".charter/handoff-archive.md",
         ):
             self.require(text, phrase, relative)
         self.require(text, "grill-me", relative)
@@ -2054,6 +2105,15 @@ class Checker:
             "run_dependency_check",
             "never installs",
             "evidence",
+            # The ledger-ignore rule is the initializer's one write outside
+            # `.charter/`. It has to stay append-only and idempotent, so the gate
+            # names the helper and the negation branch rather than the effect
+            # alone: a rewritten user `.gitignore` would be a worse defect than
+            # the discipline it replaces.
+            "ensure_ledger_ignored",
+            ".gitignore",
+            ".jspace",
+            "covers_ledger",
         ):
             self.require(text, phrase, relative)
         for template in (
