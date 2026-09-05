@@ -336,7 +336,7 @@ DRAFT
 
 异常状态：`BLOCKED`、`BLOCKED_TOOLING`、`NEEDS_DECISION`、`PARTIAL`、`SUPERSEDED`。项目管理状态还可用 `PAUSED` 和 `CLOSED`；它们不是通过状态。
 
-`BLOCKED_TOOLING` 表示所需宿主能力、依赖、独立上下文或进程暂不可用；两种阻塞都不能改写成 `READY` 或 `PASS_CLOSED`。项目批准只批准方向，不批准任何叶任务。每个叶必须在任务文件和 roadmap 中同步经历 `DRAFT → APPROVED → READY → IN_PROGRESS → REVIEW → VERIFIED → PASS_CLOSED`；Git 集成和合并后验证是 `VERIFIED` 到 `PASS_CLOSED` 之间必须记录的关闭证据，不增加新的 Leaf 状态。
+`BLOCKED_TOOLING` 表示所需宿主能力、依赖、独立上下文或进程暂不可用；两种阻塞都不能改写成 `READY` 或 `PASS_CLOSED`。项目批准只批准方向，不批准任何叶任务。每个叶必须在任务文件和 roadmap 中同步经历 `DRAFT → APPROVED → READY → IN_PROGRESS → REVIEW → VERIFIED → PASS_CLOSED`；Git 集成和合并后验证是 `VERIFIED` 到 `PASS_CLOSED` 之间必须记录的关闭证据，不增加新的 Leaf 状态。会话账本对账（见 §4.3）同为关闭证据：活动叶既无账本对账记录，也无 Events 表中的 `NOT_ENABLED` 留痕豁免时，不得 `PASS_CLOSED`。
 
 ## 6. 证据、版本和完成等级
 

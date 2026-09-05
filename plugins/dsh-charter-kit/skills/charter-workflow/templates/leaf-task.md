@@ -121,7 +121,7 @@ Stop and write a decision record when:
 ### Design and plan
 
 - Design note: `<path or short description>`
-- Design interview record: `<path or summary; design tree fully resolved before implementation>`
+- Design interview record: `<path or summary; the design tree lives in section 10 and must be fully resolved before implementation>`
 - Reuse discovery evidence reviewed: `<discovery ID, coverage/result, candidate revision, targeted recheck, NO_MATERIAL_TARGET sanity check, or BUILD_NEW rationale>`
 - Long-task ledger: `<session ledger mode: jspace.py controller (seam/resume at state transitions, continuing across leaf boundaries), or manual five-line ledger with FALLBACK, or NOT_ENABLED waiver with reason recorded in Events>; .charter/ stays the governance source of truth>`
 - First failing check (RED): `<test or inspection>`
@@ -177,9 +177,9 @@ Resolve before implementation; this tree is drafted during the section 8 design 
 Format per question:
 
 1. **Q1 — `<question title>`**
-   - 推荐 (Recommended): `<answer with a concrete example — type signature, field list, or code sketch>`
-   - 理由 (Reason): `<why this answer; the facts already verified that support it>`
-   - 反面 (Alternative): `<the rejected option and its cost>`
-   - 代价 (Disclosed cost): `<side effects the user should see, e.g. workspace baseline changes>`
+   - Recommended: `<answer with a concrete example — type signature, field list, or code sketch>`
+   - Reason: `<why this answer; the facts already verified that support it>`
+   - Alternative: `<the rejected option and its cost>`
+   - Disclosed cost: `<side effects the user should see, e.g. workspace baseline changes>`
 
 A round closes when every question is settled or explicitly carried forward (named owner and leaf), and an empty frontier is stated in one line. **Provider line:** record which interview method ran (`grill-me` / `grilling` / the bundled design-interview) and whether it was verified `AVAILABLE`.

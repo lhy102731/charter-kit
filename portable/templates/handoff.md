@@ -57,6 +57,21 @@ Use this file as the resume packet for another actor. It records the current tas
 - Do not use sensitive or real data, reserved evaluation data, release systems, external network, or credentials unless an approval reference is listed above.
 - Do not treat a report, old test run, or self-review as fresh evidence.
 
+## Session ledger
+
+- Ledger mode (this session): `jspace.py controller ENABLED | manual five-line ledger (FALLBACK) | NOT_ENABLED waiver: <reason>`
+- Ledger location: `.jspace/` (workspace root, untracked) — on a fresh clone the ledger itself is gone; this section is its only carrier
+- Last seam / state: `<what the ledger recorded last>`
+- Five-line snapshot (if controller unavailable):
+
+```text
+Goal:      <current leaf result>
+Core:      <the one binding constraint/interface>
+Verified:  <appended verified facts; mirror into Events at closure>
+Open:      <open questions and their resolution conditions>
+Next:      <the single next action>
+```
+
 ## Capability notes
 
 - Dependency/independent-review gaps: `AVAILABLE | MISSING | UNVERIFIED | FALLBACK | BLOCKED_TOOLING` — `<record>`

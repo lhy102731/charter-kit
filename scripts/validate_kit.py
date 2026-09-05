@@ -56,6 +56,7 @@ PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
         "## 7. Integration policy",
         "## 8. Execution record",
         "## 9. Review and closure",
+        "## 10. Design tree",
     ),
     "portable/templates/reuse-discovery.md": (
         "## 1. Discovery identity",
@@ -1413,6 +1414,10 @@ class Checker:
         for phrase in (
             "Reuse discovery record: `.charter/reuse-discovery.md`",
             "Reuse final route / candidate IDs:",
+            "Long-task ledger:",
+            "Ledger reconciliation:",
+            "## 10. Design tree",
+            "Recommended:",
             "### Positive behavior",
             "### Negative behavior / boundaries",
             "### Evidence to attach",
@@ -1422,6 +1427,15 @@ class Checker:
             "PASS_CLOSED",
         ):
             self.require(leaf, phrase, "leaf-task.md")
+
+        handoff = self.read("portable/templates/handoff.md")
+        for phrase in (
+            "## Session ledger",
+            "Ledger mode (this session):",
+            "NOT_ENABLED waiver:",
+            "Five-line snapshot",
+        ):
+            self.require(handoff, phrase, "portable/templates/handoff.md")
 
         roadmap = self.read("portable/templates/roadmap.md")
         first_leaf_rows = [
