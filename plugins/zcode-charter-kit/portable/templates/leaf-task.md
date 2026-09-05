@@ -14,7 +14,7 @@
 - Mode: `MANUAL | AUTO_DEV`
 - Status: `DRAFT`
 - Leaf approval / preauthorization reference: `NOT_GRANTED`
-- Contract version: `0.1`
+- Contract version: `0.1` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
 
 ## 2. Result contract
 

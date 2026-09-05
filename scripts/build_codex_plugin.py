@@ -38,6 +38,52 @@ PACKAGE_RUNTIME_SCRIPTS = (
 IGNORED_TREE_NAMES = {"__pycache__", ".git", ".hg", ".svn", "plugins", "tests"}
 
 
+# Every tree this builder produces carries a marker naming the tree an edit
+# survives in.  ``copy_tree`` replaces its destination wholesale, so a marker
+# committed by hand would be deleted by the next build; writing it here means no
+# produced tree can exist without one.  Markers are never copied between trees:
+# the content is per-destination, so each builder writes its own.
+GENERATED_MARKER_NAME = "GENERATED.md"
+BUILD_COMMAND = "scripts/build_codex_plugin.py"
+
+
+def generated_marker_bytes(destination: str, source: str, note: str) -> bytes:
+    """Render the marker body for one generated destination.
+
+    Timestamp-free on purpose: ``--check`` compares committed bytes against a
+    fresh build, and a marker that changed on every run would turn that
+    comparison into noise instead of a signal.
+    """
+
+    lines = (
+        "# Generated tree - do not hand-edit",
+        "",
+        f"`{destination}` is produced by `python {BUILD_COMMAND}`. Every build replaces",
+        "this tree, so an edit made here is deleted rather than merged, and nothing",
+        "reports the loss.",
+        "",
+        f"Edit `{source}` instead, then regenerate:",
+        "",
+        "```text",
+        f"python {BUILD_COMMAND}",
+        "```",
+        "",
+        note,
+        "",
+        "`docs/MIRROR-TOPOLOGY.md` maps every copy in this repository to the tree an",
+        "edit survives in.",
+    )
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def write_generated_marker(root: Path, destination: str, source: str, note: str) -> None:
+    """Write the marker after the copy step that would otherwise delete it."""
+
+    (root / GENERATED_MARKER_NAME).write_bytes(
+        generated_marker_bytes(destination, source, note)
+    )
+
+
 def is_junction(path: Path) -> bool:
     check = getattr(path, "is_junction", None)
     if callable(check):
@@ -210,7 +256,11 @@ def copy_tree(source: Path, destination: Path) -> None:
         shutil.rmtree(destination)
     destination.mkdir(parents=True, exist_ok=True)
     for child in sorted(source.iterdir(), key=lambda item: item.name):
-        if child.name in IGNORED_TREE_NAMES or child.suffix == ".pyc":
+        if (
+            child.name in IGNORED_TREE_NAMES
+            or child.name == GENERATED_MARKER_NAME
+            or child.suffix == ".pyc"
+        ):
             continue
         if is_link(child):
             raise OSError(f"refusing linked source entry: {child}")
@@ -341,6 +391,13 @@ def build_stage(source_root: Path, stage_root: Path) -> None:
         copy_file(source, stage_root / relative)
     copy_file(manifest_source, stage_root / ".codex-plugin" / "plugin.json")
     copy_tree(skill_source, stage_root / "skills" / "charter-workflow")
+    write_generated_marker(
+        stage_root,
+        "plugins/charter-kit/",
+        "targets/codex/skills/charter-workflow/",
+        "The Skill tree here is copied from that target and the root-level files are "
+        "copied from the repository root. Nothing in this tree is a source.",
+    )
 
 
 def sync_legacy_snapshot(source_root: Path, repository_root: Path) -> None:
@@ -355,6 +412,15 @@ def sync_legacy_snapshot(source_root: Path, repository_root: Path) -> None:
     legacy_manifest.parent.mkdir(parents=True, exist_ok=True)
     copy_file(manifest_source, legacy_manifest)
     copy_tree(skill_source, legacy_skill)
+    write_generated_marker(
+        legacy_skill,
+        "skills/charter-workflow/",
+        "targets/codex/skills/charter-workflow/",
+        "The same command writes this tree back after it builds `plugins/charter-kit/`, "
+        "and it also generates the root `.codex-plugin/plugin.json`. "
+        "`python scripts/build_dsh_plugin.py` reads this tree as its Skill input, so run "
+        "the Codex builder first.",
+    )
 
 
 def build_distribution(repository_root: Path, destination_root: Path) -> Path:

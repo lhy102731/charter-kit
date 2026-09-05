@@ -44,6 +44,52 @@ PACKAGE_RUNTIME_SCRIPTS = (
 IGNORED_TREE_NAMES = {"__pycache__", ".git", ".hg", ".svn", "plugins", "tests"}
 
 
+# Every tree this builder produces carries a marker naming the tree an edit
+# survives in.  ``copy_tree`` replaces its destination wholesale, so a marker
+# committed by hand would be deleted by the next build; writing it here means no
+# produced tree can exist without one.  Markers are never copied between trees:
+# the content is per-destination, so each builder writes its own.
+GENERATED_MARKER_NAME = "GENERATED.md"
+BUILD_COMMAND = "scripts/build_zcode_plugin.py"
+
+
+def generated_marker_bytes(destination: str, source: str, note: str) -> bytes:
+    """Render the marker body for one generated destination.
+
+    Timestamp-free on purpose: ``--check`` compares committed bytes against a
+    fresh build, and a marker that changed on every run would turn that
+    comparison into noise instead of a signal.
+    """
+
+    lines = (
+        "# Generated tree - do not hand-edit",
+        "",
+        f"`{destination}` is produced by `python {BUILD_COMMAND}`. Every build replaces",
+        "this tree, so an edit made here is deleted rather than merged, and nothing",
+        "reports the loss.",
+        "",
+        f"Edit `{source}` instead, then regenerate:",
+        "",
+        "```text",
+        f"python {BUILD_COMMAND}",
+        "```",
+        "",
+        note,
+        "",
+        "`docs/MIRROR-TOPOLOGY.md` maps every copy in this repository to the tree an",
+        "edit survives in.",
+    )
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def write_generated_marker(root: Path, destination: str, source: str, note: str) -> None:
+    """Write the marker after the copy step that would otherwise delete it."""
+
+    (root / GENERATED_MARKER_NAME).write_bytes(
+        generated_marker_bytes(destination, source, note)
+    )
+
+
 def is_junction(path: Path) -> bool:
     check = getattr(path, "is_junction", None)
     if callable(check):
@@ -176,7 +222,12 @@ def copy_tree(source: Path, destination: Path) -> None:
                 continue
             (destination / child.relative_to(source)).mkdir(parents=True, exist_ok=True)
     for child in sorted(source.rglob("*"), key=lambda item: item.as_posix()):
-        if child.is_file() and "__pycache__" not in child.parts and child.name not in IGNORED_TREE_NAMES:
+        if (
+            child.is_file()
+            and "__pycache__" not in child.parts
+            and child.name not in IGNORED_TREE_NAMES
+            and child.name != GENERATED_MARKER_NAME
+        ):
             copy_file(child, destination / child.relative_to(source))
 
 
@@ -240,6 +291,14 @@ def build_stage(source_root: Path, stage_root: Path) -> None:
     copy_file(manifest_source, stage_root / ".zcode-plugin" / "plugin.json")
     copy_tree(skill_source, stage_root / "skills" / "charter-workflow")
     copy_file(command_source, stage_root / "commands" / "charter-workflow.md")
+    write_generated_marker(
+        stage_root,
+        "plugins/zcode-charter-kit/",
+        "targets/zcode/",
+        "The Skill tree, the slash command, and the manifest are copied from that "
+        "target; the portable core and the root-level files are copied from the "
+        "repository root.",
+    )
 
 
 def build_distribution(repository_root: Path, destination_root: Path) -> Path:

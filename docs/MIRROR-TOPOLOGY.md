@@ -89,6 +89,41 @@ DSH work then made that deprecated tree load-bearing:
 into the stage. The deprecation was never withdrawn, so the repository currently
 generates a package from a tree its own design record schedules for deletion.
 
+## Generated-tree markers
+
+Every generated tree carries a `GENERATED.md` at its root, written by the builder
+that produces it. The marker names the tree an edit survives in and the command
+that rebuilds the tree the reader is standing in, then points back here.
+
+| Marker | Names as the hand-edited source | Written by |
+| --- | --- | --- |
+| `plugins/charter-kit/GENERATED.md` | `targets/codex/skills/charter-workflow` | `scripts/build_codex_plugin.py` |
+| `skills/charter-workflow/GENERATED.md` | `targets/codex/skills/charter-workflow` | `scripts/build_codex_plugin.py` (writeback) |
+| `plugins/zcode-charter-kit/GENERATED.md` | `targets/zcode` | `scripts/build_zcode_plugin.py` |
+| `plugins/dsh-charter-kit/GENERATED.md` | `targets/dsh` | `scripts/build_dsh_plugin.py` |
+
+Three properties of the markers are load-bearing, and each exists because of a
+way this repository has already failed:
+
+- **Written after the copy, not committed by hand.** `copy_tree` replaces its
+  destination wholesale, so a hand-committed marker would be deleted by the next
+  build. Writing it in the builder means no produced tree can exist without one.
+- **Never copied between trees.** The content names one destination, so the
+  copy step skips the filename. `plugins/dsh-charter-kit/skills/charter-workflow`
+  therefore has no marker even though it is copied from a tree that has one, and
+  the mirror comparisons exempt each tree's own root marker rather than treating
+  a correct per-destination marker as drift.
+- **Timestamp-free.** `--check` compares committed bytes against a fresh build. A
+  marker recording a build time would make every rebuild a byte change, which is
+  how a byte comparison stops being read.
+
+`check_generated_markers` in `scripts/validate_kit.py` gates all of this from the
+other direction: each generated tree must carry a marker naming its source and
+its command and citing this file, this file must name every generated tree and
+builder, and each hand-edited tree (`portable/`, `targets/codex/skills/charter-workflow`,
+`targets/zcode`, `targets/dsh`) must carry no marker — a marker there would tell
+a maintainer to edit the tree they already have open.
+
 ## Build order is significant
 
 Run the builders in this order after any core change:

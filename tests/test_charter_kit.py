@@ -12,6 +12,10 @@ from pathlib import Path
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+# Generated trees carry this marker; hand-edited trees must not.  Fixtures
+# that copy one kind of tree into the other have to say which side they are
+# building, or the validator reports the fixture instead of the test.
+GENERATED_MARKER_NAME = "GENERATED.md"
 
 
 class CharterKitBehaviorTests(unittest.TestCase):
@@ -69,14 +73,24 @@ class CharterKitBehaviorTests(unittest.TestCase):
         if target_skill.exists():
             shutil.rmtree(target_skill)
         shutil.copytree(package / "skills" / "charter-workflow", target_skill)
+        # The source of that copy is a generated tree and carries the marker
+        # saying so; the destination is hand-edited and must not, or the marker
+        # would tell a maintainer to edit the tree they are already editing.
+        (target_skill / GENERATED_MARKER_NAME).unlink(missing_ok=True)
 
         distribution = package / "plugins" / "charter-kit"
+        # Recreating the package root drops the builder-written marker the
+        # validator requires there, so carry it across the rebuild.
+        distribution_marker = distribution / GENERATED_MARKER_NAME
+        marker_bytes = distribution_marker.read_bytes() if distribution_marker.is_file() else None
         if distribution.exists():
             shutil.rmtree(distribution)
         distribution_manifest = distribution / ".codex-plugin" / "plugin.json"
         distribution_manifest.parent.mkdir(parents=True, exist_ok=True)
         distribution_manifest.write_bytes(target_manifest.read_bytes())
         shutil.copytree(target_skill, distribution / "skills" / "charter-workflow")
+        if marker_bytes is not None:
+            distribution_marker.write_bytes(marker_bytes)
 
         marketplace_path = package / ".agents" / "plugins" / "marketplace.json"
         marketplace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,6 +125,7 @@ class CharterKitBehaviorTests(unittest.TestCase):
         if target_skill.exists():
             shutil.rmtree(target_skill)
         shutil.copytree(package / "skills" / "charter-workflow", target_skill)
+        (target_skill / GENERATED_MARKER_NAME).unlink(missing_ok=True)
         return target_skill
 
     def run_script(self, script: Path, *arguments: object) -> subprocess.CompletedProcess[str]:
@@ -473,6 +488,239 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("missing '是项目级事实'", result.stdout)
         self.assertIn("missing '本叶没有任何新的失败调用'", result.stdout)
+
+    # ------------------------------------------------------------------
+    # Contract migrations
+    # ------------------------------------------------------------------
+    CONTRACT_MIGRATIONS_COPIES = (
+        "portable/references/contract-migrations.md",
+        "skills/charter-workflow/references/contract-migrations.md",
+        "targets/codex/skills/charter-workflow/references/contract-migrations.md",
+        "targets/zcode/skills/charter-workflow/references/contract-migrations.md",
+        "plugins/charter-kit/portable/references/contract-migrations.md",
+        "plugins/charter-kit/skills/charter-workflow/references/contract-migrations.md",
+        "plugins/dsh-charter-kit/portable/references/contract-migrations.md",
+        "plugins/dsh-charter-kit/skills/charter-workflow/references/contract-migrations.md",
+        "plugins/zcode-charter-kit/portable/references/contract-migrations.md",
+        "plugins/zcode-charter-kit/skills/charter-workflow/references/contract-migrations.md",
+    )
+
+    def test_contract_migration_steps_live_in_one_reference(self) -> None:
+        reference = (PACKAGE_ROOT / "portable" / "references" / "contract-migrations.md").read_text(
+            encoding="utf-8"
+        )
+        for phrase in (
+            "Long-task ledger",
+            "Ledger reconciliation",
+            "## 8. Execution record",
+            "## 9. Review and closure",
+            "Contract version",
+            "CLARIFICATION",
+            "before the first state transition",
+            "not migrated",
+            "bounded waiver",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, reference)
+
+        expected = (PACKAGE_ROOT / self.CONTRACT_MIGRATIONS_COPIES[0]).read_bytes()
+        for relative in self.CONTRACT_MIGRATIONS_COPIES[1:]:
+            with self.subTest(relative=relative):
+                self.assertEqual((PACKAGE_ROOT / relative).read_bytes(), expected)
+
+    def test_the_entry_document_points_at_the_migration_reference_instead_of_repeating_it(self) -> None:
+        """The one-time procedure must not be charged to every session start."""
+
+        skill = (PACKAGE_ROOT / "skills" / "charter-workflow" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/contract-migrations.md", skill)
+        self.assertIn("before any state transition", skill)
+        self.assertNotIn("Long-task ledger", skill)
+
+        leaf = (PACKAGE_ROOT / "portable" / "templates" / "leaf-task.md").read_text(encoding="utf-8")
+        self.assertIn("portable/references/contract-migrations.md", leaf)
+        self.assertIn("before the next state transition", leaf)
+
+    def test_validator_rejects_migration_detail_returning_to_the_entry_document(self) -> None:
+        package = self.make_package_copy()
+        skill = package / "skills" / "charter-workflow" / "SKILL.md"
+        body = skill.read_text(encoding="utf-8")
+        skill.write_text(
+            body.replace(
+                "`references/contract-migrations.md` lists each field",
+                "add the `Long-task ledger` line to section 8; "
+                "`references/contract-migrations.md` lists each field",
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("not the entry document", result.stdout)
+
+    def test_validator_rejects_a_missing_contract_migrations_reference(self) -> None:
+        package = self.make_package_copy()
+        (package / "portable" / "references" / "contract-migrations.md").unlink()
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("portable/references/contract-migrations.md", result.stdout)
+
+    def test_validator_rejects_a_migration_reference_that_drops_a_field(self) -> None:
+        package = self.make_package_copy()
+        for relative in self.CONTRACT_MIGRATIONS_COPIES:
+            reference = package / relative
+            reference.write_text(
+                reference.read_text(encoding="utf-8").replace("Ledger reconciliation", "closure note"),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Ledger reconciliation", result.stdout)
+
+    # ------------------------------------------------------------------
+    # Generated-tree markers
+    # ------------------------------------------------------------------
+    GENERATED_TREES = (
+        ("plugins/charter-kit", "targets/codex/skills/charter-workflow", "scripts/build_codex_plugin.py"),
+        ("skills/charter-workflow", "targets/codex/skills/charter-workflow", "scripts/build_codex_plugin.py"),
+        ("plugins/zcode-charter-kit", "targets/zcode", "scripts/build_zcode_plugin.py"),
+        ("plugins/dsh-charter-kit", "targets/dsh", "scripts/build_dsh_plugin.py"),
+    )
+
+    def test_every_generated_tree_carries_a_marker_naming_its_hand_edited_source(self) -> None:
+        for tree, source, command in self.GENERATED_TREES:
+            with self.subTest(tree=tree):
+                marker = PACKAGE_ROOT / tree / GENERATED_MARKER_NAME
+                self.assertTrue(marker.is_file(), f"{tree} has no {GENERATED_MARKER_NAME}")
+                body = marker.read_text(encoding="utf-8")
+                self.assertIn("do not hand-edit", body)
+                self.assertIn(source, body)
+                self.assertIn(command, body)
+                self.assertIn("docs/MIRROR-TOPOLOGY.md", body)
+                # A build time here would make every rebuild a byte change, so
+                # --check would stop distinguishing drift from noise.
+                self.assertIsNone(re.search(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", body))
+
+    def test_hand_edited_trees_carry_no_generated_marker(self) -> None:
+        # A marker in a hand-edited tree would send a maintainer away from the
+        # one tree their edit actually survives in.
+        for tree in (
+            "portable",
+            "targets/codex/skills/charter-workflow",
+            "targets/zcode",
+            "targets/dsh",
+            # Copied from a tree that has a marker; the copy step drops it
+            # because the content names one destination.
+            "plugins/charter-kit/skills/charter-workflow",
+            "plugins/dsh-charter-kit/skills/charter-workflow",
+            "plugins/zcode-charter-kit/skills/charter-workflow",
+        ):
+            with self.subTest(tree=tree):
+                self.assertFalse((PACKAGE_ROOT / tree / GENERATED_MARKER_NAME).exists())
+
+    def test_validator_rejects_a_generated_tree_without_its_marker(self) -> None:
+        package = self.make_package_copy()
+        (package / "plugins" / "zcode-charter-kit" / GENERATED_MARKER_NAME).unlink()
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"plugins/zcode-charter-kit/{GENERATED_MARKER_NAME}", result.stdout)
+        self.assertIn("build_zcode_plugin.py", result.stdout)
+
+    def test_validator_rejects_a_generated_marker_in_a_hand_edited_tree(self) -> None:
+        package = self.make_package_copy()
+        (package / "targets" / "zcode" / GENERATED_MARKER_NAME).write_bytes(
+            (package / "plugins" / "zcode-charter-kit" / GENERATED_MARKER_NAME).read_bytes()
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"targets/zcode/{GENERATED_MARKER_NAME}", result.stdout)
+        self.assertIn("hand-edited", result.stdout)
+
+    def test_validator_rejects_a_marker_that_names_the_wrong_source(self) -> None:
+        package = self.make_package_copy()
+        marker = package / "skills" / "charter-workflow" / GENERATED_MARKER_NAME
+        body = marker.read_text(encoding="utf-8")
+        marker.write_text(
+            body.replace("targets/codex/skills/charter-workflow", "portable/templates"),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("targets/codex/skills/charter-workflow", result.stdout)
+
+    def test_validator_rejects_a_marker_that_records_a_build_time(self) -> None:
+        package = self.make_package_copy()
+        marker = package / "plugins" / "charter-kit" / GENERATED_MARKER_NAME
+        body = marker.read_text(encoding="utf-8")
+        marker.write_text(
+            body.replace("edit survives in.", "edit survives in. Built 2026-09-05."),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("timestamp-free", result.stdout)
+
+    def test_validator_rejects_markers_pointing_at_a_missing_topology_map(self) -> None:
+        package = self.make_package_copy()
+        (package / "docs" / "MIRROR-TOPOLOGY.md").unlink()
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("docs/MIRROR-TOPOLOGY.md", result.stdout)
+
+    def test_builders_rewrite_every_deleted_marker(self) -> None:
+        """The markers are build output, not a committed convention.
+
+        A marker that had to be committed by hand would be deleted by the next
+        build of its own tree, which is the exact failure it exists to warn
+        about.
+        """
+
+        package = self.make_package_copy()
+        for tree, _source, _command in self.GENERATED_TREES:
+            (package / tree / GENERATED_MARKER_NAME).unlink()
+
+        for builder in (
+            "build_codex_plugin.py",
+            "build_zcode_plugin.py",
+            "build_dsh_plugin.py",
+        ):
+            result = self.run_script(package / "scripts" / builder)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        for tree, _source, _command in self.GENERATED_TREES:
+            with self.subTest(tree=tree):
+                self.assertTrue((package / tree / GENERATED_MARKER_NAME).is_file())
+        validated = self.run_validator(package)
+        self.assertEqual(validated.returncode, 0, validated.stdout + validated.stderr)
+
+    def test_the_writeback_marker_tells_the_truth_about_hand_edits(self) -> None:
+        """Root skills/ really does discard edits, so the marker is not advice."""
+
+        package = self.make_package_copy()
+        sentinel = package / "skills" / "charter-workflow" / "HAND-EDIT.md"
+        sentinel.write_text("edited by hand", encoding="utf-8")
+
+        result = self.run_builder(package)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(sentinel.exists(), "the marker claims this edit is deleted")
+        self.assertTrue(
+            (package / "skills" / "charter-workflow" / GENERATED_MARKER_NAME).is_file()
+        )
 
     def test_validator_rejects_a_zcode_command_that_drifts_from_its_source(self) -> None:
         """The shipped adapter command is a derivative, so drift is a defect.
@@ -1189,10 +1437,19 @@ class CharterKitBehaviorTests(unittest.TestCase):
             (package / ".codex-plugin" / "plugin.json").read_bytes(),
             (output / ".codex-plugin" / "plugin.json").read_bytes(),
         )
-        self.assertEqual(
-            self.snapshot_tree_bytes(package / "skills" / "charter-workflow"),
-            self.snapshot_tree_bytes(output / "skills" / "charter-workflow"),
-        )
+        legacy = self.snapshot_tree_bytes(package / "skills" / "charter-workflow")
+        built = self.snapshot_tree_bytes(output / "skills" / "charter-workflow")
+        # The writeback destination is a generated tree living at a canonical
+        # path, so it carries its own marker.  That marker names this tree and
+        # this destination, which is exactly why it is not part of the mirror:
+        # comparing it would demand that two destinations describe themselves
+        # identically.
+        self.assertIn(GENERATED_MARKER_NAME, legacy)
+        self.assertNotIn(GENERATED_MARKER_NAME, built)
+        marker = legacy.pop(GENERATED_MARKER_NAME)
+        self.assertIn(b"skills/charter-workflow", marker)
+        self.assertIn(b"targets/codex/skills/charter-workflow", marker)
+        self.assertEqual(legacy, built)
         self.assert_tree_is_link_free(output / "skills" / "charter-workflow")
 
     def test_builder_rejects_linked_output_root(self) -> None:

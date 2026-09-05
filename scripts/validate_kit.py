@@ -30,6 +30,10 @@ SEMVER_RE = re.compile(
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 
+# A calendar date inside a generated marker would make every rebuild a byte
+# change, so the marker is required to stay free of one.
+TIMESTAMP_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
 
 PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
     "portable/templates/project-charter.md": (
@@ -135,6 +139,13 @@ CHANGE_TRIAGE_REFERENCE = "portable/references/change-triage.md"
 SKILL_CHANGE_TRIAGE_REFERENCE = "skills/charter-workflow/references/change-triage.md"
 TARGET_CHANGE_TRIAGE_REFERENCE = "targets/codex/skills/charter-workflow/references/change-triage.md"
 DISTRIBUTION_CHANGE_TRIAGE_REFERENCE = "plugins/charter-kit/skills/charter-workflow/references/change-triage.md"
+# Migrating a contract that predates a now-required field is a one-time event
+# for a subset of projects, so its steps live in a reference read when the
+# condition fires instead of in the entry document read on every start.
+CONTRACT_MIGRATIONS_REFERENCE = "portable/references/contract-migrations.md"
+SKILL_CONTRACT_MIGRATIONS_REFERENCE = "skills/charter-workflow/references/contract-migrations.md"
+TARGET_CONTRACT_MIGRATIONS_REFERENCE = "targets/codex/skills/charter-workflow/references/contract-migrations.md"
+DISTRIBUTION_CONTRACT_MIGRATIONS_REFERENCE = "plugins/charter-kit/skills/charter-workflow/references/contract-migrations.md"
 
 # DSH target/distribution boundaries.
 DSH_TARGET_ROOT_RELATIVE = "targets/dsh"
@@ -156,6 +167,31 @@ ZCODE_DISTRIBUTION_ROOT_RELATIVE = "plugins/zcode-charter-kit"
 ZCODE_DISTRIBUTION_MANIFEST_RELATIVE = "plugins/zcode-charter-kit/.zcode-plugin/plugin.json"
 ZCODE_DISTRIBUTION_COMMAND_RELATIVE = "plugins/zcode-charter-kit/commands/charter-workflow.md"
 ZCODE_DISTRIBUTION_SKILL_RELATIVE = "plugins/zcode-charter-kit/skills/charter-workflow"
+
+# Every generated tree carries a marker written by the builder that produces it,
+# after the copy step that would otherwise delete it.  The table pairs each
+# generated tree with the tree an edit survives in and the command that rebuilds
+# it, so a marker cannot name the wrong source and a new generated tree cannot
+# ship without one.
+GENERATED_MARKER_NAME = "GENERATED.md"
+# Each marker is deliberately short and points here for the whole picture, so
+# this file is part of the rule rather than adjacent documentation.
+MIRROR_TOPOLOGY_RELATIVE = "docs/MIRROR-TOPOLOGY.md"
+GENERATED_TREES: tuple[tuple[str, str, str], ...] = (
+    (DISTRIBUTION_ROOT_RELATIVE, TARGET_SKILL_RELATIVE, "scripts/build_codex_plugin.py"),
+    (LEGACY_SKILL_RELATIVE, TARGET_SKILL_RELATIVE, "scripts/build_codex_plugin.py"),
+    (ZCODE_DISTRIBUTION_ROOT_RELATIVE, ZCODE_TARGET_ROOT_RELATIVE, "scripts/build_zcode_plugin.py"),
+    (DSH_DISTRIBUTION_ROOT_RELATIVE, DSH_TARGET_ROOT_RELATIVE, "scripts/build_dsh_plugin.py"),
+)
+# The other side of the same rule: a hand-edited tree must not carry the marker,
+# or the one instruction that tells a maintainer where an edit survives would
+# point back at the tree they are already editing.
+HAND_EDITED_TREES: tuple[str, ...] = (
+    TARGET_SKILL_RELATIVE,
+    ZCODE_TARGET_ROOT_RELATIVE,
+    DSH_TARGET_ROOT_RELATIVE,
+    "portable",
+)
 
 # These are the root files copied into the self-contained distribution by the
 # deterministic packager.  Keeping the list explicit makes an accidental
@@ -208,9 +244,11 @@ REQUIRED_FILES = (
     *HOST_PROMPTS,
     "portable/commands/charter-workflow.md",
     CHANGE_TRIAGE_REFERENCE,
+    CONTRACT_MIGRATIONS_REFERENCE,
     "portable/references/design-interview.md",
     "skills/charter-workflow/SKILL.md",
     SKILL_CHANGE_TRIAGE_REFERENCE,
+    SKILL_CONTRACT_MIGRATIONS_REFERENCE,
     "skills/charter-workflow/references/DEVELOPMENT_CHARTER.md",
     "skills/charter-workflow/references/DEPENDENCIES.md",
     "skills/charter-workflow/references/design-interview.md",
@@ -226,6 +264,8 @@ REQUIRED_FILES = (
     "dependencies.install.json",
     TARGET_CHANGE_TRIAGE_REFERENCE,
     DISTRIBUTION_CHANGE_TRIAGE_REFERENCE,
+    TARGET_CONTRACT_MIGRATIONS_REFERENCE,
+    DISTRIBUTION_CONTRACT_MIGRATIONS_REFERENCE,
     "tests/test_charter_kit.py",
     "tests/test_dependencies.py",
     "tests/test_generic_bootstrap.py",
@@ -241,6 +281,7 @@ MIRRORS = (
     ("scripts/init_project.py", "skills/charter-workflow/scripts/init_project.py"),
     ("portable/references/design-interview.md", "skills/charter-workflow/references/design-interview.md"),
     (CHANGE_TRIAGE_REFERENCE, SKILL_CHANGE_TRIAGE_REFERENCE),
+    (CONTRACT_MIGRATIONS_REFERENCE, SKILL_CONTRACT_MIGRATIONS_REFERENCE),
     *((path, f"{SKILL_TEMPLATE_ROOT}/{Path(path).name}") for path in PORTABLE_TEMPLATES),
     (
         "portable/references/design-interview.md",
@@ -640,6 +681,12 @@ class Checker:
             return None
         result: dict[str, bytes] = {}
         for child in sorted(path.rglob("*"), key=lambda item: item.relative_to(path).as_posix()):
+            # A tree's own marker names that tree, so it is never comparable
+            # across a mirror pair; check_generated_markers checks it where it
+            # belongs.  Only the marker at the tree root is exempt, so a stray
+            # copy deeper in the tree is still reported as drift.
+            if child.relative_to(path).as_posix() == GENERATED_MARKER_NAME:
+                continue
             if _is_regular_file(child) and not _is_link(child):
                 if not reject_caches and (
                     child.suffix.lower() == ".pyc" or "__pycache__" in child.relative_to(path).parts
@@ -692,6 +739,8 @@ class Checker:
         self.check_target_and_distribution()
         self.check_dsh_target_and_distribution()
         self.check_zcode_target_and_distribution()
+        self.check_contract_migrations()
+        self.check_generated_markers()
         self.check_readme()
         self.check_tests_and_docs()
         self.check_mirrors()
@@ -1119,7 +1168,7 @@ class Checker:
 
             expected_top_level = {
                 Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
-            } | {".codex-plugin", "skills"}
+            } | {".codex-plugin", "skills", GENERATED_MARKER_NAME}
             for child in distribution_root.iterdir():
                 if child.name not in expected_top_level:
                     self.errors.append(
@@ -1207,7 +1256,7 @@ class Checker:
 
             expected_top_level = {
                 Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
-            } | {"package.json", "lib", "src", "scripts", "skills"}
+            } | {"package.json", "lib", "src", "scripts", "skills", GENERATED_MARKER_NAME}
             for child in distribution_root.iterdir():
                 if child.name not in expected_top_level:
                     self.errors.append(
@@ -1287,7 +1336,7 @@ class Checker:
         if distribution_root.is_dir():
             expected_top_level = {
                 Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
-            } | {".zcode-plugin", "commands", "skills"}
+            } | {".zcode-plugin", "commands", "skills", GENERATED_MARKER_NAME}
             for child in distribution_root.iterdir():
                 if child.name not in expected_top_level:
                     self.errors.append(
@@ -2394,6 +2443,119 @@ class Checker:
         if re.search(r"(?i)(pip\s+install|npm\s+install|curl\s*\|)", text):
             self.errors.append(f"{relative}: hidden installer command")
 
+    def check_contract_migrations(self) -> None:
+        """Keep the migration procedure in one reference, cited from two places.
+
+        A contract that predates a now-required field is migrated once, and only
+        by the subset of projects that have such a contract.  Spelling the steps
+        out in the entry document charges every start for a one-time event, and
+        an entry document that keeps growing is the failure mode this kit is
+        supposed to avoid.  So the steps live here, and the two documents a
+        maintainer is actually holding when the condition fires -- the workflow
+        entry and the contract's own Identity section -- carry a pointer.
+        """
+
+        reference = self.read(CONTRACT_MIGRATIONS_REFERENCE)
+        if reference:
+            for phrase in (
+                # The procedure itself, in full: which fields, which sections,
+                # the version bump, the Change Triage route, and the ordering
+                # rule that makes the migration meaningful.
+                "Long-task ledger",
+                "Ledger reconciliation",
+                "## 8. Execution record",
+                "## 9. Review and closure",
+                "Contract version",
+                "CLARIFICATION",
+                "before the first state transition",
+                # Both spellings, because a Skill-less host reads the portable
+                # tree and a Skill host reads the bundled copy.
+                "portable/references/change-triage.md",
+                "references/change-triage.md",
+                # A migration is not a licence to reopen an approved contract,
+                # and the two ways it can be skipped both have to be named or
+                # the honest path is the undocumented one.
+                "own decision",
+                "not migrated",
+                "bounded waiver",
+            ):
+                self.require(reference, phrase, CONTRACT_MIGRATIONS_REFERENCE)
+
+        skill = self.read("skills/charter-workflow/SKILL.md")
+        if skill:
+            self.require(skill, "references/contract-migrations.md", "skills/charter-workflow/SKILL.md")
+            self.require(skill, "before any state transition", "skills/charter-workflow/SKILL.md")
+            # The point of the reference is that the entry document stops
+            # carrying field-level migration detail.  Naming the migrated field
+            # here is how that regression starts.
+            if "Long-task ledger" in skill:
+                self.errors.append(
+                    "skills/charter-workflow/SKILL.md: migration detail belongs in "
+                    f"{CONTRACT_MIGRATIONS_REFERENCE}, not the entry document"
+                )
+
+        leaf = self.read("portable/templates/leaf-task.md")
+        if leaf:
+            for phrase in (
+                CONTRACT_MIGRATIONS_REFERENCE,
+                "references/contract-migrations.md",
+                "before the next state transition",
+            ):
+                self.require(leaf, phrase, "portable/templates/leaf-task.md")
+
+    def check_generated_markers(self) -> None:
+        """Require the builder-written marker in every generated tree.
+
+        Two of this repository's trees are generated into paths that look
+        canonical, and the copy step replaces its destination wholesale: an edit
+        made there is deleted rather than merged, and nothing reports the loss.
+        The marker is the only thing that says so at the place a maintainer is
+        standing when they make that edit, which is why its presence and its
+        contents are gated rather than left to the builders.
+        """
+
+        for tree, source, command in GENERATED_TREES:
+            if not self._path(tree).is_dir():
+                continue
+            relative = f"{tree}/{GENERATED_MARKER_NAME}"
+            if not self._path(relative).is_file():
+                self.errors.append(
+                    f"missing file: {relative} (generated tree must carry the marker "
+                    f"written by python {command})"
+                )
+                continue
+            marker = self.read(relative)
+            if not marker:
+                continue
+            for phrase in ("do not hand-edit", source, command, MIRROR_TOPOLOGY_RELATIVE):
+                self.require(marker, phrase, relative)
+            # A marker carrying a build time would make every rebuild a byte
+            # change, which is how a --check comparison stops being read.
+            if TIMESTAMP_RE.search(marker) is not None:
+                self.errors.append(
+                    f"{relative}: marker must stay timestamp-free so --check remains "
+                    f"a byte comparison"
+                )
+
+        for tree in HAND_EDITED_TREES:
+            if not self._path(tree).is_dir():
+                continue
+            if self._path(f"{tree}/{GENERATED_MARKER_NAME}").is_file():
+                self.errors.append(
+                    f"{tree}/{GENERATED_MARKER_NAME}: hand-edited tree must not be "
+                    f"marked generated"
+                )
+
+        # Every marker sends the reader here, so the destination has to exist
+        # and has to cover the tree they arrived from.  Without this the one
+        # navigational instruction each marker carries can become a dead
+        # reference while the validator still reports PASS.
+        topology = self.read(MIRROR_TOPOLOGY_RELATIVE)
+        if topology:
+            for tree, _source, command in GENERATED_TREES:
+                self.require(topology, tree, MIRROR_TOPOLOGY_RELATIVE)
+                self.require(topology, command, MIRROR_TOPOLOGY_RELATIVE)
+
     def check_readme(self) -> None:
         relative = "README.md"
         text = self.read(relative)
@@ -2486,6 +2648,7 @@ class Checker:
             "dependencies.json",
             "portable/commands/charter-workflow.md",
             "portable/references/design-interview.md",
+            CONTRACT_MIGRATIONS_REFERENCE,
             *PORTABLE_TEMPLATES,
             *HOST_PROMPTS,
             "skills/charter-workflow/SKILL.md",
