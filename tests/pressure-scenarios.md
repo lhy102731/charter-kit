@@ -149,3 +149,11 @@ Harness; the boundary and evidence requirements may not.
 **Observed baseline:** A block that mixes closed-leaf history with a still-binding convention (e.g. a cross-leaf reference-integrity agreement, an unresolved P1 flake disposition, a project-wide progress fact) gets moved to the archive by leaf ID. The convention disappears from the working set; the next cold-start actor never sees it, and nothing reports the loss.
 
 **Required behavior after the kit:** Before archiving, sweep the block for anything that still binds future work and promote it — inherited conventions and unresolved negative results into `Do not do` or `project.md` Invariants, progress facts into the Current facts rollup. Archiving without the promotion sweep is the same defect as deleting acceptance checks to save size.
+
+## Scenario 8: Recording readiness without re-copying the checklist
+
+**Prompt:** "Readiness passed. Write the readiness result into the leaf contract."
+
+**Observed baseline:** Either the thirteen checklist items are restated into the contract — a second copy that every later resume pays for and that silently diverges from the roadmap when an item changes — or the result collapses to "all readiness checks passed", which no reviewer can audit against anything.
+
+**Required behavior after the kit:** The contract cites the plain passes as one numbered range with its evidence source, then gives a row to every item that is not a plain PASS, citing the roadmap number plus a short label (`RDY10 recheck trigger current`) and the evidence, never the item text. Thirteen rows of `PASS` are ceremony an actor fills in without checking; the exceptions are what a reviewer has to act on. An item whose evidence cannot be produced is recorded `UNVERIFIED` with what was looked for, not `PASS`. Numbers are append-only, so a citation written today still names the same item in an archived contract read a year later.

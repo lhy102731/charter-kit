@@ -1591,6 +1591,12 @@ class Checker:
             "Never replace a leaf-specific field with a reference",
         ):
             self.require(leaf, phrase, "leaf-task.md")
+        # Readiness is checked once and then cited for the life of the leaf, so
+        # the contract needs a place to hold the result.  The row placeholder
+        # carries the roadmap's `RDY` namespace: a bare `L#` would collide with
+        # the leaf IDs that appear in the same documents.
+        for phrase in ("- Readiness record:", "| RDY# | result | evidence |"):
+            self.require(leaf, phrase, "leaf-task.md")
         # The size bound has to travel in the template, because the file that
         # outgrows it is the copy a project made months earlier.
         for phrase in ("**Bounded size.**", f"{LEAF_CONTRACT_CEILING_KB} KB"):
@@ -1616,6 +1622,12 @@ class Checker:
             # project and every future actor pays for closed leaves.
             "**Bounded size.**",
             ".charter/handoff-archive.md",
+            # A block is archived by an actor trying to shrink the read set, so
+            # the rule that stops it from archiving a still-binding convention
+            # or an undispositioned negative result has to sit in the same file
+            # as the bound that motivates the archiving.
+            "**Promotion before archiving.**",
+            "`project.md` Invariants",
             "Governance tracked / ledger ignored:",
             ".gitignore",
         ):
@@ -1635,8 +1647,8 @@ class Checker:
             self.errors.append("portable/templates/roadmap.md: first leaf must start DRAFT")
         for phrase in (
             "Active leaf",
-            "L1 —",
-            "L13 —",
+            "RDY1 —",
+            "RDY13 —",
             "append-only",
             ".charter/reuse-discovery.md",
             "Reuse discovery gate:",
@@ -1650,6 +1662,7 @@ class Checker:
             "readiness",
         ):
             self.require(roadmap, phrase, "portable/templates/roadmap.md")
+        self._check_readiness_numbering("portable/templates/roadmap.md", roadmap)
         if (
             "When moving a leaf from `DRAFT` to `APPROVED`, update the task file and roadmap row together; then move both to `READY` together after readiness."
             not in roadmap
@@ -1839,6 +1852,77 @@ class Checker:
         if blocked_pattern.search(text) is None:
             self.errors.append(
                 f"{relative}: BLOCKED_TOOLING cannot approve or move a leaf to READY"
+            )
+
+    def _check_readiness_numbering(self, relative: str, text: str) -> None:
+        """Hold the readiness checklist to the numbering contract it declares.
+
+        Leaf contracts cite these items by number for the life of the leaf, and
+        archived contracts keep citing them after the checklist has moved on.
+        The declared rule is therefore append-only: a retired item keeps its
+        number, a new item takes the next one, and nothing is renumbered.  A gap
+        or a duplicate is the observable symptom of a renumbering, which
+        silently changes what an already-closed record says was checked.
+        """
+
+        items: dict[int, str] = {}
+        order: list[int] = []
+        for line in text.splitlines():
+            match = re.match(r"- \[ \] RDY(\d+) — (.+)$", line)
+            if match is None:
+                continue
+            number = int(match.group(1))
+            if number in items:
+                self.errors.append(
+                    f"{relative}: readiness item RDY{number} is listed twice; the numbering is "
+                    f"append-only, so a number identifies exactly one item"
+                )
+                continue
+            items[number] = match.group(2)
+            order.append(number)
+        if not items:
+            self.errors.append(
+                f"{relative}: no `- [ ] RDY<n> — ` readiness items found; the numbered checklist "
+                f"is what a leaf contract cites instead of restating the item text"
+            )
+            return
+        expected = list(range(1, max(items) + 1))
+        if order != expected:
+            found = ", ".join(f"RDY{number}" for number in order)
+            self.errors.append(
+                f"{relative}: readiness items must run RDY1..RDY{max(items)} in order, with no gap "
+                f"or reordering; found {found} — retire an item in place instead of renumbering"
+            )
+        # The worked example is the part a reader copies, so it has to point at a
+        # real item and use that item's own words.  An example labelled with
+        # another item's subject teaches the wrong citation on first contact.
+        example = re.search(r"e\.g\. `RDY(\d+) ([^`]+)`", text)
+        if example is None:
+            self.errors.append(
+                f"{relative}: the readiness intro must show one `RDY<n> <label>` example so the "
+                f"citation format is demonstrated, not just described"
+            )
+            return
+        cited = int(example.group(1))
+        if cited not in items:
+            self.errors.append(
+                f"{relative}: the readiness example cites RDY{cited}, which is not a listed item"
+            )
+            return
+        # Case is not the signal here: a label may capitalize a word the item
+        # spells in prose.  A word the item does not contain at all is.
+        item_words = items[cited].lower()
+        absent = [
+            word
+            for word in re.findall(r"[A-Za-z_]+", example.group(2))
+            if word.lower() not in item_words
+        ]
+        if absent:
+            self.errors.append(
+                f"{relative}: the readiness example labels RDY{cited} with "
+                f"{', '.join(repr(word) for word in absent)}, which does not appear in that item "
+                f"({items[cited][:60]!r}); label an item with its own words so the example cannot "
+                f"drift from what the number means"
             )
 
     def _check_reuse_record_contract(self, relative: str, text: str) -> None:

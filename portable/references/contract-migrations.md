@@ -37,12 +37,23 @@ own Change Triage route and its own decision.
 | --- | --- | --- |
 | Session execution ledger mode | `## 8. Execution record` | `Long-task ledger` |
 | Ledger reconciliation at closure | `## 9. Review and closure` | `Ledger reconciliation` |
+| Readiness record | `## 9. Review and closure` | `Readiness record` |
 
-Those two rows are one change and are applied together. The first declares the
+The two ledger rows are one change and are applied together. The first declares the
 ledger mode for the session; the second is what closure actually checks. A
 contract carrying only the declaration can reach `PASS_CLOSED` with neither
 reconciliation nor a recorded `NOT_ENABLED` waiver, which is the failure the pair
 exists to prevent.
+
+The readiness row records a check that already happened. On a contract still
+`DRAFT` or `APPROVED`, fill it while running the checklist. On a contract already
+`READY` or later, reconstruct it from the evidence that existed at that
+transition — the roadmap row, the handoff block, the receipts under
+`.charter/evidence/` — and say in the field that it was reconstructed. An item
+whose evidence cannot be found is recorded `UNVERIFIED` with what was looked for;
+it is never recorded `PASS` on the strength of the transition having happened.
+Reference items by their roadmap `RDY` number plus a short label, so the record
+stays a delta against the checklist instead of a second copy of it.
 
 ## When the migration is not applied
 

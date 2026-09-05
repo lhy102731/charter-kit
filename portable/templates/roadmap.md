@@ -47,21 +47,21 @@
 
 ## Leaf readiness check
 
-Before moving a leaf to `READY`, confirm. Every checklist item carries a stable number (`L1`…); leaf contracts reference results by number plus a short label (e.g. `L7 gate projection current`), never by restating the item text. The numbering is append-only: retired items keep their number with a retirement date, new items take the next number — renumbering would silently change what archived leaf records mean.
+Before moving a leaf to `READY`, confirm. Every checklist item carries a stable number (`RDY1`…); leaf contracts reference results by number plus a short label (e.g. `RDY10 recheck trigger current`), never by restating the item text. The numbering is append-only: retired items keep their number with a retirement date, new items take the next number — renumbering would silently change what archived leaf records mean.
 
-- [ ] L1 — the leaf contract is `APPROVED` and its approval or preauthorization reference is recorded;
-- [ ] L2 — predecessor is `—`, or every listed predecessor is actually `PASS_CLOSED`;
-- [ ] L3 — one observable result is written;
-- [ ] L4 — allowed paths/effects and forbidden effects are explicit;
-- [ ] L5 — positive and negative acceptance checks exist;
-- [ ] L6 — stop conditions and repair budget are written;
-- [ ] L7 — required host capabilities and approvals are available.
-- [ ] L8 — the dependency-check record is attached; every required capability is `AVAILABLE`, or an explicit `BLOCKED_TOOLING`/user waiver is recorded.
-- [ ] L9 — the reuse discovery gate is `COMPLETE`, or this specific Leaf has an explicit, separately approved bounded waiver in `.charter/reuse-discovery.md`; if a bounded limitation or waiver is used, record its approved/omitted scope, limitation, approver, and expiry/recheck condition;
-- [ ] L10 — the projected gate status matches `.charter/reuse-discovery.md` and `project.md`, and its recheck trigger/date is current; if a trigger applies, a targeted recheck is recorded before this leaf is approved;
-- [ ] L11 — when the gate is `COMPLETE`, every material capability has in-scope raw evidence, out-of-scope tiers are explicitly `NOT_SEARCHED`/`NOT_AUTHORIZED`, selected revisions are fixed immutable commit/tag/package versions, and no high-value `UNKNOWN`/`DEFER` remains unresolved;
-- [ ] L12 — every non-workspace/installed search tier used by this leaf is covered by the recorded discovery scope and `External read authorization`;
-- [ ] L13 — without that leaf-specific waiver, `PENDING`, `BLOCKED`, or `BLOCKED_TOOLING` is treated as blocking; a waiver is not a new gate state or project-wide bypass;
+- [ ] RDY1 — the leaf contract is `APPROVED` and its approval or preauthorization reference is recorded;
+- [ ] RDY2 — predecessor is `—`, or every listed predecessor is actually `PASS_CLOSED`;
+- [ ] RDY3 — one observable result is written;
+- [ ] RDY4 — allowed paths/effects and forbidden effects are explicit;
+- [ ] RDY5 — positive and negative acceptance checks exist;
+- [ ] RDY6 — stop conditions and repair budget are written;
+- [ ] RDY7 — required host capabilities and approvals are available.
+- [ ] RDY8 — the dependency-check record is attached; every required capability is `AVAILABLE`, or an explicit `BLOCKED_TOOLING`/user waiver is recorded.
+- [ ] RDY9 — the reuse discovery gate is `COMPLETE`, or this specific Leaf has an explicit, separately approved bounded waiver in `.charter/reuse-discovery.md`; if a bounded limitation or waiver is used, record its approved/omitted scope, limitation, approver, and expiry/recheck condition;
+- [ ] RDY10 — the projected gate status matches `.charter/reuse-discovery.md` and `project.md`, and its recheck trigger/date is current; if a trigger applies, a targeted recheck is recorded before this leaf is approved;
+- [ ] RDY11 — when the gate is `COMPLETE`, every material capability has in-scope raw evidence, out-of-scope tiers are explicitly `NOT_SEARCHED`/`NOT_AUTHORIZED`, selected revisions are fixed immutable commit/tag/package versions, and no high-value `UNKNOWN`/`DEFER` remains unresolved;
+- [ ] RDY12 — every non-workspace/installed search tier used by this leaf is covered by the recorded discovery scope and `External read authorization`;
+- [ ] RDY13 — without that leaf-specific waiver, `PENDING`, `BLOCKED`, or `BLOCKED_TOOLING` is treated as blocking; a waiver is not a new gate state or project-wide bypass;
 
 `BLOCKED` and `BLOCKED_TOOLING` block leaf readiness and are never equivalent to approval unless the current Leaf has the explicit bounded waiver above. `PENDING` likewise cannot authorize a leaf without that waiver.
 

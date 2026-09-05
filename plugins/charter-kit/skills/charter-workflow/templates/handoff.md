@@ -60,7 +60,7 @@ Use this file as the resume packet for another actor. It records the current tas
 - Do not start `<next candidate>` until the current task is `PASS_CLOSED` and authorization exists.
 - Do not use sensitive or real data, reserved evaluation data, release systems, external network, or credentials unless an approval reference is listed above.
 - Do not treat a report, old test run, or self-review as fresh evidence.
-- This section is also the promotion target when archiving handoff blocks: a convention that later leaves inherit or an unresolved negative result moves here (or into `project.md` Invariants) before its block is archived — see Bounded size above.
+- This section is also the promotion target when archiving handoff blocks: a convention that later leaves inherit or an unresolved negative result moves here (or into `project.md` Invariants) before its block is archived — see Promotion before archiving above.
 
 ## Session ledger
 

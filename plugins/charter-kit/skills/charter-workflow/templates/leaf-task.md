@@ -150,7 +150,7 @@ Stop and write a decision record when:
 
 - Review A: `<path, reviewer, candidate, verdict>`
 - Review B / fresh behavior check: `<REQUIRED with trigger/path/reviewer/freshness/verdict, or NOT_REQUIRED with bounded omission reason>`
-- Readiness record: `<table per the roadmap readiness checklist numbers — | L# | result | evidence | —; reference items by number plus a short label, never by restating the checklist text>`
+- Readiness record: `<RDY1-RDY13 PASS with the evidence source, then one | RDY# | result | evidence | row for every item that is not a plain PASS — UNVERIFIED, a bounded waiver, or its own evidence path; cite items by number plus a short label, never by restating the checklist text>`
 - Ledger reconciliation: `<execution-ledger Verified summary mirrored into Events/Evidence>` — a leaf with neither reconciliation nor a recorded `NOT_ENABLED` waiver in its Events table must not close as `PASS_CLOSED` (close `PARTIAL` with the reason instead)
 - Pre-integration verification receipt: `<path, command, candidate, result>`
 - Final candidate: `<revision>`

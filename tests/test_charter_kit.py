@@ -1266,6 +1266,228 @@ class CharterKitBehaviorTests(unittest.TestCase):
             result.stdout,
         )
 
+    def test_every_handoff_template_carries_the_promotion_sweep(self) -> None:
+        """The size bound alone tells an actor to delete a binding rule.
+
+        Archiving is triggered by the bound, so the promotion sweep has to
+        travel in the same file: a per-leaf block routinely holds a convention
+        later leaves inherit or a negative result nobody dispositioned, and
+        archiving by leaf ID removes it from every later reader's view.
+        """
+
+        for relative in (
+            "portable/templates/handoff.md",
+            "targets/codex/skills/charter-workflow/templates/handoff.md",
+            "targets/zcode/skills/charter-workflow/templates/handoff.md",
+            "skills/charter-workflow/templates/handoff.md",
+        ):
+            with self.subTest(template=relative):
+                body = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+                self.assertIn("**Promotion before archiving.**", body)
+                # Each promotion target has to be named, or the rule states an
+                # obligation with nowhere to discharge it.
+                self.assertIn("`project.md` Invariants", body)
+                self.assertIn("## Do not do", body)
+                self.assertIn("Current facts", body)
+                # The pointer in `Do not do` has to name the paragraph that
+                # actually carries the rule.
+                self.assertIn("see Promotion before archiving above", body)
+
+    def test_validator_requires_the_promotion_sweep(self) -> None:
+        """Removing the sweep leaves a bound that pays for itself in rules."""
+
+        package = self.make_package_copy()
+        for handoff in (
+            package / "portable" / "templates" / "handoff.md",
+            package / "skills" / "charter-workflow" / "templates" / "handoff.md",
+        ):
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8").replace(
+                    "**Promotion before archiving.**", "**Archiving.**"
+                ),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "portable/templates/handoff.md: missing '**Promotion before archiving.**'",
+            result.stdout,
+        )
+
+    def test_every_leaf_contract_template_carries_the_readiness_record(self) -> None:
+        """Readiness is checked once and cited for the life of the leaf."""
+
+        for relative in (
+            "portable/templates/leaf-task.md",
+            "targets/codex/skills/charter-workflow/templates/leaf-task.md",
+            "targets/zcode/skills/charter-workflow/templates/leaf-task.md",
+            "skills/charter-workflow/templates/leaf-task.md",
+        ):
+            with self.subTest(template=relative):
+                body = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+                self.assertIn("- Readiness record:", body)
+                self.assertIn("| RDY# | result | evidence |", body)
+                # The field is a citation, not a second copy of the checklist.
+                self.assertIn("never by restating the checklist text", body)
+
+    def test_validator_requires_the_readiness_record_field(self) -> None:
+        """Without the field the checklist result is never written down."""
+
+        package = self.make_package_copy()
+        for leaf in (
+            package / "portable" / "templates" / "leaf-task.md",
+            package / "skills" / "charter-workflow" / "templates" / "leaf-task.md",
+        ):
+            leaf.write_text(
+                leaf.read_text(encoding="utf-8").replace("- Readiness record:", "- Readiness:"),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("leaf-task.md: missing '- Readiness record:'", result.stdout)
+
+    def test_readiness_numbering_is_contiguous_and_outside_the_leaf_namespace(self) -> None:
+        """A citation is only stable while one number means one item.
+
+        The numbers are also read next to leaf IDs in the same file, so they
+        cannot be spelled `L#`: the delivery table one screen above carries
+        `R1.1-S1-L1`, and a real project's leaves are literally L1..L9.
+        """
+
+        roadmap = (PACKAGE_ROOT / "portable" / "templates" / "roadmap.md").read_text(encoding="utf-8")
+        numbers = [int(match) for match in re.findall(r"^- \[ \] RDY(\d+) — ", roadmap, re.MULTILINE)]
+        self.assertEqual(numbers, list(range(1, len(numbers) + 1)))
+        self.assertGreaterEqual(len(numbers), 13)
+        # The collision this namespace avoids has to stay visible: the leaf-ID
+        # column is what makes a bare `L7` row in a contract ambiguous.
+        self.assertIn("-S1-L1", roadmap)
+        self.assertEqual([], re.findall(r"^- \[ \] L\d+ — ", roadmap, re.MULTILINE))
+
+    def test_validator_rejects_renumbered_readiness_items(self) -> None:
+        """Renumbering silently changes what an archived record says was checked."""
+
+        package = self.make_package_copy()
+        for roadmap in (
+            package / "portable" / "templates" / "roadmap.md",
+            package / "skills" / "charter-workflow" / "templates" / "roadmap.md",
+        ):
+            roadmap.write_text(
+                re.sub(
+                    r"^- \[ \] RDY7 — .*\n",
+                    "",
+                    roadmap.read_text(encoding="utf-8"),
+                    flags=re.MULTILINE,
+                ),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("readiness items must run RDY1..RDY13 in order", result.stdout)
+        self.assertIn("retire an item in place instead of renumbering", result.stdout)
+
+    def test_validator_rejects_a_duplicated_readiness_number(self) -> None:
+        """Two items under one number make every citation of it ambiguous."""
+
+        package = self.make_package_copy()
+        for roadmap in (
+            package / "portable" / "templates" / "roadmap.md",
+            package / "skills" / "charter-workflow" / "templates" / "roadmap.md",
+        ):
+            roadmap.write_text(
+                roadmap.read_text(encoding="utf-8").replace("- [ ] RDY13 — ", "- [ ] RDY12 — "),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("readiness item RDY12 is listed twice", result.stdout)
+
+    def test_validator_rejects_an_example_that_labels_another_item(self) -> None:
+        """The example is what a reader copies, so a wrong number teaches a wrong citation.
+
+        This is a real defect the numbering shipped with: the worked example
+        described the gate-projection item while citing the number of the host
+        capabilities item. Nothing about reading either one reveals the mismatch,
+        so the check compares the label against the item it points at.
+        """
+
+        package = self.make_package_copy()
+        for roadmap in (
+            package / "portable" / "templates" / "roadmap.md",
+            package / "skills" / "charter-workflow" / "templates" / "roadmap.md",
+        ):
+            roadmap.write_text(
+                roadmap.read_text(encoding="utf-8").replace(
+                    "e.g. `RDY10 recheck trigger current`", "e.g. `RDY7 recheck trigger current`"
+                ),
+                encoding="utf-8",
+            )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("the readiness example labels RDY7 with", result.stdout)
+        self.assertIn("label an item with its own words", result.stdout)
+
+    def test_readiness_record_has_a_migration_entry(self) -> None:
+        """A newly required contract field needs its migration, or older contracts
+        carry an absence that looks the same as a considered blank."""
+
+        for relative in (
+            "portable/references/contract-migrations.md",
+            "targets/codex/skills/charter-workflow/references/contract-migrations.md",
+            "targets/zcode/skills/charter-workflow/references/contract-migrations.md",
+            "skills/charter-workflow/references/contract-migrations.md",
+        ):
+            with self.subTest(reference=relative):
+                body = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+                self.assertIn(
+                    "| Readiness record | `## 9. Review and closure` | `Readiness record` |", body
+                )
+                # A retroactive record must not claim evidence it never had.
+                self.assertIn("is never recorded `PASS` on the strength of the", body)
+                self.assertIn("`UNVERIFIED`", body)
+
+    def test_every_shared_entry_document_carries_the_promotion_rule(self) -> None:
+        """The archiving actor reads the operating rules, not the template.
+
+        A real project's `handoff.md` had already dropped the template's own
+        size-bound blockquote, which is exactly the copy that would have carried
+        this rule; the entry documents are the copy every start re-reads.
+        """
+
+        entries = [
+            PACKAGE_ROOT / "portable" / "prompts" / name
+            for name in (
+                "generic-bootstrap.md",
+                "claude-bootstrap.md",
+                "codex-bootstrap.md",
+                "deepseek-bootstrap.md",
+                "gemini-bootstrap.md",
+            )
+        ] + [
+            PACKAGE_ROOT / "portable" / "commands" / "charter-workflow.md",
+            PACKAGE_ROOT / "targets" / "zcode" / "commands" / "charter-workflow.md",
+            PACKAGE_ROOT / "targets" / "codex" / "skills" / "charter-workflow" / "SKILL.md",
+            PACKAGE_ROOT / "targets" / "zcode" / "skills" / "charter-workflow" / "SKILL.md",
+            PACKAGE_ROOT / "skills" / "charter-workflow" / "SKILL.md",
+        ]
+        for entry in entries:
+            text = entry.read_text(encoding="utf-8")
+            for phrase in (
+                "only after promoting anything still binding out of them",
+                "`project.md` Invariants",
+                "silently removes a live rule from every later reader",
+            ):
+                self.assertIn(phrase, text, f"{entry} is missing {phrase!r}")
+
     def test_validator_requires_delta_rule_to_keep_its_limits(self) -> None:
         """Delta-writing without its limit becomes a way to hide a deviation.
 
