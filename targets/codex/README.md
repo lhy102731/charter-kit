@@ -59,6 +59,8 @@ codex plugin remove charter-kit@charter-kit
 ```text
 python scripts/validate_kit.py .
 python scripts/build_codex_plugin.py --check
+# --check 变红时：改它指名的手工源，然后刷新这个构建器声明的三个目的地
+python scripts/build_codex_plugin.py --sync
 ```
 
 ### 相关链接
@@ -137,6 +139,8 @@ codex plugin remove charter-kit@charter-kit
 ```text
 python scripts/validate_kit.py .
 python scripts/build_codex_plugin.py --check
+# When --check is red: edit the source it names, then refresh this builder's three declared destinations
+python scripts/build_codex_plugin.py --sync
 ```
 
 ### Links

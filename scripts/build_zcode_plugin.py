@@ -51,6 +51,7 @@ IGNORED_TREE_NAMES = {"__pycache__", ".git", ".hg", ".svn", "plugins", "tests"}
 # the content is per-destination, so each builder writes its own.
 GENERATED_MARKER_NAME = "GENERATED.md"
 BUILD_COMMAND = "scripts/build_zcode_plugin.py"
+DESTINATION_LABEL = "plugins/zcode-charter-kit/"
 
 
 def generated_marker_bytes(destination: str, source: str, note: str) -> bytes:
@@ -257,6 +258,46 @@ def validate_manifest_source(path: Path) -> None:
         raise ValueError("ZCode manifest version must be a non-empty string")
 
 
+# The destinations this builder owns.  ``--sync`` refreshes exactly these from
+# their declared sources and refuses anything else, and ``--check`` compares
+# every one of them, so the three builders answer the same two questions the
+# same way even where one of them owns more destinations than the others.
+def sync_destinations(repository_root: Path) -> tuple[tuple[str, Path], ...]:
+    root = lexical_absolute(repository_root)
+    return ((DESTINATION_LABEL, root / DISTRIBUTION_RELATIVE),)
+
+
+def validate_sync_destination(repository_root: Path, destination: Path) -> None:
+    """Refuse to refresh a path this builder does not declare as generated.
+
+    An allow-list rather than a rejected flag: ``--sync`` means "rewrite the
+    generated trees from the declared source", so a destination outside that
+    declaration is not a generated tree and refreshing it would invent another
+    copy of the core instead of updating one.
+    """
+
+    declared = sync_destinations(repository_root)
+    if lexical_absolute(destination) in {path for _label, path in declared}:
+        return
+    names = ", ".join(label for label, _path in declared)
+    raise ValueError(
+        f"--sync refreshes only the generated destinations this builder declares "
+        f"({names}); refusing {destination}"
+    )
+
+
+def sync_generated_destinations(repository_root: Path) -> None:
+    """Refresh every declared destination from its declared source.
+
+    The destinations come out of the declaration instead of a second copy of the
+    same constant, so the allow-list and the write cannot disagree about where a
+    generated tree lives.
+    """
+
+    for _label, destination in sync_destinations(repository_root):
+        build_distribution(repository_root, destination)
+
+
 def validate_output_boundary(repository_root: Path, destination_root: Path) -> None:
     canonical = repository_root / DISTRIBUTION_RELATIVE
     if is_same_or_descendant(destination_root, canonical) or is_same_or_descendant(canonical, destination_root):
@@ -342,7 +383,9 @@ def ensure_check_match(source_root: Path, destination_root: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="compare the committed distribution against a fresh build")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="compare every generated destination against a fresh build")
+    mode.add_argument("--sync", action="store_true", help="refresh every generated destination this builder declares")
     parser.add_argument("--output", default="", help="distribution directory to build or compare")
     args = parser.parse_args(argv)
     repository_root = Path(__file__).resolve().parents[1]
@@ -351,6 +394,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             ensure_check_match(repository_root, destination_root)
             print(f"ZCode distribution check: {destination_root} matches a fresh build")
+        elif args.sync:
+            # An explicit --output names a path outside the declaration, so the
+            # allow-list refuses it before anything is written.
+            if args.output:
+                validate_sync_destination(repository_root, destination_root)
+            sync_generated_destinations(repository_root)
+            for label, _destination in sync_destinations(repository_root):
+                print(f"ZCode distribution synced: {label}")
         else:
             built = build_distribution(repository_root, destination_root)
             print(f"ZCode distribution built: {built}")

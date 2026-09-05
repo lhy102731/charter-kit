@@ -4,6 +4,8 @@
 
 > **Write the delta, not the project.** A clause whose authoritative source is already in the required-start read set may be carried by an explicit reference plus this leaf's delta — for example `project.md section 5 baseline, plus: <leaf-specific item>` for forbidden effects, or `roadmap.md verification commands` for the standard checks. Anything that narrows, widens, or contradicts that baseline is written out here in full. Never replace a leaf-specific field with a reference: the result sentence, allowed paths, acceptance checks, repair budget, and any stop condition that differs from the standard list are always inline. A reference names its source file and section so the archived contract stays resolvable at the commit that recorded it.
 
+> **Bounded size.** Every resume re-reads this contract, so its length is paid by every later actor. Keep it under 36 KB. This template is about 10 KB and a long real project's contract lands near 35 KB while it stays a contract, so the ceiling is where absorbed material starts to show rather than a style preference. Past that, the growth is almost always material that belongs to a file already in the read set: move goal or scope prose to `project.md`, sequencing to `roadmap.md`, candidate evidence and pinned versions to `reuse-discovery.md`, and command output to `.charter/evidence/`, leaving the reference behind. Never buy the reduction by deleting acceptance checks, stop conditions, allowed paths, or effects: a contract that no longer states what the gate needs is a worse defect than a long one.
+
 ## 1. Identity
 
 - Task ID: `<TASK-ID>`

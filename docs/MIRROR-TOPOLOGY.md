@@ -1,11 +1,12 @@
 # Mirror topology and build order
 
-## 摘要（先读这四条）
+## 摘要（先读这五条）
 
 1. 同一份内容在仓库里存在多份拷贝。改动前先确认哪一份是**手工源**，哪一份是**生成物**。
 2. 根目录 `skills/charter-workflow/` 是**生成物**：Codex 构建器会回写它。手工改动会被 `shutil.rmtree` 删掉，不会报错，也不会合并。
 3. 但 DSH 构建器把这个生成物当作**输入**。因此构建顺序有意义：先 codex，再 dsh。
 4. 验证器能发现不一致，但错误信息常常指着错误的一侧。用下面的表决定该改哪个文件。
+5. 三个构建器的 `--check` 比对它们声明的**每一个**生成目的地；`--sync` 从声明的源刷新这些目的地，并且只写这些目的地。`--check` 变红时，改标记里指名的手工源，然后跑 `--sync`。
 
 ## Why this file exists
 
@@ -25,7 +26,7 @@ is the map. It documents the current behavior; it does not change it.
 | Path | Role |
 | --- | --- |
 | `portable/` | The semantic source of truth: templates, host prompts, the command, and references. |
-| `DEVELOPMENT_CHARTER.md`, `DEPENDENCIES.md`, `dependencies.json`, `scripts/check_dependencies.py`, `scripts/init_project.py` | Canonical root core files. `MIRRORS` in `scripts/validate_kit.py:236` requires each to equal its copy under `skills/charter-workflow/`. |
+| `DEVELOPMENT_CHARTER.md`, `DEPENDENCIES.md`, `dependencies.json`, `scripts/check_dependencies.py`, `scripts/init_project.py` | Canonical root core files. `MIRRORS` in `scripts/validate_kit.py` requires each to equal its copy under `skills/charter-workflow/`. |
 | `targets/codex/` | Codex adapter source: `.codex-plugin/plugin.json` plus a self-contained `skills/charter-workflow/` tree. |
 | `targets/zcode/` | ZCode adapter source: `.zcode-plugin/plugin.json`, `commands/charter-workflow.md`, and its own self-contained `skills/charter-workflow/` tree. |
 | `targets/dsh/` | DSH adapter source: `package.json`, `src/`, `build.sh`, `README.md`. It carries no skill tree of its own. |
@@ -53,30 +54,40 @@ dsh     root skills/charter-workflow  ─┐
         targets/dsh/                  ─┴─> plugins/dsh-charter-kit/
 ```
 
-- Codex: `scripts/build_codex_plugin.py` reads `TARGET_SKILL_RELATIVE` (`:19`),
-  stages the plugin, then calls `sync_legacy_snapshot` (`:346`, invoked at
-  `:434`) which copies the **generated** tree back over root
-  `skills/charter-workflow/` and root `.codex-plugin/plugin.json`.
-- ZCode: `scripts/build_zcode_plugin.py` reads `targets/zcode/…` (`:25-28`) and
-  writes `plugins/zcode-charter-kit/`. It never writes into the repository root.
-- DSH: `scripts/build_dsh_plugin.py` reads root `skills/charter-workflow`
-  (`:29`, copied at `:301`) together with `targets/dsh/`, and writes
+- Codex: `scripts/build_codex_plugin.py` reads `TARGET_SKILL_RELATIVE`, stages
+  the plugin, then calls `sync_legacy_snapshot`, which copies the **generated**
+  tree back over root `skills/charter-workflow/` and root
+  `.codex-plugin/plugin.json`.
+- ZCode: `scripts/build_zcode_plugin.py` reads `targets/zcode/…` and writes
+  `plugins/zcode-charter-kit/`. It never writes into the repository root.
+- DSH: `scripts/build_dsh_plugin.py` reads root `skills/charter-workflow` through
+  `PACKAGE_SKILL_RELATIVE` together with `targets/dsh/`, and writes
   `plugins/dsh-charter-kit/`.
+
+Symbol names rather than line numbers on purpose: every code citation in this
+file had drifted by the second change to the builders, and a map that points at
+the wrong line is read once and then distrusted. Citations into the design record
+below keep their line numbers, because those documents are history and do not
+move.
 
 ## Root `skills/charter-workflow/` has two identities
 
 It is Codex's writeback destination and DSH's build input at the same time.
 
-Two consequences follow, and both are silent:
+Two consequences follow. The first is still silent; the second was, and is now
+gated:
 
-- **Hand edits are deleted, not merged and not reported.** `copy_tree`
-  (`scripts/build_codex_plugin.py:204`) calls `shutil.rmtree(destination)` at
-  `:210` before copying. A file added or changed under root `skills/` disappears
-  at the next `python scripts/build_codex_plugin.py` run with no diagnostic.
-- **`--check` does not cover it.** `ensure_check_match` (`:392`) compares a fresh
-  stage against `plugins/charter-kit/` only. It never inspects root `skills/`, so
-  `build_codex_plugin.py --check` passes while root `skills/` is stale — and DSH
-  will package that stale tree.
+- **Hand edits are deleted, not merged and not reported.** `copy_tree` in
+  `scripts/build_codex_plugin.py` calls `shutil.rmtree(destination)` before
+  copying. A file added or changed under root `skills/` disappears at the next
+  `python scripts/build_codex_plugin.py` run with no diagnostic. The tree's
+  `GENERATED.md` marker is what says so at the moment the edit is made.
+- **A stale writeback used to pass `--check`.** `ensure_check_match` compared a
+  fresh stage against `plugins/charter-kit/` only, so `--check` reported PASS
+  while root `skills/` was stale and DSH packaged that stale tree. It now
+  materializes the writeback from the same fresh stage and compares both
+  writeback destinations, naming the writeback path rather than the distribution
+  when that is the side that drifted.
 
 This also conflicts with the design record. The multi-target design
 (`docs/superpowers/specs/2026-09-01-multi-target-distribution-design.md:51`, restated at `:68`)
@@ -135,9 +146,39 @@ python scripts/build_dsh_plugin.py       # reads root skills/, so it must run la
 python scripts/validate_kit.py .
 ```
 
+`--sync` on any one builder is the same refresh restricted to that builder's own
+declared destinations, and it obeys the same order constraint.
+
 Running `build_dsh_plugin.py` before `build_codex_plugin.py` packages the
 previous revision of the skill into `plugins/dsh-charter-kit/`. `validate_kit.py`
 catches the result, but only after the fact.
+
+## Refreshing a generated tree: `--sync`
+
+Each builder declares the destinations it owns in `sync_destinations`, and all
+three answer the same two questions the same way even though one of them owns
+three destinations and the others own one:
+
+| Builder | Declared generated destinations |
+| --- | --- |
+| `scripts/build_codex_plugin.py` | `plugins/charter-kit/`, `skills/charter-workflow/`, `.codex-plugin/plugin.json` |
+| `scripts/build_zcode_plugin.py` | `plugins/zcode-charter-kit/` |
+| `scripts/build_dsh_plugin.py` | `plugins/dsh-charter-kit/` |
+
+- `--check` compares **every** declared destination against fresh bytes, not only
+  the distribution, and its message names the destination that drifted.
+- `--sync` rewrites every declared destination from its declared source. It is
+  the repair for a red `--check`: edit the hand-edited source named in that
+  tree's `GENERATED.md`, then run `--sync`.
+- `--sync` writes nothing else. `validate_sync_destination` is an allow-list, so
+  `--sync --output <some other path>` is refused instead of producing one more
+  copy of the core, and the destinations `--sync` writes come out of the
+  declaration rather than a second copy of the same constant.
+- Build order still applies. `--sync` on the DSH builder packages whatever is in
+  root `skills/` at that moment, so run the Codex builder first.
+
+`--sync` does not change any chain's direction. It refreshes the generated side
+of the chains above; the hand-edited side is still edited by hand.
 
 ## Which copy do I edit?
 
@@ -188,5 +229,7 @@ These are recorded, not fixed, by this file:
 1. DSH consumes a tree the design record deprecates. Either repoint
    `build_dsh_plugin.py` at a hand-edited source, or withdraw the deprecation in
    the design record and describe root `skills/` as a supported generated tree.
-2. `build_codex_plugin.py --check` reports PASS while its own writeback
-   destination is stale, because `ensure_check_match` does not compare it.
+
+The second entry used to read: `build_codex_plugin.py --check` reports PASS while
+its own writeback destination is stale. That one is fixed rather than recorded -
+see `ensure_check_match` and `## Refreshing a generated tree: --sync` above.

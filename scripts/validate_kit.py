@@ -113,6 +113,16 @@ PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# The leaf contract is in the required-start read set, so every resume pays for
+# its length.  The ceiling is calibrated against real files rather than taste: a
+# long project's contract measured about 35 KB while it was still a contract, and
+# the template it starts from is about 10 KB.  It is a number in shipped
+# documents, so it lives here once and is required verbatim wherever it is
+# stated, and the template is held to half of it -- a template that grows toward
+# the bound spends the budget the project needs before the project starts.
+LEAF_CONTRACT_CEILING_KB = 36
+LEAF_CONTRACT_TEMPLATE = "portable/templates/leaf-task.md"
+
 HOST_PROMPTS = (
     "portable/prompts/generic-bootstrap.md",
     "portable/prompts/codex-bootstrap.md",
@@ -191,6 +201,34 @@ HAND_EDITED_TREES: tuple[str, ...] = (
     ZCODE_TARGET_ROOT_RELATIVE,
     DSH_TARGET_ROOT_RELATIVE,
     "portable",
+)
+
+# Each builder has to answer two questions the same way: which destinations it
+# generates, and how a maintainer refreshes them after editing the hand-edited
+# source.  A builder that answers only the first reports PASS while a destination
+# it owns is stale -- the Codex writeback did exactly that -- so the declaration,
+# the allow-list that keeps --sync inside it, and the flag itself are gated
+# together instead of being trusted to stay in step with each other.
+BUILDER_SYNC_DESTINATIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "scripts/build_codex_plugin.py",
+        (
+            f"{DISTRIBUTION_ROOT_RELATIVE}/",
+            f"{LEGACY_SKILL_RELATIVE}/",
+            LEGACY_MANIFEST_RELATIVE,
+        ),
+    ),
+    ("scripts/build_zcode_plugin.py", (f"{ZCODE_DISTRIBUTION_ROOT_RELATIVE}/",)),
+    ("scripts/build_dsh_plugin.py", (f"{DSH_DISTRIBUTION_ROOT_RELATIVE}/",)),
+)
+# The declaration names the destinations, the allow-list refuses everything else,
+# and the flag is the entry point; a builder missing any one of the three cannot
+# both check and repair the trees it owns.
+BUILDER_SYNC_SYMBOLS: tuple[str, ...] = (
+    "def sync_destinations(",
+    "def validate_sync_destination(",
+    "def sync_generated_destinations(",
+    "--sync",
 )
 
 # These are the root files copied into the self-contained distribution by the
@@ -741,6 +779,7 @@ class Checker:
         self.check_zcode_target_and_distribution()
         self.check_contract_migrations()
         self.check_generated_markers()
+        self.check_builder_sync()
         self.check_readme()
         self.check_tests_and_docs()
         self.check_mirrors()
@@ -1552,6 +1591,18 @@ class Checker:
             "Never replace a leaf-specific field with a reference",
         ):
             self.require(leaf, phrase, "leaf-task.md")
+        # The size bound has to travel in the template, because the file that
+        # outgrows it is the copy a project made months earlier.
+        for phrase in ("**Bounded size.**", f"{LEAF_CONTRACT_CEILING_KB} KB"):
+            self.require(leaf, phrase, "leaf-task.md")
+        template_bytes = len(self.read_bytes(LEAF_CONTRACT_TEMPLATE) or b"")
+        if template_bytes * 2 > LEAF_CONTRACT_CEILING_KB * 1024:
+            self.errors.append(
+                f"{LEAF_CONTRACT_TEMPLATE}: the template is {template_bytes} bytes, more than half "
+                f"the {LEAF_CONTRACT_CEILING_KB} KB ceiling it declares; move material into the "
+                f"references it cites or raise the ceiling deliberately in every document that "
+                f"states it"
+            )
 
         handoff = self.read("portable/templates/handoff.md")
         for phrase in (
@@ -1910,6 +1961,7 @@ class Checker:
             "cannot be cited as authoritative",
             "`.gitignore` entry",
             ".charter/handoff-archive.md",
+            f"`.charter/current-task.md` under {LEAF_CONTRACT_CEILING_KB} KB",
             # Capability state and degradation are recorded at different
             # levels, and only the leaf-level half decays quietly: a project
             # records a gap once, but every leaf that works around it must say
@@ -2555,6 +2607,44 @@ class Checker:
             for tree, _source, command in GENERATED_TREES:
                 self.require(topology, tree, MIRROR_TOPOLOGY_RELATIVE)
                 self.require(topology, command, MIRROR_TOPOLOGY_RELATIVE)
+
+    def check_builder_sync(self) -> None:
+        """Require every builder to declare its destinations and to offer --sync.
+
+        A ``--check`` is only as honest as the list of destinations it compares,
+        and the repair for a red check has to live in the builder rather than in
+        a maintainer's memory of which of several identical-looking copies is the
+        one an edit survives in.  Gating the declaration, the allow-list, and the
+        flag together means a fourth destination cannot be added to a builder
+        while its check and its repair still cover three.
+        """
+
+        for script, destinations in BUILDER_SYNC_DESTINATIONS:
+            source = self.read(script)
+            if not source:
+                continue
+            for symbol in BUILDER_SYNC_SYMBOLS:
+                self.require(source, symbol, script)
+            for destination in destinations:
+                # The literal has to appear in the builder, because the
+                # declaration is what --check iterates and what --sync writes.
+                self.require(source, f'"{destination}"', script)
+
+        # The map and the README are where a maintainer looks when --check turns
+        # red.  Without the repair named there, the flag exists and nobody is
+        # told to run it, which is the state this check exists to prevent.
+        topology = self.read(MIRROR_TOPOLOGY_RELATIVE)
+        if topology:
+            self.require(topology, "--sync", MIRROR_TOPOLOGY_RELATIVE)
+            for _script, destinations in BUILDER_SYNC_DESTINATIONS:
+                for destination in destinations:
+                    self.require(topology, destination, MIRROR_TOPOLOGY_RELATIVE)
+        readme = self.read("README.md")
+        if readme and readme.count("--sync") < 2:
+            self.errors.append(
+                "README.md: both the Chinese and the English maintainer section must "
+                "name --sync as the repair for a red --check"
+            )
 
     def check_readme(self) -> None:
         relative = "README.md"
