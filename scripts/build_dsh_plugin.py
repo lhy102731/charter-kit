@@ -26,7 +26,11 @@ from pathlib import PurePosixPath
 PACKAGE_NAME = "@dsh-external/dsh-charter-kit"
 TARGET_RELATIVE = Path("targets") / "dsh"
 DISTRIBUTION_RELATIVE = Path("plugins") / "dsh-charter-kit"
-TARGET_SKILL_RELATIVE = Path("skills") / "charter-workflow"
+# The repository-root skill tree, not a tree under ``targets/``: this is the
+# Codex builder's writeback destination, so it is generated content that this
+# builder consumes as input.  Run the Codex builder first; see
+# ``docs/MIRROR-TOPOLOGY.md``.
+PACKAGE_SKILL_RELATIVE = Path("skills") / "charter-workflow"
 DISTRIBUTION_SKILL_RELATIVE = DISTRIBUTION_RELATIVE / "skills" / "charter-workflow"
 DISTRIBUTION_ROOT_ITEMS = (
     "LICENSE",
@@ -298,7 +302,7 @@ def build_stage(repository_root: Path, stage_root: Path) -> None:
         source = target_root / relative
         validate_source_file(source, f"DSH target {relative}")
         copy_file(source, stage_root / relative)
-    copy_tree(repository_root / TARGET_SKILL_RELATIVE, stage_root / "skills" / "charter-workflow")
+    copy_tree(repository_root / PACKAGE_SKILL_RELATIVE, stage_root / "skills" / "charter-workflow")
 
     lib_dir = stage_root / "lib"
     lib_dir.mkdir(parents=True, exist_ok=True)

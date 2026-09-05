@@ -54,7 +54,7 @@ codex plugin remove charter-kit@charter-kit
 - `superpowers`、`j-space`、`grill-me` 和 Reuse Skills 是可选 provider；缺少时记录 `MISSING` / `UNVERIFIED` / `FALLBACK` 并使用便携替代。
 - 依赖诊断、插件加载和 Reuse Discovery 默认只读，不会自动安装 Skill、插件、包、服务或 Harness。
 - Discovery 不会 clone、build、run、import、copy 或 install 候选内容，也不会上传私有源代码、凭据或敏感数据。
-- `plugins/charter-kit/` 是生成产物，不要手工编辑。修改 Portable Core 后，从仓库根目录重新构建并运行校验：
+- `plugins/charter-kit/` 与仓库根目录的 `skills/charter-workflow/`、`.codex-plugin/plugin.json` 都是生成产物，不要手工编辑：构建器会回写后两者。要改自足 Skill，请编辑 `targets/codex/skills/charter-workflow/`；完整的拷贝关系见 `docs/MIRROR-TOPOLOGY.md`。修改 Portable Core 后，从仓库根目录重新构建并运行校验：
 
 ```text
 python scripts/validate_kit.py .
@@ -132,7 +132,7 @@ codex plugin remove charter-kit@charter-kit
 - `superpowers`, `j-space`, `grill-me`, and the Reuse Skills are optional providers. Missing capabilities are recorded as `MISSING`, `UNVERIFIED`, or `FALLBACK` with a portable substitute.
 - Dependency diagnostics, plugin loading, and Reuse Discovery are read-only by default. Nothing automatically installs a Skill, plugin, package, service, or Harness.
 - Discovery never clones, builds, runs, imports, copies, or installs candidate content, and never uploads private source, credentials, or sensitive data.
-- `plugins/charter-kit/` is generated; do not hand-edit it. After changing the Portable Core, rebuild and validate from the repository root:
+- `plugins/charter-kit/` is generated, and so are the repository-root `skills/charter-workflow/` tree and `.codex-plugin/plugin.json`, which this builder writes back. Do not hand-edit any of them; edit `targets/codex/skills/charter-workflow/` to change the self-contained Skill. `docs/MIRROR-TOPOLOGY.md` maps every copy. After changing the Portable Core, rebuild and validate from the repository root:
 
 ```text
 python scripts/validate_kit.py .

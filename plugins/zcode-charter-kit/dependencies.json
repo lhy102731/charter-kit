@@ -111,9 +111,9 @@
       "id": "python",
       "kind": "command",
       "command": "python",
-      "required": true,
-      "impact": "The bundled initializer and dependency diagnostics cannot run automatically.",
-      "fallback": "Create the working set manually and record a host-native check."
+      "required": false,
+      "impact": "The bundled initializer, dependency diagnostics, and any generated convenience artifact cannot run automatically; the governance core is Markdown and stays usable without them.",
+      "fallback": "Create the working set manually from the templates, add the .jspace/ entry to .gitignore by hand because the initializer is what normally writes it, and record a host-native check."
     },
     {
       "id": "git",

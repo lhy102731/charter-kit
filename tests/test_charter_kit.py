@@ -306,6 +306,174 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("missing 'ensure_ledger_ignored'", result.stdout)
 
+    def test_validator_rejects_python_declared_as_a_required_capability(self) -> None:
+        """Requiring an interpreter blocks a host that can run the kit by hand.
+
+        The governance core is Markdown and the manual initialization path
+        produces the same working set, so a missing interpreter is an optional
+        miss with a documented fallback, never BLOCKED_TOOLING.  All four copies
+        are flipped so the failure is the requiredness rule and not mirror drift.
+        """
+        package = self.make_package_copy()
+        for relative in (
+            Path("dependencies.json"),
+            Path("skills") / "charter-workflow" / "dependencies.json",
+            Path("targets") / "codex" / "skills" / "charter-workflow" / "dependencies.json",
+            Path("targets") / "zcode" / "skills" / "charter-workflow" / "dependencies.json",
+        ):
+            manifest = package / relative
+            if not manifest.is_file():
+                continue
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for number, line in enumerate(lines):
+                if '"command": "python"' in line:
+                    lines[number + 1] = lines[number + 1].replace("false", "true")
+                    break
+            else:
+                self.fail(f"{relative}: python entry not found")
+            manifest.write_text("".join(lines), encoding="utf-8", newline="")
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("dependencies.json: python must remain optional", result.stdout)
+
+    def test_validator_requires_the_manual_ledger_ignore_instruction(self) -> None:
+        """Without the initializer, only this sentence keeps the ledger untracked.
+
+        Python is optional, so the Skill must tell a host taking the manual path
+        to add the .jspace/ entry itself; dropping the sentence leaves the rule
+        to discipline on exactly the hosts that cannot run the helper.
+        """
+        package = self.make_package_copy()
+        for relative in (
+            Path("skills") / "charter-workflow" / "SKILL.md",
+            Path("targets") / "codex" / "skills" / "charter-workflow" / "SKILL.md",
+            Path("targets") / "zcode" / "skills" / "charter-workflow" / "SKILL.md",
+        ):
+            skill = package / relative
+            if not skill.is_file():
+                continue
+            original = skill.read_text(encoding="utf-8")
+            patched = original.replace(
+                " Python is optional, so on the manual path add that "
+                "`.jspace/` entry to `.gitignore` by hand: nothing else "
+                "keeps the session ledger out of version control.",
+                "",
+            )
+            self.assertNotEqual(original, patched, f"{relative}: manual path sentence not found")
+            skill.write_text(patched, encoding="utf-8")
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("missing 'Python is optional'", result.stdout)
+        self.assertIn(
+            "missing 'on the manual path add that `.jspace/` entry to "
+            "`.gitignore` by hand'",
+            result.stdout,
+        )
+
+    def test_validator_names_the_hand_edited_source_for_generated_trees(self) -> None:
+        """A mismatch must point at the tree an edit survives in.
+
+        The root skill tree is the Codex builder's writeback destination, so
+        several comparisons cite it as the reference side.  Without the hint the
+        message reads as if that tree were authoritative, and an edit made there
+        is deleted by the next build instead of being reported.
+        """
+        package = self.make_package_copy()
+        skill = package / "skills" / "charter-workflow" / "SKILL.md"
+        skill.write_text(
+            skill.read_text(encoding="utf-8") + "<!-- local drift -->" + chr(10),
+            encoding="utf-8",
+            newline="",
+        )
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "hand-edit targets/codex/skills/charter-workflow",
+            result.stdout,
+        )
+        self.assertIn(
+            "hand-edit targets/zcode/skills/charter-workflow",
+            result.stdout,
+        )
+
+    def test_validator_requires_the_two_level_capability_recording_rule(self) -> None:
+        """Every entry document must carry both halves of the recording rule.
+
+        A project records a capability gap once, but each leaf that works around
+        it has to say so in its own record.  The second half is the one that
+        decays: after the leaf that first found the gap, later leaves have no new
+        failed call to report, so their evidence reads as if the capability had
+        been available.
+        """
+        package = self.make_package_copy()
+        entries = [
+            Path("skills") / "charter-workflow" / "SKILL.md",
+            Path("targets") / "codex" / "skills" / "charter-workflow" / "SKILL.md",
+            Path("targets") / "zcode" / "skills" / "charter-workflow" / "SKILL.md",
+            Path("portable") / "commands" / "charter-workflow.md",
+            Path("targets") / "zcode" / "commands" / "charter-workflow.md",
+        ]
+        entries.extend(
+            Path("portable") / "prompts" / f"{host}-bootstrap.md"
+            for host in ("claude", "codex", "deepseek", "gemini", "generic")
+        )
+        for relative in entries:
+            document = package / relative
+            if not document.is_file():
+                continue
+            original = document.read_text(encoding="utf-8")
+            patched = original.replace(
+                " `AVAILABLE`, `MISSING`, and `UNVERIFIED` are project-level facts: record each "
+                "capability once here and update it when the state changes, instead of restating "
+                "it in every leaf.",
+                "",
+            ).replace(
+                "including when the gap was already known and no call failed in this session. ",
+                "",
+            )
+            self.assertNotEqual(original, patched, f"{relative}: recording rule not found")
+            document.write_text(patched, encoding="utf-8", newline="")
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("missing 'are project-level facts'", result.stdout)
+        self.assertIn(
+            "missing 'including when the gap was already known and no call failed'",
+            result.stdout,
+        )
+
+    def test_validator_requires_the_charter_two_level_recording_rule(self) -> None:
+        """The charter is where the two levels are defined, not just applied.
+
+        The entry documents state the rule in one clause each; a reader deciding
+        whether a leaf needs its own FALLBACK entry is sent to the charter, so
+        the discriminating case has to survive there too.
+        """
+        package = self.make_package_copy()
+        for relative in (
+            Path("DEVELOPMENT_CHARTER.md"),
+            Path("skills") / "charter-workflow" / "references" / "DEVELOPMENT_CHARTER.md",
+            Path("targets") / "codex" / "skills" / "charter-workflow" / "references" / "DEVELOPMENT_CHARTER.md",
+            Path("targets") / "zcode" / "skills" / "charter-workflow" / "references" / "DEVELOPMENT_CHARTER.md",
+        ):
+            charter = package / relative
+            if not charter.is_file():
+                continue
+            original = charter.read_text(encoding="utf-8")
+            patched = original.replace("是项目级事实", "").replace(
+                "本叶没有任何新的失败调用", ""
+            )
+            self.assertNotEqual(original, patched, f"{relative}: charter recording rule not found")
+            charter.write_text(patched, encoding="utf-8", newline="")
+
+        result = self.run_validator(package)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("missing '是项目级事实'", result.stdout)
+        self.assertIn("missing '本叶没有任何新的失败调用'", result.stdout)
+
     def test_validator_rejects_a_zcode_command_that_drifts_from_its_source(self) -> None:
         """The shipped adapter command is a derivative, so drift is a defect.
 

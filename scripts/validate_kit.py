@@ -648,7 +648,7 @@ class Checker:
                 result[child.relative_to(path).as_posix()] = child.read_bytes()
         return result
 
-    def _compare_trees(self, left: str, right: str, *, label: str) -> None:
+    def _compare_trees(self, left: str, right: str, *, label: str, hand_edit: str | None = None) -> None:
         # Canonical source trees may contain interpreter caches left by local
         # test runs; those are ignored on the source side.  Generated target
         # and distribution trees must remain cache-free.
@@ -665,7 +665,8 @@ class Checker:
         for name in sorted(left_names & right_names):
             if left_tree[name] != right_tree[name]:
                 self.errors.append(
-                    f"{right}/{name}: differs from {left}/{name} ({label}; byte mismatch)"
+                    f"{right}/{name}: differs from {left}/{name} "
+                    f"({label}; byte mismatch{self._hand_edit_hint(hand_edit)})"
                 )
 
     def run(self) -> int:
@@ -1013,13 +1014,28 @@ class Checker:
             # this explicit cardinality message explains the package contract.
             self.errors.append(f"{relative}: marketplace must contain exactly one charter-kit entry")
 
-    def _compare_file_bytes(self, left: str, right: str, *, label: str) -> None:
+    @staticmethod
+    def _hand_edit_hint(hand_edit: str | None) -> str:
+        """Name the hand-edited tree when the cited reference is generated.
+
+        Several comparisons use a generated tree as the left-hand reference, so
+        the bare message reads as if that tree were authoritative.  Editing it
+        is discarded by the next build, so the message has to say where the
+        change belongs.  See docs/MIRROR-TOPOLOGY.md.
+        """
+
+        return f"; hand-edit {hand_edit}" if hand_edit else ""
+
+    def _compare_file_bytes(self, left: str, right: str, *, label: str, hand_edit: str | None = None) -> None:
         left_path = self._path(left)
         right_path = self._path(right)
         left_bytes = self.read_bytes(left)
         right_bytes = self.read_bytes(right)
         if left_bytes is not None and right_bytes is not None and left_bytes != right_bytes:
-            self.errors.append(f"{right}: differs from {left} ({label}; byte mismatch)")
+            self.errors.append(
+                f"{right}: differs from {left} "
+                f"({label}; byte mismatch{self._hand_edit_hint(hand_edit)})"
+            )
 
     def _compare_distribution_root_item(self, relative: str) -> None:
         source = self._path(relative)
@@ -1087,6 +1103,7 @@ class Checker:
             LEGACY_SKILL_RELATIVE,
             TARGET_SKILL_RELATIVE,
             label="target/core mirror",
+            hand_edit=TARGET_SKILL_RELATIVE,
         )
         self._compare_trees(
             TARGET_SKILL_RELATIVE,
@@ -1133,6 +1150,7 @@ class Checker:
                 LEGACY_SKILL_RELATIVE,
                 DISTRIBUTION_SKILL_RELATIVE,
                 label="legacy distribution mirror",
+                hand_edit=TARGET_SKILL_RELATIVE,
             )
 
     def check_dsh_target_and_distribution(self) -> None:
@@ -1260,6 +1278,7 @@ class Checker:
             "skills/charter-workflow/SKILL.md",
             dist_skill_skill,
             label="ZCode distribution skill mirror",
+            hand_edit=f"{ZCODE_TARGET_ROOT_RELATIVE}/skills/charter-workflow",
         )
         root_charter = "DEVELOPMENT_CHARTER.md"
         dist_charter = f"{ZCODE_DISTRIBUTION_SKILL_RELATIVE}/references/DEVELOPMENT_CHARTER.md"
@@ -1368,6 +1387,16 @@ class Checker:
             "dependency-check.log",
             ".charter/reuse-discovery.md",
             "immutable commit/tag/package version",
+            # The protocol has no lock, lease, or merge rule, so the serial
+            # single-operator design is a boundary users must be able to read
+            # before two of them share one working set.
+            "单一负责人、串行推进",
+            "多个操作者或多个 Agent 同时推进同一个 `.charter/` 工作集",
+            # The two-level recording rule: project-level capability state
+            # versus per-leaf degradation, including the case with no new
+            # failed call, which is the one that silently disappears.
+            "是项目级事实",
+            "本叶没有任何新的失败调用",
         ):
             self.require(text, phrase, relative)
         self.require_regex(
@@ -1832,6 +1861,14 @@ class Checker:
             "cannot be cited as authoritative",
             "`.gitignore` entry",
             ".charter/handoff-archive.md",
+            # Capability state and degradation are recorded at different
+            # levels, and only the leaf-level half decays quietly: a project
+            # records a gap once, but every leaf that works around it must say
+            # so, or a long project leaves evidence that reads as if the
+            # capability had been available after the leaf that first found it
+            # missing.
+            "are project-level facts",
+            "including when the gap was already known and no call failed",
         ):
             self.require(text, phrase, relative)
         self.require(text, "grill-me", relative)
@@ -1963,6 +2000,12 @@ class Checker:
                 "reuse",
             ".charter/reuse-discovery.md",
             "DRAFT` to `APPROVED",
+            # Python is optional, so the initializer is not guaranteed to run.
+            # The manual branch must therefore carry the one rule the initializer
+            # would otherwise apply for the user, or a host without an
+            # interpreter silently returns the session ledger to discipline.
+            "Python is optional",
+            "on the manual path add that `.jspace/` entry to `.gitignore` by hand",
         ):
             self.require(text, phrase, relative)
         self._check_bootstrap_semantics(relative, text)
@@ -2029,13 +2072,16 @@ class Checker:
         for required in (
             "readable-markdown",
             "project-directory-access",
-            "python",
             "design-interview",
         ):
             entries = [item for item in capabilities if isinstance(item, dict) and item.get("id") == required]
             if entries and entries[0].get("required") is not True:
                 self.errors.append(f"{relative}: {required} must be declared required")
-        for optional in ("git", "superpowers", "j-space", "grill-me", "independent-review"):
+        # Python powers the initializer and the diagnostics, not the governance
+        # core: the working set is Markdown and the documented manual path
+        # produces the same files.  Declaring it required made a host without an
+        # interpreter BLOCKED_TOOLING on a kit it could still run by hand.
+        for optional in ("python", "git", "superpowers", "j-space", "grill-me", "independent-review"):
             entries = [item for item in capabilities if isinstance(item, dict) and item.get("id") == optional]
             if entries and entries[0].get("required") is not False:
                 self.errors.append(f"{relative}: {optional} must remain optional")

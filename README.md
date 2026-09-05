@@ -35,10 +35,10 @@ Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。叶�
 
 1. 在空目录或已有项目中运行 `charter-workflow`，或让宿主加载对应的 Bootstrap Prompt。
 2. 首启时补齐 `.charter/`，完成目标访谈、项目章程、Roadmap 和首个叶任务；继续时按项目文件恢复唯一下一步。
-3. 在叶任务进入 `READY` 前完成轻量 Reuse Check，并单独取得叶任务批准或匹配的 `AUTO_DEV` 预授权。
+3. 在叶任务进入 `READY` 前，Reuse Gate 必须为 `COMPLETE`，或该叶带有上面所述、单独批准的有界 waiver；然后单独取得叶任务批准或匹配的 `AUTO_DEV` 预授权。Change Triage 可触发的定向 Reuse Check 是范围更窄的另一件事：它只在变更涉及能力、依赖、版本、技术栈、安全、许可、隐私或外部影响时启动，不能代替这个门。
 4. 按一个叶任务一个闭环执行；遇到范围、能力或安全边界变化，回到 `Change Triage`。
 
-运行时的核心恢复文件（core Resume files）只有 `.charter/project.md`、`roadmap.md`、`reuse-discovery.md` 和 `current-task.md`；`handoff.md` 是可选恢复快照。初始化器还会准备 `decision.md`、`review.md`、`evidence-receipt.md` 和 `evidence/` 作为辅助收据（auxiliary receipts）及证据容器；它们只在被当前记录引用时读取，不构成第二套状态源。`current-task.md` 是活动叶状态的权威来源，`roadmap.md` 只是投影。
+运行时的核心恢复文件（core Resume files）只有 `.charter/project.md`、`roadmap.md`、`reuse-discovery.md` 和 `current-task.md`；`handoff.md` 可选，但只要存在就是必读的第五项：它承载跨会话交接（活动叶加最近关闭的那一个叶，更早的块移入 `handoff-archive.md`），在没有账本控制器时也是手动五行账本的落点。初始化器还会准备 `decision.md`、`review.md`、`evidence-receipt.md` 和 `evidence/` 作为辅助收据（auxiliary receipts）及证据容器；它们只在被当前记录引用时读取，不构成第二套状态源。`current-task.md` 是活动叶状态的权威来源，`roadmap.md` 只是投影。
 
 ### 安装到 Claude Code
 
@@ -137,10 +137,11 @@ python scripts/install_dependencies.py --only j-space grill-me
 - [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
 - [Claude Code 目标源](https://github.com/lhy102731/charter-kit/tree/main/.claude-plugin)
 - [Codex 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
+- [ZCode 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/zcode)
 - [DSH 目标源](https://github.com/lhy102731/charter-kit/tree/main/targets/dsh)
 - [GitHub 仓库](https://github.com/lhy102731/charter-kit)
 
-以下维护命令只在源码仓库 checkout 中运行：修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`，修改 DSH 入口时编辑 `targets/dsh/`。发布前运行 `python scripts/validate_kit.py .`，并分别运行 `python scripts/build_codex_plugin.py --check` 与 `python scripts/build_dsh_plugin.py --check`。MIT License.
+以下维护命令只在源码仓库 checkout 中运行：修改核心时先编辑 `portable/` 和 `DEVELOPMENT_CHARTER.md`；修改 Codex 入口时编辑 `targets/codex/`，修改 ZCode 入口时编辑 `targets/zcode/`，修改 DSH 入口时编辑 `targets/dsh/`。同一份内容在仓库中存在多份拷贝，且根目录 `skills/` 由 Codex 构建器生成并回写，动手前先读 `docs/MIRROR-TOPOLOGY.md`。发布前运行 `python scripts/validate_kit.py .`，并按顺序运行 `python scripts/build_codex_plugin.py --check`、`python scripts/build_zcode_plugin.py --check` 与 `python scripts/build_dsh_plugin.py --check`；DSH 构建器读取根目录 `skills/`，所以它必须最后运行。MIT License.
 
 ## English
 
@@ -170,10 +171,10 @@ Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. A 
 
 1. Run `charter-workflow` in an empty or existing project, or load the matching Bootstrap Prompt in the host.
 2. On first start, complete the `.charter/` working set, intent interview, Charter, Roadmap, and first leaf. On Resume, read the project files and recover one exact next action.
-3. Complete the lightweight Reuse Check before a leaf becomes `READY`, then obtain separate leaf approval or matching `AUTO_DEV` preauthorization.
+3. Before a leaf becomes `READY`, the Reuse Gate must be `COMPLETE`, or that leaf must carry the separately approved bounded waiver described above; then obtain separate leaf approval or matching `AUTO_DEV` preauthorization. The targeted Reuse Check that Change Triage can trigger is a narrower, separate event — it runs only when a change touches capability, dependency, version, technology stack, security, license, privacy, or external effects — and it does not stand in for this gate.
 4. Close one leaf at a time. If scope, capability, or safety boundaries change, return to `Change Triage`.
 
-The four core Resume files are `.charter/project.md`, `roadmap.md`, `reuse-discovery.md`, and `current-task.md`; `handoff.md` is an optional recovery snapshot. The initializer also prepares `decision.md`, `review.md`, `evidence-receipt.md`, and `evidence/` as auxiliary receipts and an evidence container. Read those when the active records reference them; they are not another state authority. `current-task.md` is authoritative for the active leaf state, while `roadmap.md` is a projection.
+The four core Resume files are `.charter/project.md`, `roadmap.md`, `reuse-discovery.md`, and `current-task.md`; `handoff.md` is optional, but it is read as the fifth item whenever it exists: it carries the cross-session handoff — the active leaf plus the most recently closed one, with older blocks appended to `handoff-archive.md` — and it is where the manual five-line ledger lives when no ledger controller is available. The initializer also prepares `decision.md`, `review.md`, `evidence-receipt.md`, and `evidence/` as auxiliary receipts and an evidence container. Read those when the active records reference them; they are not another state authority. `current-task.md` is authoritative for the active leaf state, while `roadmap.md` is a projection.
 
 ### Install in Claude Code
 
@@ -273,7 +274,8 @@ The command installs into `~/.agents/skills` from the GitHub repositories record
 - [Portable Core](https://github.com/lhy102731/charter-kit/tree/main/portable)
 - [Claude Code target source](https://github.com/lhy102731/charter-kit/tree/main/.claude-plugin)
 - [Codex target source](https://github.com/lhy102731/charter-kit/tree/main/targets/codex)
+- [ZCode target source](https://github.com/lhy102731/charter-kit/tree/main/targets/zcode)
 - [DSH target source](https://github.com/lhy102731/charter-kit/tree/main/targets/dsh)
 - [GitHub repository](https://github.com/lhy102731/charter-kit)
 
-In a source repository checkout, update `portable/` and `DEVELOPMENT_CHARTER.md` first when changing the core, and update `targets/codex/` when changing the Codex entry. Before publishing, run `python scripts/validate_kit.py .`, `python scripts/build_codex_plugin.py --check`, and `python scripts/build_dsh_plugin.py --check`, then confirm the installation state in both hosts. These maintainer paths and commands are not expected inside an installed plugin package. MIT License.
+In a source repository checkout, update `portable/` and `DEVELOPMENT_CHARTER.md` first when changing the core, and update `targets/codex/`, `targets/zcode/`, or `targets/dsh/` when changing a host entry. Several trees hold copies of the same files, and the root `skills/` tree is generated by the Codex builder, so read `docs/MIRROR-TOPOLOGY.md` before editing. Before publishing, run `python scripts/validate_kit.py .`, `python scripts/build_codex_plugin.py --check`, `python scripts/build_zcode_plugin.py --check`, and `python scripts/build_dsh_plugin.py --check` — the DSH builder reads root `skills/`, so it runs last — then confirm the installation state in each host. These maintainer paths and commands are not expected inside an installed plugin package. MIT License.

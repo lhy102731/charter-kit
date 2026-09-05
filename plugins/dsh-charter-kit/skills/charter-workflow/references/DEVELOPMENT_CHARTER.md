@@ -6,6 +6,8 @@
 
 本章程适用于个人、团队、开源仓库、企业项目、研究项目和自动化流水线。它不是中央调度服务，也不要求所有 Harness 安装相同的 Agent、模型或插件。核心文件使用普通 Markdown 和可选的 JSON；不同 Harness 只需独立读取项目工作集即可遵循它。
 
+上面的适用范围按工作集计算，不按人数计算。本章程按“单一负责人、串行推进”设计：一个工作集里只有一个活动叶（`WIP = 1`），状态转移靠读写同一批 Markdown 文件完成，协议本身不提供锁、租约、并发编辑合并，也不提供 Agent 之间的通信。因此下面这件事不是目标：多个操作者或多个 Agent 同时推进同一个 `.charter/` 工作集。需要并行时，按仓库或按彼此独立的 `.charter/` 命名空间拆分，让每个工作集仍然只有一个负责人和一个活动叶；本包不在这些工作集之间做协调，跨工作集的合并属于普通的版本控制和人工决策。串行不等于单人：交接由 `.charter/handoff.md` 承担，同一个工作集可以换人接手，只是不要同时推进。
+
 规则优先级如下：
 
 1. 用户或负责人的明确指令和批准；
@@ -152,7 +154,11 @@ UNVERIFIED  无法可靠检测
 FALLBACK    使用便携替代，并记录限制
 ```
 
-每一项检查都要输出能力名、原因、影响、fallback 和用户行动建议，并写入 `.charter/evidence/dependency-check.log` 或项目指定日志。必需能力为 `MISSING`/`UNVERIFIED` 时保持 `BLOCKED_TOOLING`；推荐或可选能力缺失时可以继续，但不能声称使用了该能力。当独立 Review 被风险规则或用户明确触发时，它需要新的上下文或进程；同一会话自审不能冒充独立 Review。
+每一项检查都要输出能力名、原因、影响、fallback 和用户行动建议，并写入 `.charter/evidence/dependency-check.log` 或项目指定日志。必需能力为 `MISSING`/`UNVERIFIED` 时保持 `BLOCKED_TOOLING`；推荐或可选能力缺失时可以继续，但不能声称使用了该能力。
+
+能力状态和降级记录分两层，不要混用。`AVAILABLE`/`MISSING`/`UNVERIFIED` 是项目级事实：在能力地图和 `dependency-check.log` 里每项能力记一次，状态变化时更新，不必每叶重抄。`FALLBACK` 是叶级事实：本叶只要实际用便携替代完成了某一步，就必须写入本叶 Events 表与 handoff 能力备注——包括该缺失早已知晓、本叶没有任何新的失败调用的情况。判据是本叶是否真的降级执行，不是本叶是否新发现缺失；否则一个长项目只会在首次发现缺失的那一叶留下记录，后续叶子的证据看起来像是在能力齐备的条件下产出的。
+
+当独立 Review 被风险规则或用户明确触发时，它需要新的上下文或进程；同一会话自审不能冒充独立 Review。
 
 ### 2.7 任务树与叶任务
 
@@ -375,7 +381,7 @@ DRAFT
 | 复用发现 | 按固定顺序只读搜索 | 查询矩阵 + evidence receipt |
 | 隔离/集成 | worktree/Git 工具 | 临时目录或明确未集成 |
 
-Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。缺失时必须输出 `MISSING` 或 `UNVERIFIED`、说明影响并使用便携 fallback；provider 调用失败（如 `Unknown skill`）允许重试一次，随后必须把 `FALLBACK` 降级**当场明示给用户**，并写入本叶 Events 表与 handoff 能力备注——静默降级视为违规；用户可改为要求 `BLOCKED_TOOLING` 等待 provider 而非降级。不能静默模拟。
+Superpowers、J-space、grill-me 是增强 provider，不是核心硬依赖。缺失时必须输出 `MISSING` 或 `UNVERIFIED`、说明影响并使用便携 fallback；provider 调用失败（如 `Unknown skill`）允许重试一次，随后必须把 `FALLBACK` 降级**当场明示给用户**，并写入本叶 Events 表与 handoff 能力备注——静默降级视为违规；用户可改为要求 `BLOCKED_TOOLING` 等待 provider 而非降级。不能静默模拟。失败调用只是触发方式之一：按 §2.6 的两层记录规则，本叶实际用便携替代完成某一步时同样要在本叶记 `FALLBACK`，即使该缺失早已知晓、本叶没有任何新的失败调用。
 
 ## 9. 项目领域扩展
 

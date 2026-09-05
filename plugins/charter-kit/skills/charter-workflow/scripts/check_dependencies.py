@@ -193,10 +193,12 @@ def _default_provider_paths(provider_id: str, project_dir: Path) -> tuple[str, .
 def default_requirements(project_dir: Path, package_root: Path) -> list[Requirement]:
     """Return the host-neutral baseline declarations.
 
-    Python is required because this checker and the kit's safe initializer are
-    Python standard-library tools.  Git is recommended for code projects, but
-    is optional for document-only projects.  Provider capabilities are always
-    optional and have explicit portable fallbacks.
+    Python is optional: it powers this checker and the kit's safe initializer,
+    but the governance core is Markdown and the documented manual path creates
+    the same working set without it.  A missing or too-old interpreter therefore
+    routes to that fallback instead of blocking the project.  Git is recommended
+    for code projects, but is optional for document-only projects.  Provider
+    capabilities are always optional and have explicit portable fallbacks.
     """
 
     requirements = [
@@ -204,9 +206,9 @@ def default_requirements(project_dir: Path, package_root: Path) -> list[Requirem
             id="python",
             kind="command",
             command=sys.executable,
-            required=True,
-            impact="core Charter Kit diagnostics and safe initialization cannot run",
-            fallback="manual checklist and host-native file inspection",
+            required=False,
+            impact="the bundled diagnostics and safe initializer cannot run; the Markdown governance core is unaffected",
+            fallback="create the working set manually, add the .jspace/ entry to .gitignore by hand, and record a host-native check",
             min_version="3.9",
         ),
         Requirement(
