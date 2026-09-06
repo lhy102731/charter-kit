@@ -157,6 +157,35 @@ SKILL_CONTRACT_MIGRATIONS_REFERENCE = "skills/charter-workflow/references/contra
 TARGET_CONTRACT_MIGRATIONS_REFERENCE = "targets/codex/skills/charter-workflow/references/contract-migrations.md"
 DISTRIBUTION_CONTRACT_MIGRATIONS_REFERENCE = "plugins/charter-kit/skills/charter-workflow/references/contract-migrations.md"
 
+DEFAULT_ON_REFERENCE = "portable/references/default-on-policy.md"
+SKILL_DEFAULT_ON_REFERENCE = "skills/charter-workflow/references/default-on-policy.md"
+TARGET_DEFAULT_ON_REFERENCE = "targets/codex/skills/charter-workflow/references/default-on-policy.md"
+DISTRIBUTION_DEFAULT_ON_REFERENCE = "plugins/charter-kit/skills/charter-workflow/references/default-on-policy.md"
+
+# Review B triggers used to be prose repeated across six documents, and the
+# copies had already drifted: one of them split "security or authentication"
+# into two items, so the trigger count depended on which document a project
+# happened to read.  Numbering them makes that drift machine-visible and
+# keeps an archived leaf record resolving to the trigger it was written
+# against -- a citation by position silently changes meaning the first time
+# an item is inserted above it.  The set is append-only: a retired trigger
+# keeps its number.  The kit ships no version identifier, so this set is also
+# what a project's hand-copied snapshot gets compared against, which is why
+# equality across sources is checked and not merely presence.
+REVIEW_B_TRIGGER_IDS = ("RVB1", "RVB2", "RVB3", "RVB4", "RVB5")
+REVIEW_B_TRIGGER_PATTERN = re.compile(r"\bRVB\d+\b")
+REVIEW_B_POLICY_HEADING = "### 7.1 Review B policy"
+# The prose the ids replace, per document.  One surviving copy leaves the
+# next reader with two trigger lists and no way to tell which is current.
+REVIEW_B_STALE_PROSE = (
+    ("portable/templates/project-charter.md", "required only for security/authentication"),
+    ("portable/templates/leaf-task.md", "required only for security/authentication"),
+    ("portable/templates/review.md", "required only for security/authentication"),
+    ("skills/charter-workflow/SKILL.md", "required only for security/authentication"),
+    ("portable/commands/charter-workflow.md", "required only for security/authentication"),
+    ("DEVELOPMENT_CHARTER.md", "只在安全、认证"),
+)
+
 # DSH target/distribution boundaries.
 DSH_TARGET_ROOT_RELATIVE = "targets/dsh"
 DSH_TARGET_PACKAGE_JSON_RELATIVE = "targets/dsh/package.json"
@@ -304,6 +333,10 @@ REQUIRED_FILES = (
     DISTRIBUTION_CHANGE_TRIAGE_REFERENCE,
     TARGET_CONTRACT_MIGRATIONS_REFERENCE,
     DISTRIBUTION_CONTRACT_MIGRATIONS_REFERENCE,
+    DEFAULT_ON_REFERENCE,
+    SKILL_DEFAULT_ON_REFERENCE,
+    TARGET_DEFAULT_ON_REFERENCE,
+    DISTRIBUTION_DEFAULT_ON_REFERENCE,
     "tests/test_charter_kit.py",
     "tests/test_dependencies.py",
     "tests/test_generic_bootstrap.py",
@@ -320,6 +353,7 @@ MIRRORS = (
     ("portable/references/design-interview.md", "skills/charter-workflow/references/design-interview.md"),
     (CHANGE_TRIAGE_REFERENCE, SKILL_CHANGE_TRIAGE_REFERENCE),
     (CONTRACT_MIGRATIONS_REFERENCE, SKILL_CONTRACT_MIGRATIONS_REFERENCE),
+    (DEFAULT_ON_REFERENCE, SKILL_DEFAULT_ON_REFERENCE),
     *((path, f"{SKILL_TEMPLATE_ROOT}/{Path(path).name}") for path in PORTABLE_TEMPLATES),
     (
         "portable/references/design-interview.md",
@@ -778,6 +812,8 @@ class Checker:
         self.check_dsh_target_and_distribution()
         self.check_zcode_target_and_distribution()
         self.check_contract_migrations()
+        self.check_review_b_triggers()
+        self.check_default_on_reference()
         self.check_generated_markers()
         self.check_builder_sync()
         self.check_readme()
@@ -2642,6 +2678,151 @@ class Checker:
             ):
                 self.require(leaf, phrase, "portable/templates/leaf-task.md")
 
+    def check_review_b_triggers(self) -> None:
+        """Keep the Review B trigger set identical everywhere it is stated.
+
+        Presence is not enough.  The failure this replaces was not a missing
+        trigger list but several lists that no longer agreed, so the check is
+        set equality in both directions: an id in one document and not another
+        is reported, and so is an id no document should contain.
+        """
+
+        entry_points = ("portable/commands/charter-workflow.md", *HOST_PROMPTS)
+        # Documents that state the whole set have to state all of it.  Documents
+        # that point at the set by range or by section carry no enumeration to
+        # drift, so they are only checked for ids the kit does not own.
+        enumerating = (
+            "portable/templates/project-charter.md",
+            "skills/charter-workflow/SKILL.md",
+            "DEVELOPMENT_CHARTER.md",
+            *entry_points,
+        )
+        referencing = (
+            "portable/templates/leaf-task.md",
+            "portable/templates/review.md",
+        )
+        expected = set(REVIEW_B_TRIGGER_IDS)
+        for relative in (*enumerating, *referencing):
+            text = self.read(relative)
+            if not text:
+                continue
+            found = set(REVIEW_B_TRIGGER_PATTERN.findall(text))
+            if relative in enumerating:
+                missing = [name for name in REVIEW_B_TRIGGER_IDS if name not in found]
+                if missing:
+                    self.errors.append(
+                        f"{relative}: Review B trigger ids missing: {', '.join(missing)}"
+                    )
+            extra = sorted(found - expected)
+            if extra:
+                self.errors.append(
+                    f"{relative}: unknown Review B trigger ids {', '.join(extra)}; "
+                    "the set is kit-owned and append-only"
+                )
+        for relative, stale in REVIEW_B_STALE_PROSE:
+            text = self.read(relative)
+            if text and stale in text:
+                self.errors.append(
+                    f"{relative}: the pre-ID Review B trigger sentence is still present; "
+                    "two trigger lists in one kit leave no way to tell which is current"
+                )
+        project = self.read("portable/templates/project-charter.md")
+        if project:
+            self.require(project, REVIEW_B_POLICY_HEADING, "project-charter.md")
+            # A numbered ``## 7.1`` would claim a section number of its own, and
+            # charter sections are cited by number from roadmaps and closed
+            # records.  The policy has to be a subsection so nothing renumbers.
+            if re.search(r"^## 7\.1", project, re.MULTILINE):
+                self.errors.append(
+                    "project-charter.md: Review B policy is spelled as a numbered "
+                    "section; charter sections are cited by number, so it must stay "
+                    f"the subsection {REVIEW_B_POLICY_HEADING!r}"
+                )
+            for name in REVIEW_B_TRIGGER_IDS:
+                self.require_regex(
+                    project,
+                    rf"^\|\s*{name}\s*\|[^|]*\|\s*`YES`\s*\|",
+                    "project-charter.md",
+                    f"{name} does not ship enabled; a default-on row starts at `YES` "
+                    "and is narrowed only by a recorded decision",
+                    flags=re.MULTILINE,
+                )
+            for phrase in (
+                "kit-owned and cited by ID",
+                "append-only",
+                "in force, not that it has been hit",
+                "must state what it excludes",
+                "stop and ask the user before implementing that leaf",
+                "fills this line from that evidence",
+                "recorded gap, not a silent pass",
+            ):
+                self.require(project, phrase, "project-charter.md")
+        leaf = self.read("portable/templates/leaf-task.md")
+        for phrase in (
+            "REQUIRED with the RVB id(s) hit",
+            "NOT_REQUIRED naming the RVB ids considered",
+            "WAIVED only for a triggered review whose reviewer was unavailable",
+            "`.charter/project.md` section 7.1",
+            "do not cite a sibling leaf in place of the ids",
+        ):
+            self.require(leaf, phrase, "leaf-task.md")
+        review = self.read("portable/templates/review.md")
+        for phrase in (
+            "the RVB id(s) hit for `B_FRESH_BEHAVIOR`",
+            "the RVB ids considered and why an independent review is not required",
+            "`RVB1`-`RVB5` triggers recorded in `.charter/project.md` section 7.1",
+            "cited by id rather than re-argued here",
+        ):
+            self.require(review, phrase, "review.md")
+        skill = self.read("skills/charter-workflow/SKILL.md")
+        for phrase in (
+            "Review B is required when any kit-owned trigger is hit",
+            "a retired trigger keeps its number",
+            f"`{REVIEW_B_POLICY_HEADING}`",
+            "a leaf that hit no trigger is `NOT_REQUIRED`, not `WAIVED`",
+            "stop and ask the user before implementing it",
+            "recorded gap, not a silent pass",
+            "references/default-on-policy.md",
+        ):
+            self.require(skill, phrase, "skills/charter-workflow/SKILL.md")
+        # Every entry point states the rule in the compressed form.  A host that
+        # only ever loads the command or one bootstrap prompt still learns that
+        # the ids are the citation and that an UNDECIDED reviewer stops the leaf.
+        for relative in entry_points:
+            text = self.read(relative)
+            for phrase in (
+                "Review B triggers are kit-owned and append-only",
+                "records its judgment for all five in `.charter/project.md` section 7.1",
+                "a leaf cites ids instead of re-arguing them",
+                "`WAIVED` only a triggered review with no available reviewer",
+                "stop and ask the user",
+            ):
+                self.require(text, phrase, relative)
+
+    def check_default_on_reference(self) -> None:
+        """Require the shared default-on shape to stay named in one place.
+
+        The session ledger and the Review B table are the same policy shape, and
+        the rule they share is easy to restate loosely in each.  Naming it once
+        gives both a single definition to cite instead of two paraphrases.
+        """
+
+        for relative in (DEFAULT_ON_REFERENCE, SKILL_DEFAULT_ON_REFERENCE):
+            text = self.read(relative)
+            for phrase in (
+                "# Default-on policy",
+                "## Shape",
+                "has four parts",
+                "## Why the cost lands where the knowledge is",
+                "There is no runtime.",
+                "NOT_ENABLED",
+                "RVB",
+                "contract-migrations.md",
+                "states its exclusion",
+                "recorded decision",
+            ):
+                self.require(text, phrase, relative)
+
     def check_generated_markers(self) -> None:
         """Require the builder-written marker in every generated tree.
 
@@ -2826,6 +3007,8 @@ class Checker:
             "portable/commands/charter-workflow.md",
             "portable/references/design-interview.md",
             CONTRACT_MIGRATIONS_REFERENCE,
+            DEFAULT_ON_REFERENCE,
+            SKILL_DEFAULT_ON_REFERENCE,
             *PORTABLE_TEMPLATES,
             *HOST_PROMPTS,
             "skills/charter-workflow/SKILL.md",

@@ -149,7 +149,7 @@ Stop and write a decision record when:
 ## 9. Review and closure
 
 - Review A: `<path, reviewer, candidate, verdict>`
-- Review B / fresh behavior check: `<REQUIRED with trigger/path/reviewer/freshness/verdict, or NOT_REQUIRED with bounded omission reason>`
+- Review B / fresh behavior check: `<REQUIRED with the RVB id(s) hit plus path/reviewer/freshness/verdict, or NOT_REQUIRED naming the RVB ids considered plus the bounded omission reason, or WAIVED only for a triggered review whose reviewer was unavailable and whose bounded waiver the user approved>` — the judgments come from `.charter/project.md` section 7.1; cite ids, do not re-argue them here, and do not cite a sibling leaf in place of the ids
 - Readiness record: `<RDY1-RDY13 PASS with the evidence source, then one | RDY# | result | evidence | row for every item that is not a plain PASS — UNVERIFIED, a bounded waiver, or its own evidence path; cite items by number plus a short label, never by restating the checklist text>`
 - Ledger reconciliation: `<execution-ledger Verified summary mirrored into Events/Evidence>` — a leaf with neither reconciliation nor a recorded `NOT_ENABLED` waiver in its Events table must not close as `PASS_CLOSED` (close `PARTIAL` with the reason instead)
 - Pre-integration verification receipt: `<path, command, candidate, result>`

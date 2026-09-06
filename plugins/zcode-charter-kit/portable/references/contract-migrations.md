@@ -38,6 +38,7 @@ own Change Triage route and its own decision.
 | Session execution ledger mode | `## 8. Execution record` | `Long-task ledger` |
 | Ledger reconciliation at closure | `## 9. Review and closure` | `Ledger reconciliation` |
 | Readiness record | `## 9. Review and closure` | `Readiness record` |
+| Review B id citation | `## 9. Review and closure` | `Review B / fresh behavior check` — add the `RVB` ids to the existing line |
 
 The two ledger rows are one change and are applied together. The first declares the
 ledger mode for the session; the second is what closure actually checks. A
@@ -54,6 +55,43 @@ whose evidence cannot be found is recorded `UNVERIFIED` with what was looked for
 it is never recorded `PASS` on the strength of the transition having happened.
 Reference items by their roadmap `RDY` number plus a short label, so the record
 stays a delta against the checklist instead of a second copy of it.
+
+## Charter-level migrations
+
+Some required fields belong to `.charter/project.md` rather than to a leaf. The
+position rule is the same — before the first state transition of the session that
+noticed the gap — but the mechanics differ: a charter has no `Contract version` to
+bump, so the version lands in its section 12 change log, while the `CLARIFICATION`
+entry still goes in the active leaf's Events table so one place holds the session's
+audit trail. A charter-level migration is records-only. A change to Goal,
+Non-goals, Invariants, authorization, or public meaning is a scope change with its
+own Change Triage route and its own decision.
+
+| Field | Charter section | Line or block to add |
+| --- | --- | --- |
+| Review B policy (`RVB1`-`RVB5`, reviewer and freshness method) | `## 7. Capability map` | `### 7.1 Review B policy` |
+
+Add the block as `### 7.1`, never as a new numbered section. Charter sections are
+cited by number from the roadmap and from leaf contracts, so inserting one
+mid-numbering silently redirects every citation that already exists.
+
+Ship the trigger rows at their default `YES` and leave narrowing to a recorded user
+decision. Two things are decided at migration time rather than deferred:
+
+- **Reviewer and freshness method.** If the project already holds independent-review
+  evidence — a fresh-context review under `.charter/evidence/`, an external reviewer
+  bound to a candidate revision, anything showing the practice has actually run —
+  fill this line from that evidence instead of leaving it `UNDECIDED`. A project
+  that can answer today should not be scheduled to stop and ask later. A probe
+  recorded `UNVERIFIED` in the dependency-check log means the capability could not be
+  machine-confirmed, not that it is absent, and it is not grounds for
+  `BLOCKED_TOOLING` on its own.
+- **How existing records read.** Closed leaves are not migrated, so their Review B
+  lines keep the label they were written with. Where that label no longer matches the
+  current vocabulary — most commonly `WAIVED` on a leaf that hit no trigger and
+  should have read `NOT_REQUIRED` — record the reading once in `### 7.1` instead of
+  editing the closed records. One boundary note that says how to read them preserves
+  the history and still stops the next leaf from copying the wrong label forward.
 
 ## When the migration is not applied
 

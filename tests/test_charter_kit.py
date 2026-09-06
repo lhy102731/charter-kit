@@ -133,12 +133,20 @@ class CharterKitBehaviorTests(unittest.TestCase):
         return target_skill
 
     def run_script(self, script: Path, *arguments: object) -> subprocess.CompletedProcess[str]:
+        # Both sides of the pipe are pinned to UTF-8.  Validator findings quote
+        # the shipped documents, several of which are Chinese, so leaving the
+        # codec to the ambient locale makes these tests pass or crash depending
+        # on the host's console encoding rather than on the kit.
+        environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         return subprocess.run(
             [sys.executable, str(script), *(str(argument) for argument in arguments)],
             cwd=script.parent.parent,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             check=False,
+            env=environment,
         )
 
     def run_validator(self, package: Path) -> subprocess.CompletedProcess[str]:
@@ -584,6 +592,243 @@ class CharterKitBehaviorTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Ledger reconciliation", result.stdout)
+
+    # ------------------------------------------------------------------
+    # Review B trigger ids
+    # ------------------------------------------------------------------
+    # Spelled out here on purpose.  A test that imported the set from the
+    # validator would pass no matter which ids the shipped documents state, and
+    # the failure this guards against is exactly documents disagreeing.
+    REVIEW_B_TRIGGER_IDS = ("RVB1", "RVB2", "RVB3", "RVB4", "RVB5")
+    REVIEW_B_ID_PATTERN = re.compile(r"\bRVB\d+\b")
+    # Documents that state the whole set.  Anything that points at the set by
+    # range or by section number is checked separately.
+    REVIEW_B_ENUMERATING = (
+        "portable/templates/project-charter.md",
+        "skills/charter-workflow/SKILL.md",
+        "DEVELOPMENT_CHARTER.md",
+        "portable/commands/charter-workflow.md",
+        "portable/prompts/generic-bootstrap.md",
+        "portable/prompts/codex-bootstrap.md",
+        "portable/prompts/claude-bootstrap.md",
+        "portable/prompts/gemini-bootstrap.md",
+        "portable/prompts/deepseek-bootstrap.md",
+    )
+    DEFAULT_ON_COPIES = (
+        "portable/references/default-on-policy.md",
+        "skills/charter-workflow/references/default-on-policy.md",
+        "targets/codex/skills/charter-workflow/references/default-on-policy.md",
+        "targets/zcode/skills/charter-workflow/references/default-on-policy.md",
+        "plugins/charter-kit/portable/references/default-on-policy.md",
+        "plugins/charter-kit/skills/charter-workflow/references/default-on-policy.md",
+        "plugins/dsh-charter-kit/portable/references/default-on-policy.md",
+        "plugins/dsh-charter-kit/skills/charter-workflow/references/default-on-policy.md",
+        "plugins/zcode-charter-kit/portable/references/default-on-policy.md",
+        "plugins/zcode-charter-kit/skills/charter-workflow/references/default-on-policy.md",
+    )
+
+    def test_every_document_that_states_the_trigger_set_states_all_of_it(self) -> None:
+        """Four documents once carried four different trigger lists."""
+
+        expected = set(self.REVIEW_B_TRIGGER_IDS)
+        for relative in self.REVIEW_B_ENUMERATING:
+            with self.subTest(relative=relative):
+                body = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+                found = set(self.REVIEW_B_ID_PATTERN.findall(body))
+                self.assertEqual(found, expected)
+
+    def test_the_charter_table_ships_every_trigger_enabled(self) -> None:
+        charter = (PACKAGE_ROOT / "portable" / "templates" / "project-charter.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("### 7.1 Review B policy", charter)
+        # A numbered section would renumber sections 8-12, and roadmaps and
+        # closed leaf records cite charter sections by number.
+        self.assertIsNone(re.search(r"^## 7\.1", charter, re.MULTILINE))
+        for name in self.REVIEW_B_TRIGGER_IDS:
+            with self.subTest(trigger=name):
+                self.assertRegex(charter, rf"(?m)^\|\s*{name}\s*\|[^|]*\|\s*`YES`\s*\|")
+        for phrase in (
+            "kit-owned and cited by ID",
+            "append-only",
+            "in force, not that it has been hit",
+            "must state what it excludes",
+            "stop and ask the user before implementing that leaf",
+            "fills this line from that evidence",
+            "recorded gap, not a silent pass",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, charter)
+
+    def test_a_leaf_cites_trigger_ids_instead_of_re_arguing_them(self) -> None:
+        leaf = (PACKAGE_ROOT / "portable" / "templates" / "leaf-task.md").read_text(encoding="utf-8")
+        for phrase in (
+            "REQUIRED with the RVB id(s) hit",
+            "NOT_REQUIRED naming the RVB ids considered",
+            "`.charter/project.md` section 7.1",
+            "do not cite a sibling leaf in place of the ids",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, leaf)
+        # WAIVED is not the label for a leaf that hit nothing.  Reading it that
+        # way is what made nine closed records unreadable in the project this
+        # rule came from.
+        self.assertIn(
+            "WAIVED only for a triggered review whose reviewer was unavailable",
+            leaf,
+        )
+        review = (PACKAGE_ROOT / "portable" / "templates" / "review.md").read_text(encoding="utf-8")
+        self.assertIn("`RVB1`-`RVB5` triggers recorded in `.charter/project.md` section 7.1", review)
+        self.assertIn("cited by id rather than re-argued here", review)
+
+    def test_the_pre_id_trigger_sentence_is_gone_from_every_document(self) -> None:
+        """Two trigger lists in one kit leave no way to tell which is current."""
+
+        for relative, stale in (
+            ("portable/templates/project-charter.md", "required only for security/authentication"),
+            ("portable/templates/leaf-task.md", "required only for security/authentication"),
+            ("portable/templates/review.md", "required only for security/authentication"),
+            ("skills/charter-workflow/SKILL.md", "required only for security/authentication"),
+            ("portable/commands/charter-workflow.md", "required only for security/authentication"),
+            ("DEVELOPMENT_CHARTER.md", "只在安全、认证"),
+        ):
+            with self.subTest(relative=relative):
+                body = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+                self.assertNotIn(stale, body)
+
+    def test_the_default_on_shape_is_named_once_and_both_instances_cite_it(self) -> None:
+        reference = (PACKAGE_ROOT / "portable" / "references" / "default-on-policy.md").read_text(
+            encoding="utf-8"
+        )
+        for phrase in (
+            "# Default-on policy",
+            "## Shape",
+            "has four parts",
+            "## Why the cost lands where the knowledge is",
+            # The reason the pattern exists at all: a rule that ships off is
+            # not neutral here, it is invisible.
+            "There is no runtime.",
+            "NOT_ENABLED",
+            "RVB",
+            "states its exclusion",
+            "recorded decision",
+            "contract-migrations.md",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, reference)
+
+        expected = (PACKAGE_ROOT / self.DEFAULT_ON_COPIES[0]).read_bytes()
+        for relative in self.DEFAULT_ON_COPIES[1:]:
+            with self.subTest(relative=relative):
+                self.assertEqual((PACKAGE_ROOT / relative).read_bytes(), expected)
+
+        skill = (PACKAGE_ROOT / "skills" / "charter-workflow" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/default-on-policy.md", skill)
+        # The shape is described once; the entry document cites it rather than
+        # restating four parts every session start.
+        self.assertNotIn("has four parts", skill)
+
+    def rewrite_every_copy(self, package: Path, name: str, old: str, new: str) -> int:
+        """Apply one replacement to every copy of a file in a package fixture.
+
+        Mutating a single mirror would make the validator report the mirror
+        instead of the rule under test, so the fixture edits all copies and the
+        assertion stays about the finding it means to provoke.
+        """
+
+        touched = 0
+        for path in sorted(package.rglob(name)):
+            body = path.read_text(encoding="utf-8")
+            if old not in body:
+                continue
+            path.write_text(body.replace(old, new), encoding="utf-8")
+            touched += 1
+        self.assertGreater(touched, 0, f"fixture found no copy of {name} containing {old!r}")
+        return touched
+
+    def test_validator_rejects_a_trigger_id_missing_from_one_document(self) -> None:
+        package = self.make_package_copy()
+        self.rewrite_every_copy(
+            package,
+            "SKILL.md",
+            "`RVB4` high-risk or irreversible effect, ",
+            "",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Review B trigger ids missing: RVB4", result.stdout)
+
+    def test_validator_rejects_an_id_the_kit_does_not_own(self) -> None:
+        """A locally invented id would make an archived citation unresolvable."""
+
+        package = self.make_package_copy()
+        self.rewrite_every_copy(
+            package,
+            "project-charter.md",
+            "| RVB5 | Explicit user request |",
+            "| RVB9 | Explicit user request |",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("unknown Review B trigger ids RVB9", result.stdout)
+        self.assertIn("append-only", result.stdout)
+
+    def test_validator_rejects_a_trigger_row_that_ships_already_narrowed(self) -> None:
+        """Narrowing is a recorded decision, not a shipped default."""
+
+        package = self.make_package_copy()
+        self.rewrite_every_copy(
+            package,
+            "project-charter.md",
+            "| RVB1 | Security or authentication | `YES` |",
+            "| RVB1 | Security or authentication | `NO` |",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("RVB1 does not ship enabled", result.stdout)
+
+    def test_validator_rejects_the_policy_promoted_to_a_numbered_section(self) -> None:
+        package = self.make_package_copy()
+        self.rewrite_every_copy(
+            package,
+            "project-charter.md",
+            "### 7.1 Review B policy",
+            "## 7.1 Review B policy",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("charter sections are cited by number", result.stdout)
+
+    def test_validator_rejects_a_leaf_told_to_re_argue_the_triggers(self) -> None:
+        package = self.make_package_copy()
+        self.rewrite_every_copy(
+            package,
+            "leaf-task.md",
+            "; cite ids, do not re-argue them here, and do not cite a sibling leaf in place of the ids",
+            "",
+        )
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("do not cite a sibling leaf in place of the ids", result.stdout)
+
+    def test_validator_rejects_a_missing_default_on_reference(self) -> None:
+        package = self.make_package_copy()
+        (package / "portable" / "references" / "default-on-policy.md").unlink()
+
+        result = self.run_validator(package)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("portable/references/default-on-policy.md", result.stdout)
 
     # ------------------------------------------------------------------
     # Generated-tree markers

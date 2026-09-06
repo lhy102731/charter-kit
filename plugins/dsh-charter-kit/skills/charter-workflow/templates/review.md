@@ -9,7 +9,7 @@
 - Host / process / session: `<reference>`
 - Review type: `CHARTER_INDEPENDENT | A_SPEC_AND_CODE | B_FRESH_BEHAVIOR`
 - Applicability: `REQUIRED | NOT_REQUIRED`
-- Trigger or bounded omission reason: `<risk/user trigger, or why an independent review is not required>`
+- Trigger or bounded omission reason: `<the RVB id(s) hit for `B_FRESH_BEHAVIOR`, or the RVB ids considered and why an independent review is not required>`
 - Started: `<timestamp>`
 - Finished: `<timestamp>`
 
@@ -21,7 +21,7 @@
 - Read implementer report before testing: `yes | no`
 - Limitation on independence:
 
-Review A is required for every Leaf. `CHARTER_INDEPENDENT` and `B_FRESH_BEHAVIOR` are risk-triggered or explicitly user-requested. When either is `REQUIRED`, the reviewer must be different from the implementer/author and use a fresh context or independent process; if that capability is unavailable, record `BLOCKED_TOOLING` or an explicit bounded waiver. When it is `NOT_REQUIRED`, record the bounded omission reason. Do not rename a self-review as an independent review.
+Review A is required for every Leaf. `CHARTER_INDEPENDENT` and `B_FRESH_BEHAVIOR` are risk-triggered or explicitly user-requested; `B_FRESH_BEHAVIOR` applicability is decided by the `RVB1`-`RVB5` triggers recorded in `.charter/project.md` section 7.1 and is cited by id rather than re-argued here. When either is `REQUIRED`, the reviewer must be different from the implementer/author and use a fresh context or independent process; if that capability is unavailable, record `BLOCKED_TOOLING` or an explicit bounded waiver. When it is `NOT_REQUIRED`, record the bounded omission reason. Do not rename a self-review as an independent review.
 
 ## Checks performed
 

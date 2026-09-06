@@ -138,6 +138,27 @@ The gate status in this file and in `.charter/roadmap.md` is a projection of the
 
 For each required or recommended ability, link the latest dependency-check log and state whether it is `AVAILABLE`, `MISSING`, `UNVERIFIED`, or `FALLBACK`.
 
+### 7.1 Review B policy
+
+Review B triggers are kit-owned and cited by ID. The set is append-only: a retired trigger keeps its number and a new one takes the next, so an archived leaf record still means what it meant when it was written. Fill the judgment column once here instead of re-arguing it in every leaf.
+
+| ID | Trigger | This project | Reason or narrowing |
+|---|---|---|---|
+| RVB1 | Security or authentication | `YES` | `<why it applies, or what a narrowed value excludes>` |
+| RVB2 | External dependency | `YES` | `<why it applies, or what a narrowed value excludes>` |
+| RVB3 | Public API or public meaning | `YES` | `<why it applies, or what a narrowed value excludes>` |
+| RVB4 | High-risk or irreversible effect | `YES` | `<why it applies, or what a narrowed value excludes>` |
+| RVB5 | Explicit user request | `YES` | `<why it applies, or what a narrowed value excludes>` |
+
+- Reviewer and freshness method: `<UNDECIDED, or the reviewer class per layer and what makes it fresh>`
+- Decided on / by: `<date and approver, or UNDECIDED with the reason it can wait>`
+
+A `YES` row ships enabled and says the trigger is in force, not that it has been hit. Narrowing a row to `NO`, or to a bounded `YES`, is a user decision recorded in the section 12 change log, and the narrowed value must state what it excludes; a narrowed row with no stated exclusion reads the same as an unfilled one. Leaving a row at `YES` costs a low-risk leaf nothing: that leaf records Review B `NOT_REQUIRED` and names the RVB ids it considered.
+
+If `Reviewer and freshness method` is still `UNDECIDED` when a leaf first records Review B `REQUIRED`, stop and ask the user before implementing that leaf. The method is decided once, where the knowledge is, and then cited. A project that already holds independent-review evidence fills this line from that evidence instead of leaving it `UNDECIDED`.
+
+Compare this table against the RVB list in the workflow Skill whenever either changes. An ID on either side that the other lacks is a recorded gap, not a silent pass: record it here and resolve it before the next leaf enters `READY`.
+
 ## 8. Task tree and route
 
 ```text

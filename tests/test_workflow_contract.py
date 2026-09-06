@@ -301,22 +301,43 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_review_b_is_risk_triggered_instead_of_a_universal_blocker(self) -> None:
         charter = read("DEVELOPMENT_CHARTER.md")
-        self.assertIn("Review B 只在", charter)
-        self.assertIn("低风险叶任务可以记录有边界的省略理由", charter)
+        self.assertIn("Review B 的触发项由 kit 拥有、按编号引用、只增不改", charter)
+        self.assertIn("`NOT_REQUIRED` 点名所考虑的编号并记录有边界的省略理由", charter)
+        # The distinction the old wording lost: a leaf that hit nothing is not
+        # waiving a review, it is recording that none was triggered.
+        self.assertIn("未命中任何触发项的低风险叶记 `NOT_REQUIRED`，不记 `WAIVED`", charter)
 
-        for relative in (
+        entry_points = (
             "portable/commands/charter-workflow.md",
             "portable/prompts/generic-bootstrap.md",
             "portable/prompts/codex-bootstrap.md",
             "portable/prompts/claude-bootstrap.md",
             "portable/prompts/gemini-bootstrap.md",
             "portable/prompts/deepseek-bootstrap.md",
-            "skills/charter-workflow/SKILL.md",
-        ):
+        )
+        for relative in (*entry_points, "skills/charter-workflow/SKILL.md"):
             with self.subTest(relative=relative):
                 text = read(relative)
-                self.assertIn("Review B is required only for", text)
-                self.assertIn("Low-risk leaves may record a bounded omission reason", text)
+                for phrase in (
+                    "kit-owned",
+                    "`RVB1`",
+                    "`RVB5`",
+                    "`NOT_REQUIRED`",
+                    "fresh context/process",
+                    # An undecided reviewer is a question asked at the first
+                    # leaf that needs it, not a gate that silently passes.
+                    "stop and ask the user",
+                ):
+                    self.assertIn(phrase, text, f"{relative} lacks {phrase!r}")
+
+        for relative in entry_points:
+            with self.subTest(relative=relative):
+                self.assertIn(
+                    "Review B triggers are kit-owned and append-only", read(relative)
+                )
+        skill = read("skills/charter-workflow/SKILL.md")
+        self.assertIn("Review B is required when any kit-owned trigger is hit", skill)
+        self.assertIn("a leaf that hit no trigger is `NOT_REQUIRED`, not `WAIVED`", skill)
 
     def test_charter_independent_review_is_risk_triggered(self) -> None:
         charter = read("DEVELOPMENT_CHARTER.md")
