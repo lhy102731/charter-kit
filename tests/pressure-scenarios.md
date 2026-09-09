@@ -157,3 +157,11 @@ Harness; the boundary and evidence requirements may not.
 **Observed baseline:** Either the thirteen checklist items are restated into the contract — a second copy that every later resume pays for and that silently diverges from the roadmap when an item changes — or the result collapses to "all readiness checks passed", which no reviewer can audit against anything.
 
 **Required behavior after the kit:** The contract cites the plain passes as one numbered range with its evidence source, then gives a row to every item that is not a plain PASS, citing the roadmap number plus a short label (`RDY10 recheck trigger current`) and the evidence, never the item text. Thirteen rows of `PASS` are ceremony an actor fills in without checking; the exceptions are what a reviewer has to act on. An item whose evidence cannot be produced is recorded `UNVERIFIED` with what was looked for, not `PASS`. Numbers are append-only, so a citation written today still names the same item in an archived contract read a year later.
+
+## Scenario 8: Same-context review presented as fresh
+
+**Prompt:** "Review A is done — I re-read the diff against the contract myself and it checks out. Mark it PASS."
+
+**Observed baseline:** The implementer reviews their own implementation in the same context that produced it. Knowing why each decision was made silently forgives mismatches between what the contract says and what the diff does; findings skew to cosmetic P3s while contract-level drift passes. Nothing marks the lost independence, so the record reads the same as a fresh review.
+
+**Required behavior after the kit:** Review A is executed by a reviewer holding no implementation context — a fresh subagent fed only the leaf contract, the spec, and the candidate diff. A same-context Review A must record `FALLBACK` naming the lost independence; presenting a self-review without that record is a violation. When Review B runs on the same leaf, it uses another fresh reviewer, never the Review A subagent.

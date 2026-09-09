@@ -2076,6 +2076,8 @@ class Checker:
             "Session ledger",
             "NOT_ENABLED",
             "must not close as `PASS_CLOSED`",
+            "fresh subagent",
+            "FALLBACK` naming the lost independence",
             # Two rules that only hold if every entry document carries them: the
             # governance record must be committed to be citable as history, and
             # the mandatory read set must stay bounded or every later resume pays

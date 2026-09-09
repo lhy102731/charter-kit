@@ -8,6 +8,8 @@
 - Reviewer: `<agent/person>`
 - Host / process / session: `<reference>`
 - Review type: `CHARTER_INDEPENDENT | A_SPEC_AND_CODE | B_FRESH_BEHAVIOR`
+- Freshness (Review A): `fresh-subagent (no implementation context; fed leaf contract + spec + diff) | same-context (FALLBACK recorded, naming the lost independence)`
+- Freshness (Review B): `fresh subagent, distinct from the Review A reviewer`
 - Applicability: `REQUIRED | NOT_REQUIRED`
 - Trigger or bounded omission reason: `<the RVB id(s) hit for `B_FRESH_BEHAVIOR`, or the RVB ids considered and why an independent review is not required>`
 - Started: `<timestamp>`

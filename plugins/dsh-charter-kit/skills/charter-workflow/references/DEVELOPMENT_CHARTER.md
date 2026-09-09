@@ -308,7 +308,7 @@ REFACTOR 保持绿色，清理重复和命名
 
 ### 4.5 Review A 与 Review B
 
-候选版本冻结后再审阅。Review A 对每个 Leaf 必需，它检查规格覆盖、实现正确性、范围漂移和测试质量。Review B 的触发项由 kit 拥有、按编号引用、只增不改（退役项保留原号）：`RVB1` 安全或认证、`RVB2` 外部依赖、`RVB3` 公共 API 或公共含义、`RVB4` 高风险或不可逆效果、`RVB5` 用户明确要求。每个项目在 `.charter/project.md` 的 `### 7.1 Review B policy` 一次性记录五项判定，叶任务只引用编号、不重新论证：`REQUIRED` 点名命中的编号，`NOT_REQUIRED` 点名所考虑的编号并记录有边界的省略理由。`WAIVED` 只保留给已触发、审阅者不可得且用户批准了有边界豁免的情形；未命中任何触发项的低风险叶记 `NOT_REQUIRED`，不记 `WAIVED`。当 Review B 被触发时，它由不同于实现者的审阅者在新鲜上下文或独立进程中做行为探针，尤其检查负向路径、越界输入和错误处理。触发后没有 fresh 能力时，如实记为 `BLOCKED_TOOLING` 或取得有边界 waiver；不能改名冒充独立审阅。
+候选版本冻结后再审阅。Review A 对每个 Leaf 必需，它检查规格覆盖、实现正确性、范围漂移和测试质量。Review A 默认由**不持有实现上下文的审阅者**执行（fresh 子代理优先，只喂叶合同、规格与候选 diff，不喂会话历史）；宿主无子代理能力而由同上下文执行时，必须记 `FALLBACK` 并说明失去了独立视角——实现者视角会自动原谅写出来的与合同说的不一致，这是 default-on 策略的又一实例（见 `references/default-on-policy.md`）。当 Review B 与 Review A 同叶都执行时，Review B 使用**另一个** fresh 审阅者（不复用 Review A 的子代理——它已被 A 的发现污染）。Review B 的触发项由 kit 拥有、按编号引用、只增不改（退役项保留原号）：`RVB1` 安全或认证、`RVB2` 外部依赖、`RVB3` 公共 API 或公共含义、`RVB4` 高风险或不可逆效果、`RVB5` 用户明确要求。每个项目在 `.charter/project.md` 的 `### 7.1 Review B policy` 一次性记录五项判定，叶任务只引用编号、不重新论证：`REQUIRED` 点名命中的编号，`NOT_REQUIRED` 点名所考虑的编号并记录有边界的省略理由。`WAIVED` 只保留给已触发、审阅者不可得且用户批准了有边界豁免的情形；未命中任何触发项的低风险叶记 `NOT_REQUIRED`，不记 `WAIVED`。当 Review B 被触发时，它由不同于实现者的审阅者在新鲜上下文或独立进程中做行为探针，尤其检查负向路径、越界输入和错误处理。触发后没有 fresh 能力时，如实记为 `BLOCKED_TOOLING` 或取得有边界 waiver；不能改名冒充独立审阅。
 
 ### 4.6 修复与决策循环
 

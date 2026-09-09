@@ -2,12 +2,39 @@
   "schema": "charter-kit/dependencies/v1",
   "description": "Local capability declarations for the portable Charter Kit workflow. This file is diagnostic metadata only; it never installs or executes a dependency.",
   "reuse_check": {
-    "gate_states": ["PENDING", "COMPLETE", "BLOCKED"],
-    "material_target_values": ["YES", "NO_MATERIAL_TARGET"],
-    "search_depths": ["FAST", "STANDARD", "DEEP"],
-    "coverage_values": ["SEARCHED", "NOT_SEARCHED", "NOT_AUTHORIZED", "BLOCKED_TOOLING"],
-    "result_values": ["MATCH", "NO_MATCH", "UNKNOWN"],
-    "final_routes": ["ADOPT", "ADAPT", "REFERENCE_ONLY", "BUILD_NEW", "REUSE_SPIKE", "NEEDS_DECISION"],
+    "gate_states": [
+      "PENDING",
+      "COMPLETE",
+      "BLOCKED"
+    ],
+    "material_target_values": [
+      "YES",
+      "NO_MATERIAL_TARGET"
+    ],
+    "search_depths": [
+      "FAST",
+      "STANDARD",
+      "DEEP"
+    ],
+    "coverage_values": [
+      "SEARCHED",
+      "NOT_SEARCHED",
+      "NOT_AUTHORIZED",
+      "BLOCKED_TOOLING"
+    ],
+    "result_values": [
+      "MATCH",
+      "NO_MATCH",
+      "UNKNOWN"
+    ],
+    "final_routes": [
+      "ADOPT",
+      "ADAPT",
+      "REFERENCE_ONLY",
+      "BUILD_NEW",
+      "REUSE_SPIKE",
+      "NEEDS_DECISION"
+    ],
     "installation": "explicit-user-action-only"
   },
   "providers": [
@@ -21,7 +48,11 @@
         "{project}/.agents/skills/reuse-first",
         "{project}/.codex/skills/reuse-first"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Project-local reuse search guidance is unavailable.",
       "fallback": "Use the portable local reuse check; install only as a separate user action."
@@ -36,7 +67,11 @@
         "{project}/.agents/skills/framework-first-coding",
         "{project}/.codex/skills/framework-first-coding"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Framework and ecosystem reuse guidance is unavailable.",
       "fallback": "Inspect declared frameworks, SDKs, and dependencies manually; install only as a separate user action."
@@ -51,7 +86,11 @@
         "{project}/.agents/skills/reduce-reinvention",
         "{project}/.codex/skills/reduce-reinvention"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "A dedicated Build-vs-Reuse trade-off checklist is unavailable.",
       "fallback": "Use the portable candidate and maintenance checklist; install only as a separate user action."
@@ -66,7 +105,11 @@
         "{project}/.agents/skills/find-skills",
         "{project}/.codex/skills/find-skills"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Installed or public Agent Skill discovery guidance is unavailable.",
       "fallback": "Record a bounded Skill inventory manually; discovery never installs a Skill."
@@ -81,7 +124,11 @@
         "{project}/.agents/skills/repo-to-skill",
         "{project}/.codex/skills/repo-to-skill"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Repository-to-Skill follow-up guidance is unavailable.",
       "fallback": "Do not convert a repository; create a separately authorized follow-up task first."
@@ -102,7 +149,9 @@
     {
       "id": "project-directory-access",
       "kind": "directory",
-      "paths": ["{project}"],
+      "paths": [
+        "{project}"
+      ],
       "required": true,
       "impact": "The project working set and evidence cannot be persisted.",
       "fallback": "Ask the user to provide a writable project directory before continuing."
@@ -138,7 +187,11 @@
         "{project}/.codex/skills/brainstorming",
         "{project}/.claude/skills/brainstorming"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Native planning, TDD, debugging, review, and verification helpers are unavailable.",
       "fallback": "Use the portable Charter Kit checklists."
@@ -152,7 +205,11 @@
         "{project}/.agents/skills/j-space",
         "{project}/.codex/skills/j-space"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Native long-task ledger, seam refresh, and resume support are unavailable.",
       "fallback": "Use .charter/handoff.md and the task ledger sections."
@@ -170,7 +227,11 @@
         "{project}/.codex/skills/grill-me",
         "{project}/.codex/skills/grilling"
       ],
-      "markers": ["SKILL.md", ".codex-plugin/plugin.json", "plugin.json"],
+      "markers": [
+        "SKILL.md",
+        ".codex-plugin/plugin.json",
+        "plugin.json"
+      ],
       "required": false,
       "impact": "Interactive provider-backed questioning is unavailable during intent clarification.",
       "fallback": "Use the bundled design-interview checklist and record FALLBACK."
@@ -195,6 +256,15 @@
       "impact": "A fresh reviewer or independent process cannot be confirmed by a local file probe.",
       "fallback": "When independent review is not triggered, record a bounded omission reason. When triggered but unavailable, record BLOCKED_TOOLING or obtain an explicit user waiver.",
       "action": "if triggered, remain BLOCKED_TOOLING until a fresh reviewer is available or an explicit user waiver with limitation and expiry is recorded"
+    },
+    {
+      "id": "subagent",
+      "kind": "capability",
+      "probe": "unverified",
+      "required": false,
+      "impact": "Fresh-context Review A (and a distinct fresh Review B) cannot be confirmed by a local file probe; the host Task/Agent tool must be tried at review time.",
+      "fallback": "At review time, dispatch a fresh subagent when the host provides one; otherwise run Review A in the same context and record FALLBACK naming the lost independence. Never rename a self-review as fresh.",
+      "action": "Review A proceeds as same-context FALLBACK when no subagent is available; Review B, when triggered, remains BLOCKED_TOOLING until a fresh reviewer exists or the user approves a bounded waiver"
     }
   ]
 }
