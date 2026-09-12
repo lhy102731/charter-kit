@@ -65,11 +65,12 @@ class DshClientCardTest(unittest.TestCase):
         )
         self.assertIsNotNone(line, "the bundle declares no exports.inject")
         declared = re.findall(r"'([^']*)'", line)
-        self.assertIn("remote", declared, line)
-        # The property path is not a service name, so it does not satisfy the
-        # requirement above; keeping it is harmless, replacing `remote` with it
-        # is not.
-        self.assertNotIn("remote.session", [name for name in declared if "." not in name], line)
+        # The whole list, not just the presence of `remote`: this is the value
+        # live testing proved sufficient, so any edit to it -- a dropped
+        # service, an added one, a reordering -- is a deliberate act that has
+        # to come back through this assertion. A presence check would let a
+        # differently-wrong list through.
+        self.assertEqual(declared, ['slots', 'settingsScope', 'remote', 'remote.session', 'locale'], line)
 
 
 if __name__ == "__main__":
