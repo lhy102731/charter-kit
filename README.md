@@ -243,6 +243,8 @@ dev_inject_plugin <repo>/plugins/dsh-charter-kit
 dev_install_package <repo>/plugins/dsh-charter-kit
 ```
 
+The plugin also registers the host settings namespace `charter-kit-review` and the `charter_review` tool. That namespace is the key of the card on the plugin-configuration page: Review A and Review B each pick one of the models this deployment has configured, and an unset pick follows the current session model. The tool runs one context-free review with the configured model and reports the route it used, or `inherited` when it followed the session model; when a configured route is unavailable it still completes the review on the session model and names the route it could not use in `routeFallbackReason`. A missing `charter_review` tool, or a route that went unused, is not a loss of review independence: independence and model routing are recorded on two separate axes.
+
 ### Target status
 
 Claude Code and Codex are the targets in this repository with verified installation and startup smoke-test evidence. DSH and any future Gemini or other Harness adapter remain `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim for an unverified target.
