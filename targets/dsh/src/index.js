@@ -19,6 +19,13 @@ const REVIEW_SETTINGS_SCHEMA = z.object({
   reviewBModel: z.string().default(''),
 })
 
+/**
+ * Composition entry for the review namespace: the base layer under the user's
+ * stored overrides, and the value the settings provider restores should it
+ * detach. It is deliberately not a reader fallback — `installSection` binds the
+ * reader synchronously, so this object is only ever reached through the
+ * provider that owns the namespace.
+ */
 const REVIEW_SETTINGS_DEFAULTS = {
   reviewAProvider: '',
   reviewAModel: '',
@@ -114,23 +121,16 @@ function parseFrontmatter(text) {
 }
 
 export const name = 'dsh-charter-kit'
-export const inject = ['skills', 'tools', 'settings', 'subagents']
+// Registering the Skill is unconditional. A plugin whose fiber waits on a
+// missing injected service never runs at all, so naming `tools`, `settings`, or
+// `subagents` here would withhold `charter-workflow` from every deployment that
+// lacks one of them — a host without those services has to behave exactly as it
+// did before this feature. The tool half waits for its own services in the
+// optional scope inside `apply` instead.
+export const inject = ['skills']
 
 export function apply(ctx) {
   const skill = parseFrontmatter(readFileSync(SKILL_FILE, 'utf8'))
-
-  let reviewSettings = () => REVIEW_SETTINGS_DEFAULTS
-  ctx.settings.installSection(
-    ctx,
-    REVIEW_SETTINGS_NAMESPACE,
-    REVIEW_SETTINGS_SCHEMA,
-    REVIEW_SETTINGS_DEFAULTS,
-    {
-      setSource: (source) => { reviewSettings = source },
-      validate: () => {},
-      onChange: () => {},
-    },
-  )
 
   // No handler-style slash command is registered. A typed line such as
   // `/charter-workflow <requirement>` therefore reaches the model as an
@@ -146,121 +146,177 @@ export function apply(ctx) {
     content: skill.body,
   }), 'charter-kit: skill')
 
-  ctx.tools.register(defineTool({
-    name: 'charter_review',
-    description: 'Run one context-free Charter Kit review with the model configured for that review kind. '
-      + 'Use kind "A" for every leaf\'s contract and implementation coverage review, and kind "B" for the '
-      + 'adversarial review required by a hit RVB trigger. The reviewer receives only the brief you pass — '
-      + 'never the session history — and the returned model names the route it used, or `inherited` '
-      + 'when it followed the session model.',
-    parameters: {
-      kind: {
-        type: 'string',
-        required: true,
-        description: 'Review kind: "A" for coverage review, "B" for the RVB-triggered adversarial review.',
+  // The settings namespace and the review tool need three further services.
+  // Registering them here, behind the platform's optional idiom, means a host
+  // that provides those services gets both exactly as before while a host that
+  // provides none of them still gets the Skill above.
+  ctx.inject(['tools', 'settings', 'subagents'], (scope) => {
+    // `installSection` calls `setSource` synchronously, so this reader is bound
+    // before the tool registered below can possibly execute.
+    let readReviewSettings
+    scope.settings.installSection(
+      ctx,
+      REVIEW_SETTINGS_NAMESPACE,
+      REVIEW_SETTINGS_SCHEMA,
+      REVIEW_SETTINGS_DEFAULTS,
+      {
+        setSource: (source) => { readReviewSettings = source },
+        validate: () => {},
+        onChange: () => {},
       },
-      brief: {
-        type: 'string',
-        required: true,
-        description: 'Self-contained review brief: the leaf contract, the spec, and the candidate diff. '
-          + 'The reviewer sees nothing else, so never include session history.',
-      },
-    },
-    output: {
-      schema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          outcome: { type: 'string', required: true },
-          model: { type: 'string', required: true },
-          routeFallbackReason: { type: 'string' },
-          review: { type: 'string', required: true },
+    )
+
+    scope.tools.register(defineTool({
+      name: 'charter_review',
+      description: 'Run one context-free Charter Kit review with the model configured for that review kind. '
+        + 'Use kind "A" for every leaf\'s contract and implementation coverage review, and kind "B" for the '
+        + 'adversarial review required by a hit RVB trigger. The reviewer receives only the brief you pass — '
+        + 'never the session history — and the returned model names the route it used, or `inherited` '
+        + 'when it followed the session model.',
+      parameters: {
+        kind: {
+          type: 'string',
+          required: true,
+          // The declared enum is the gate. Review B is the required review for
+          // security, public-API, and irreversible changes, so a caller that
+          // asked for B has to be refused rather than handed a coverage review.
+          enum: ['A', 'B'],
+          description: 'Review kind: "A" for coverage review, "B" for the RVB-triggered adversarial review.',
+        },
+        brief: {
+          type: 'string',
+          required: true,
+          description: 'Self-contained review brief: the leaf contract, the spec, and the candidate diff. '
+            + 'The reviewer sees nothing else, so never include session history.',
         },
       },
-      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
-    },
-    async execute(args, exec) {
-      const kind = args.kind === 'B' ? 'B' : 'A'
-      const configured = reviewRoute(reviewSettings(), kind)
-      const parent = exec.agent
-      const providerName = pickSubagentProvider(ctx)
-      const prompt = [{ type: 'text', text: args.brief }]
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            outcome: { type: 'string', required: true },
+            model: { type: 'string', required: true },
+            routeFallbackReason: { type: 'string' },
+            review: { type: 'string', required: true },
+          },
+        },
+        render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+      },
+      async execute(args, exec) {
+        // The declared enum above refuses any other value before this point, so
+        // this default only covers a value that never reached that validation.
+        const kind = args.kind === 'B' ? 'B' : 'A'
+        const configured = reviewRoute(readReviewSettings(), kind)
+        const parent = exec.agent
+        const providerName = pickSubagentProvider(scope)
+        const prompt = [{ type: 'text', text: args.brief }]
 
-      const runOnce = async (agentOptions) => {
-        const run = await ctx.subagents.start(providerName, {
-          prompt,
-          parent,
-          signal: exec.signal,
-          ...(agentOptions === null ? {} : { agentOptions }),
-        })
-        try {
-          return classifyRun(await run.result)
-        } finally {
-          await run.dispose()
+        /** Read one throwable's message for a failure detail. */
+        const messageOf = (error) => (error instanceof Error ? error.message : String(error))
+
+        /**
+         * Run one review attempt through the host's delegation path.
+         *
+         * Every call site goes through this one wrapper, so dispatch,
+         * classification, disposal, and error mapping exist once: an attempt
+         * that cannot be dispatched, cannot settle, or cannot be released is a
+         * failure this returns, never a throw `execute` would leak as a raw
+         * tool rejection.
+         * @param agentOptions - the child's route, or null to inherit.
+         * @returns the classified attempt; `failure` is null when it reviewed.
+         */
+        const runReview = async (agentOptions) => {
+          let run
+          try {
+            run = await scope.subagents.start(providerName, {
+              prompt,
+              parent,
+              signal: exec.signal,
+              ...(agentOptions === null ? {} : { agentOptions }),
+            })
+          } catch (error) {
+            return { review: '', failure: messageOf(error) }
+          }
+          let attempt
+          let disposal
+          try {
+            attempt = classifyRun(await run.result)
+          } catch (error) {
+            attempt = { review: '', failure: messageOf(error) }
+          } finally {
+            try {
+              await run.dispose()
+            } catch (error) {
+              // A child this tool could not release is reported as the
+              // attempt's failure instead of escaping `execute`.
+              disposal = { review: '', failure: `child disposal failed: ${messageOf(error)}` }
+            }
+          }
+          // A teardown that failed outweighs the attempt it could not release.
+          return disposal ?? attempt
         }
-      }
 
-      // A configured route that produced no review is re-run on the session
-      // model. When that second run fails too there is no review to report, so
-      // the tool says `unavailable` instead of returning a success shape with
-      // empty text.
-      const fallback = async (reason) => {
-        const attempt = await runOnce(null)
-        if (attempt.failure !== null) {
+        // A configured route that produced no review is re-run on the session
+        // model. When that second run fails too there is no review to report, so
+        // the tool says `unavailable` instead of returning a success shape with
+        // empty text.
+        const fallback = async (reason) => {
+          const attempt = await runReview(null)
+          if (attempt.failure !== null) {
+            return {
+              outcome: 'unavailable',
+              model: 'inherited',
+              review: '',
+              routeFallbackReason: `${reason}; the session-model rerun also failed: ${attempt.failure}`,
+            }
+          }
+          return {
+            outcome: 'fallback',
+            model: 'inherited',
+            review: attempt.review,
+            routeFallbackReason: reason,
+          }
+        }
+
+        if (parent === undefined || providerName === undefined) {
           return {
             outcome: 'unavailable',
             model: 'inherited',
             review: '',
-            routeFallbackReason: `${reason}; the session-model rerun also failed: ${attempt.failure}`,
+            routeFallbackReason: parent === undefined
+              ? 'no calling agent'
+              : 'no unambiguous subagent provider',
           }
         }
-        return {
-          outcome: 'fallback',
-          model: 'inherited',
-          review: attempt.review,
-          routeFallbackReason: reason,
-        }
-      }
 
-      if (parent === undefined || providerName === undefined) {
-        return {
-          outcome: 'unavailable',
-          model: 'inherited',
-          review: '',
-          routeFallbackReason: parent === undefined
-            ? 'no calling agent'
-            : 'no unambiguous subagent provider',
+        if (configured === null) {
+          const attempt = await runReview(null)
+          if (attempt.failure !== null) {
+            return {
+              outcome: 'unavailable',
+              model: 'inherited',
+              review: '',
+              routeFallbackReason: `session model: ${attempt.failure}`,
+            }
+          }
+          return { outcome: 'reviewed', model: 'inherited', review: attempt.review }
         }
-      }
 
-      if (configured === null) {
-        const attempt = await runOnce(null)
+        const label = `${configured.provider}/${configured.model}`
+        const capable = scope.subagents.getProvider(providerName)?.capabilities?.agentOptions === true
+        if (!capable) {
+          return fallback(`${label} not used: provider does not support child agent options`)
+        }
+        // The wrapper reports instead of throwing, so a rejected dispatch, a
+        // rejected result, and a failed teardown all reach the same fallback the
+        // configured path already had.
+        const attempt = await runReview(configured)
         if (attempt.failure !== null) {
-          return {
-            outcome: 'unavailable',
-            model: 'inherited',
-            review: '',
-            routeFallbackReason: `session model: ${attempt.failure}`,
-          }
+          return fallback(`${label} unavailable: ${attempt.failure}`)
         }
-        return { outcome: 'reviewed', model: 'inherited', review: attempt.review }
-      }
-
-      const label = `${configured.provider}/${configured.model}`
-      const capable = ctx.subagents.getProvider(providerName)?.capabilities?.agentOptions === true
-      if (!capable) {
-        return fallback(`${label} not used: provider does not support child agent options`)
-      }
-      let attempt
-      try {
-        attempt = await runOnce(configured)
-      } catch (error) {
-        return fallback(`${label} unavailable: ${error instanceof Error ? error.message : String(error)}`)
-      }
-      if (attempt.failure !== null) {
-        return fallback(`${label} unavailable: ${attempt.failure}`)
-      }
-      return { outcome: 'reviewed', model: label, review: attempt.review }
-    },
-  }))
+        return { outcome: 'reviewed', model: label, review: attempt.review }
+      },
+    }))
+  })
 }

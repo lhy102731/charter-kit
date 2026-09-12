@@ -2,8 +2,9 @@
 
 The card is a browser artifact, and the text-presence tests beside this file
 cannot regress it: they would keep passing if a write were wired to the wrong
-field pair, or if a write the Host refused were reported as saved. This test
-drives the real bundle through a dependency-free Node harness instead
+field pair, if a write the Host refused were reported as saved, or if a second
+selection inside one mirror round-trip were reported as failed. This test drives
+the real bundle through a dependency-free Node harness instead
 (``tests/dsh_client_card_harness.cjs``), and skips on machines without a Node
 runtime so the suite stays runnable without one.
 """
@@ -29,12 +30,15 @@ REQUIRED_BEHAVIOURS = (
     "an unserved stored route stays selectable for its own review",
     "review A selection writes only review A's field pair",
     "review B selection writes only review B's field pair",
+    "a write delegates its revision to the scope",
     "review B never offers review A's rescued route",
     "review A never offers review B's rescued route",
     "a landed write reports saved",
     "a refused write reports failure",
     "a transport rejection reports failure",
     "inherit reports saved once it lands",
+    "two selections in one round-trip both land",
+    "both of the round-trip selections are stored",
 )
 
 

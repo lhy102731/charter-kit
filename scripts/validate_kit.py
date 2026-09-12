@@ -191,12 +191,14 @@ DSH_TARGET_ROOT_RELATIVE = "targets/dsh"
 DSH_TARGET_PACKAGE_JSON_RELATIVE = "targets/dsh/package.json"
 DSH_TARGET_SRC_RELATIVE = "targets/dsh/src/index.js"
 DSH_TARGET_CLIENT_RELATIVE = "targets/dsh/client/client.js"
+DSH_TARGET_CLIENT_DIR_RELATIVE = "targets/dsh/client"
 DSH_TARGET_BUILD_SCRIPT_RELATIVE = "targets/dsh/scripts/build.sh"
 DSH_TARGET_README_RELATIVE = "targets/dsh/README.md"
 DSH_DISTRIBUTION_ROOT_RELATIVE = "plugins/dsh-charter-kit"
 DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE = "plugins/dsh-charter-kit/package.json"
 DSH_DISTRIBUTION_SRC_RELATIVE = "plugins/dsh-charter-kit/src/index.js"
 DSH_DISTRIBUTION_CLIENT_RELATIVE = "plugins/dsh-charter-kit/client/client.js"
+DSH_DISTRIBUTION_CLIENT_DIR_RELATIVE = "plugins/dsh-charter-kit/client"
 DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE = "plugins/dsh-charter-kit/scripts/build.sh"
 DSH_DISTRIBUTION_LIB_RELATIVE = "plugins/dsh-charter-kit/lib/index.js"
 DSH_DISTRIBUTION_SKILL_RELATIVE = "plugins/dsh-charter-kit/skills/charter-workflow"
@@ -302,10 +304,12 @@ REQUIRED_FILES = (
     "scripts/build_zcode_plugin.py",
     DSH_TARGET_PACKAGE_JSON_RELATIVE,
     DSH_TARGET_SRC_RELATIVE,
+    DSH_TARGET_CLIENT_RELATIVE,
     DSH_TARGET_BUILD_SCRIPT_RELATIVE,
     DSH_TARGET_README_RELATIVE,
     DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE,
     DSH_DISTRIBUTION_SRC_RELATIVE,
+    DSH_DISTRIBUTION_CLIENT_RELATIVE,
     DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
     DSH_DISTRIBUTION_LIB_RELATIVE,
     f"{DSH_DISTRIBUTION_SKILL_RELATIVE}/SKILL.md",
@@ -1323,10 +1327,14 @@ class Checker:
         )
         # The client bundle is the one file the Host loads from the distribution
         # rather than from the plugin entry, so a stale or absent copy is a card
-        # that silently stops rendering instead of a failed load.
-        self._compare_file_bytes(
-            DSH_TARGET_CLIENT_RELATIVE,
-            DSH_DISTRIBUTION_CLIENT_RELATIVE,
+        # that silently stops rendering instead of a failed load. The whole
+        # directory is compared rather than its entry file alone, because the
+        # manifest names a directory at load time: a nested asset the builder
+        # copies is part of what ships, and one present on a single side is drift
+        # this has to report.
+        self._compare_trees(
+            DSH_TARGET_CLIENT_DIR_RELATIVE,
+            DSH_DISTRIBUTION_CLIENT_DIR_RELATIVE,
             label="DSH target/distribution client bundle",
         )
         self._compare_file_bytes(

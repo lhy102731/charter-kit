@@ -30,7 +30,7 @@ class DshReviewToolTest(unittest.TestCase):
 
     def test_registers_charter_review_tool(self):
         self.assertIn("charter_review", self.text)
-        self.assertIn("ctx.tools.register", self.text)
+        self.assertIn("scope.tools.register", self.text)
 
     def test_tool_output_provides_render(self):
         # Spike finding: output without render fails after a successful execute.
@@ -38,11 +38,24 @@ class DshReviewToolTest(unittest.TestCase):
 
     def test_wires_model_override_through_agent_options(self):
         self.assertIn("agentOptions", self.text)
-        self.assertIn("ctx.subagents.start", self.text)
+        self.assertIn("scope.subagents.start", self.text)
 
-    def test_injects_required_services(self):
-        for service in ("'skills'", "'tools'", "'settings'", "'subagents'"):
-            self.assertIn(service, self.text)
+    def test_declares_only_the_skill_as_a_required_service(self):
+        # A missing injected service leaves this plugin's fiber pending, so the
+        # Skill registration must not depend on any other service: naming
+        # `tools`, `settings`, or `subagents` here withholds `charter-workflow`
+        # from a host that lacks one.
+        self.assertIn("export const inject = ['skills']", self.text)
+
+    def test_waits_for_the_tool_half_services_in_the_optional_idiom(self):
+        # The namespace and the tool need these three. `ctx.inject` waits for
+        # them without holding the Skill registration behind them.
+        self.assertIn("ctx.inject(['tools', 'settings', 'subagents'], (scope) => {", self.text)
+
+    def test_declares_the_kind_enum_so_a_bad_kind_cannot_run_review_a(self):
+        # Without the enum the tool read `kind: 'b'` as A, so a caller asking for
+        # the RVB-required adversarial review silently got a coverage review.
+        self.assertIn("enum: ['A', 'B']", self.text)
 
     def test_no_handler_style_slash_command(self):
         self.assertNotIn("ctx.commands.register", self.text)
@@ -88,6 +101,14 @@ class DshReviewToolFailureReportingTest(unittest.TestCase):
 
     def test_still_skips_a_route_the_provider_cannot_carry(self):
         self.assertIn("capabilities?.agentOptions === true", self.text)
+
+    def test_routes_every_attempt_through_one_guarded_wrapper(self):
+        # Dispatch, classification, disposal, and error mapping live in one
+        # place, so no call site — the configured one, the recovery rerun, or
+        # the capability skip — can leak a raw rejection out of `execute`.
+        self.assertIn("const runReview = async (agentOptions) => {", self.text)
+        self.assertEqual(self.text.count("await runReview("), 3)
+        self.assertNotIn("runOnce", self.text)
 
 
 if __name__ == "__main__":

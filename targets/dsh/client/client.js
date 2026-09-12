@@ -144,10 +144,17 @@ window.__ModuleLoader__.load({
         const provider = route === null ? '' : route.provider
         const model = route === null ? '' : route.model
         setStatus(t('saving'))
+        // The revision is deliberately NOT passed. The bound scope's controller
+        // resolves it itself (`expectedRevision ?? pendingRevision ?? snapshot
+        // revision`), and that `pendingRevision` is what lets two selections
+        // inside one mirror round-trip both land. Pinning the revision this card
+        // read makes the Host refuse the second write as a settings conflict,
+        // which the controller then recovers from by reloading — so the card
+        // reports a failed save for a write the user watches land.
         scope.mutate([
           { op: 'set', path: [providerField], value: provider },
           { op: 'set', path: [modelField], value: model },
-        ], snapshot.revision).then(
+        ]).then(
           // A settled write is not necessarily an accepted one: the Host is the
           // only authority on that, so read back what it actually stored.
           () => {

@@ -6,7 +6,8 @@
  * id, factory })`, then `factory(require)` — and drives the registered card
  * directly. It exists because the text-presence tests next to it cannot see
  * behaviour: they would keep passing if a write were wired to the wrong field
- * pair or if a refused write were reported as saved.
+ * pair, if a refused write were reported as saved, or if a second selection
+ * inside one mirror round-trip were reported as failed.
  *
  * Dependency-free by design (no jsdom, no node_modules): React is stubbed down
  * to the three hooks the card uses, the component function is called directly,
@@ -146,6 +147,7 @@ function statusText(tree) {
 // ------------------------------------------------------------- plugin context
 const dictionaries = {}
 const mutations = []
+const conflicts = []
 const listeners = new Set()
 let registration = null
 let registered = null
@@ -153,6 +155,8 @@ let boundSpec = null
 let snapshot = null
 let catalog = { ok: true, value: { groups: [] } }
 let writeOutcome = 'accept'
+let pendingRevision
+let writeQueue = Promise.resolve()
 
 const scope = {
   getSnapshot: () => snapshot,
@@ -160,10 +164,23 @@ const scope = {
     listeners.add(listener)
     return () => { listeners.delete(listener) }
   },
-  mutate: (ops, revision) => {
-    mutations.push({ ops: JSON.parse(JSON.stringify(ops)), revision })
+  // Models SettingsScopeController.mutate. Writes are serialized, each one
+  // resolves its own revision as `expectedRevision ?? pendingRevision ??
+  // snapshot.revision` AT THE MOMENT IT RUNS, and a Host refusal resolves the
+  // returned promise after the controller recovers its mirror — which is why
+  // the card must read back what landed instead of trusting the resolution.
+  mutate: (ops, expectedRevision) => {
+    mutations.push({ ops: JSON.parse(JSON.stringify(ops)), expectedRevision })
     if (writeOutcome === 'throw') return Promise.reject(new Error('transport down'))
-    if (writeOutcome === 'accept') {
+    const task = writeQueue.then(() => {
+      const revision = expectedRevision ?? pendingRevision ?? snapshot.revision
+      if (writeOutcome === 'refuse') return
+      if (revision !== snapshot.revision) {
+        // SETTINGS_CONFLICT: the namespace moved since the caller read it, so
+        // the Host refuses it and the controller reloads instead of storing.
+        conflicts.push(revision)
+        return
+      }
       // A miniature mirror: an accepted write folds into the user layer and the
       // resolved section, then subscribers are told.
       const user = Object.assign({}, snapshot.user)
@@ -173,11 +190,13 @@ const scope = {
         value[op.path[0]] = op.value
       }
       snapshot = Object.assign({}, snapshot, { user, value, revision: revision + 1 })
-    }
-    // 'refuse' models a Host rejection: SettingsScopeController.mutate recovers
-    // its mirror and RESOLVES, leaving the previously stored layer standing.
-    for (const listener of listeners) listener()
-    return Promise.resolve()
+      pendingRevision = revision + 1
+      for (const listener of listeners) listener()
+    })
+    // The queue tail stays fulfilled, so one refused write cannot strand the
+    // writes queued behind it.
+    writeQueue = task.catch(() => {})
+    return task
   },
 }
 
@@ -259,6 +278,8 @@ async function flush() {
 async function mount() {
   listeners.clear() // the previous card unmounted and unsubscribed
   hooks.reset() // this one mounts with no hook state carried over
+  pendingRevision = undefined // the controller reached quiescence between mounts
+  writeQueue = Promise.resolve()
   renderOnce() // effects run here; the catalogue load is kicked off
   await flush()
   return renderSettled()
@@ -268,6 +289,24 @@ async function choose(index, value) {
   const node = selects(renderSettled())[index]
   if (node === undefined) throw new Error(`the card rendered no select at index ${index}`)
   node.props.onChange({ target: { value } })
+  await flush()
+  return renderSettled()
+}
+
+/**
+ * Fire several selections in one round-trip, i.e. before the mirror advances.
+ * Two `choose` calls cannot model this: the await between them lets the first
+ * write land, so the second one reads a fresh revision either way.
+ * @param pairs - `[select index, option value]`, in the order the user picked.
+ * @returns the settled tree.
+ */
+async function chooseTogether(pairs) {
+  const nodes = selects(renderSettled())
+  for (const [index, value] of pairs) {
+    const node = nodes[index]
+    if (node === undefined) throw new Error(`the card rendered no select at index ${index}`)
+    node.props.onChange({ target: { value } })
+  }
   await flush()
   return renderSettled()
 }
@@ -322,15 +361,20 @@ async function main() {
     ]),
     selects(tree).map(optionTexts))
 
-  // 3. A selection in review A's select writes A's pair, and only A's pair.
+  // 3. A selection in review A's select writes A's pair, and only A's pair. The
+  //    revision is the scope's business, not the card's: a card that pins the
+  //    revision it read makes the Host refuse the second of two quick
+  //    selections, which scenario 11 covers.
   mutations.length = 0
+  conflicts.length = 0
   writeOutcome = 'accept'
   tree = await choose(0, ENCODE('openai', 'gpt'))
   check("review A selection writes only review A's field pair",
     mutations.length === 1 && mutations[0].ops.length === 2
     && JSON.stringify(mutations[0].ops) === asSet(['reviewAProvider', 'openai'], ['reviewAModel', 'gpt']),
     mutations)
-  check('review A selection carries the revision it read', mutations[0].revision === 10, mutations[0].revision)
+  check('a write delegates its revision to the scope',
+    mutations[0].expectedRevision === undefined, mutations[0].expectedRevision)
 
   // 4. A selection in review B's select writes B's pair, and only B's pair.
   mutations.length = 0
@@ -400,6 +444,33 @@ async function main() {
     JSON.stringify(mutations[0].ops) === asSet(['reviewAProvider', ''], ['reviewAModel', '']),
     mutations)
   check('inherit reports saved once it lands', statusText(tree) === 'Saved', statusText(tree))
+
+  // 11. The regression this harness exists for, mirrored into the settings
+  //     round-trip: two selections made before the mirror advances must both
+  //     land. A card that sends the revision it read pins the same revision on
+  //     both, the Host refuses the second as a settings conflict, and the user
+  //     is told "Save failed" for a write they watched land.
+  mutations.length = 0
+  conflicts.length = 0
+  writeOutcome = 'accept'
+  snapshot = ready(VALUE(), 40)
+  tree = await mount()
+  tree = await chooseTogether([
+    [0, ENCODE('openai', 'gpt')],
+    [1, ENCODE('anthropic', 'sonnet')],
+  ])
+  check('two selections in one round-trip both land',
+    mutations.length === 2 && conflicts.length === 0 && statusText(tree) === 'Saved',
+    {
+      writes: mutations.length,
+      conflicts,
+      pinnedRevisions: mutations.map((mutation) => mutation.expectedRevision),
+      status: statusText(tree),
+    })
+  check('both of the round-trip selections are stored',
+    selects(tree)[0].props.value === ENCODE('openai', 'gpt')
+    && selects(tree)[1].props.value === ENCODE('anthropic', 'sonnet'),
+    selects(tree).map((node) => node.props.value))
 
   console.log(failures === 0 ? 'HARNESS: ALL PASS' : `HARNESS: ${failures} FAILURE(S)`)
   process.exitCode = failures === 0 ? 0 : 1
