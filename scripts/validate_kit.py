@@ -190,11 +190,13 @@ REVIEW_B_STALE_PROSE = (
 DSH_TARGET_ROOT_RELATIVE = "targets/dsh"
 DSH_TARGET_PACKAGE_JSON_RELATIVE = "targets/dsh/package.json"
 DSH_TARGET_SRC_RELATIVE = "targets/dsh/src/index.js"
+DSH_TARGET_CLIENT_RELATIVE = "targets/dsh/client/client.js"
 DSH_TARGET_BUILD_SCRIPT_RELATIVE = "targets/dsh/scripts/build.sh"
 DSH_TARGET_README_RELATIVE = "targets/dsh/README.md"
 DSH_DISTRIBUTION_ROOT_RELATIVE = "plugins/dsh-charter-kit"
 DSH_DISTRIBUTION_PACKAGE_JSON_RELATIVE = "plugins/dsh-charter-kit/package.json"
 DSH_DISTRIBUTION_SRC_RELATIVE = "plugins/dsh-charter-kit/src/index.js"
+DSH_DISTRIBUTION_CLIENT_RELATIVE = "plugins/dsh-charter-kit/client/client.js"
 DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE = "plugins/dsh-charter-kit/scripts/build.sh"
 DSH_DISTRIBUTION_LIB_RELATIVE = "plugins/dsh-charter-kit/lib/index.js"
 DSH_DISTRIBUTION_SKILL_RELATIVE = "plugins/dsh-charter-kit/skills/charter-workflow"
@@ -1319,6 +1321,14 @@ class Checker:
             DSH_DISTRIBUTION_SRC_RELATIVE,
             label="DSH target/distribution src",
         )
+        # The client bundle is the one file the Host loads from the distribution
+        # rather than from the plugin entry, so a stale or absent copy is a card
+        # that silently stops rendering instead of a failed load.
+        self._compare_file_bytes(
+            DSH_TARGET_CLIENT_RELATIVE,
+            DSH_DISTRIBUTION_CLIENT_RELATIVE,
+            label="DSH target/distribution client bundle",
+        )
         self._compare_file_bytes(
             DSH_TARGET_BUILD_SCRIPT_RELATIVE,
             DSH_DISTRIBUTION_BUILD_SCRIPT_RELATIVE,
@@ -1331,7 +1341,7 @@ class Checker:
 
             expected_top_level = {
                 Path(item).parts[0] for item in DISTRIBUTION_ROOT_ITEMS
-            } | {"package.json", "lib", "src", "scripts", "skills", GENERATED_MARKER_NAME}
+            } | {"package.json", "lib", "src", "scripts", "skills", "client", GENERATED_MARKER_NAME}
             for child in distribution_root.iterdir():
                 if child.name not in expected_top_level:
                     self.errors.append(

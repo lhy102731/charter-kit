@@ -31,6 +31,14 @@ class DshTargetTest(unittest.TestCase):
         distributed = (ROOT / "plugins/dsh-charter-kit/src/index.js").read_bytes()
         self.assertEqual(source, distributed)
 
+    def test_distribution_ships_the_client_bundle(self):
+        self.assertTrue((ROOT / "plugins/dsh-charter-kit/client/client.js").is_file())
+
+    def test_distribution_client_matches_target(self):
+        source = (ROOT / "targets/dsh/client/client.js").read_bytes()
+        distributed = (ROOT / "plugins/dsh-charter-kit/client/client.js").read_bytes()
+        self.assertEqual(source, distributed)
+
 
 if __name__ == "__main__":
     unittest.main()
