@@ -29,7 +29,7 @@ is the map. It documents the current behavior; it does not change it.
 | `DEVELOPMENT_CHARTER.md`, `DEPENDENCIES.md`, `dependencies.json`, `scripts/check_dependencies.py`, `scripts/init_project.py` | Canonical root core files. `MIRRORS` in `scripts/validate_kit.py` requires each to equal its copy under `skills/charter-workflow/`. |
 | `targets/codex/` | Codex adapter source: `.codex-plugin/plugin.json` plus a self-contained `skills/charter-workflow/` tree. |
 | `targets/zcode/` | ZCode adapter source: `.zcode-plugin/plugin.json`, `commands/charter-workflow.md`, and its own self-contained `skills/charter-workflow/` tree. |
-| `targets/dsh/` | DSH adapter source: `package.json`, `src/`, `build.sh`, `README.md`. It carries no skill tree of its own. |
+| `targets/dsh/` | DSH adapter source: `package.json`, `src/`, `client/`, `build.sh`, `README.md`. It carries no skill tree of its own. |
 
 A file that exists in more than one of these places must be edited in every one
 of them in the same change. `SKILL.md` has three hand-edited copies (root and
@@ -51,7 +51,8 @@ zcode   targets/zcode/{.zcode-plugin,commands,skills} ─> plugins/zcode-charter
         (no writeback)
 
 dsh     root skills/charter-workflow  ─┐
-        targets/dsh/                  ─┴─> plugins/dsh-charter-kit/
+        targets/dsh/                  ─┼─> plugins/dsh-charter-kit/
+        targets/dsh/client/           ─┘
 ```
 
 - Codex: `scripts/build_codex_plugin.py` reads `TARGET_SKILL_RELATIVE`, stages

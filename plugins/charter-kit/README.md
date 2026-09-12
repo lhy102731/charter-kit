@@ -105,6 +105,8 @@ dev_inject_plugin <repo>/plugins/dsh-charter-kit
 dev_install_package <repo>/plugins/dsh-charter-kit
 ```
 
+该插件还注册宿主设置命名空间 `charter-kit-review` 与 `charter_review` 工具。该命名空间是「插件配置」页上那张卡片的 key：Review A 与 Review B 各自选择一个本部署已配置的模型，留空则跟随当前会话模型。工具用配置的模型执行一次无上下文评审，并返回实际运行的模型；配置的路由不可用时仍然完成评审、回退到会话模型，并在 `routeFallbackReason` 中写明未能使用的那条路由。缺少 `charter_review` 工具、或某条路由没被用上，都不等于失去评审独立性：评审独立性与模型路由是两条分开记录的轴。
+
 ### 目标状态
 
 Claude Code 和 Codex 是当前仓库经过安装与启动 smoke test 验证的目标。DSH 和其他 Harness 目录在完成真实宿主验证前仍标记为 `experimental` / `unverified`，本仓库不会为未验证目标提供正式安装承诺。
