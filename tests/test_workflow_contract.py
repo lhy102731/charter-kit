@@ -449,6 +449,15 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn("Record the observed event kind and route", text)
             self.assertIn("New requirement must not silently expand the current Leaf", text)
 
+    def test_skill_names_the_host_review_tool_conditionally(self) -> None:
+        for relative in (
+            "skills/charter-workflow/SKILL.md",
+            "targets/codex/skills/charter-workflow/SKILL.md",
+            "targets/zcode/skills/charter-workflow/SKILL.md",
+        ):
+            text = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+            self.assertIn("charter_review", text, relative)
+            self.assertIn("REVIEW_MODEL", text, relative)
 
 
 if __name__ == "__main__":
