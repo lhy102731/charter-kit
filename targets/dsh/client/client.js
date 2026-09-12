@@ -69,6 +69,28 @@ window.__ModuleLoader__.load({
       return { provider: value[providerField], model: value[modelField] }
     }
 
+    /**
+     * Decide whether a queued write actually landed.
+     *
+     * `scope.mutate` RESOLVES when the Host refuses a write — the controller
+     * recovers its mirror and returns — so resolution alone is not success. The
+     * stored user layer is: an accepted write is folded back into it, while a
+     * refused one leaves the previously stored value standing. This is the same
+     * read-back the shell's own plugin cards perform (ui-settings-plugins'
+     * card-form `store()`, which decides `failed` from `landed`).
+     * @param scope - the bound namespace scope the write went through.
+     * @param providerField - provider field the write addressed.
+     * @param modelField - model field the write addressed.
+     * @param provider - provider value the write intended.
+     * @param model - model value the write intended.
+     * @returns whether the user layer now holds both intended values.
+     */
+    function writeLanded(scope, providerField, modelField, provider, model) {
+      const user = scope.getSnapshot().user
+      if (user === null || typeof user !== 'object') return false
+      return user[providerField] === provider && user[modelField] === model
+    }
+
     function ReviewModelCard(props) {
       const { scope, loadCatalog, t } = props
       const [snapshot, setSnapshot] = React.useState(() => scope.getSnapshot())
@@ -104,22 +126,33 @@ window.__ModuleLoader__.load({
           options.push(h('option', { key, value: key }, `${model.name} — ${group.name}`))
         }
       }
-      for (const route of [routeA, routeB]) {
-        if (route === null) continue
+      // Each review gets its own choices. The catalogue portion is shared, but
+      // a route the catalogue no longer serves is offered only under the review
+      // that still stores it, so neither dropdown can be pointed at the other
+      // review's route.
+      const optionsFor = (route) => {
+        if (route === null) return options
         const key = optionValue(route)
-        if (seen.has(key)) continue
-        seen.add(key)
-        options.push(h('option', { key, value: key }, `${route.provider}/${route.model} — ${t('unavailable')}`))
+        if (seen.has(key)) return options
+        return options.concat([
+          h('option', { key, value: key }, `${route.provider}/${route.model} — ${t('unavailable')}`),
+        ])
       }
 
       const write = (providerField, modelField, selected) => {
         const route = parseOptionValue(selected)
+        const provider = route === null ? '' : route.provider
+        const model = route === null ? '' : route.model
         setStatus(t('saving'))
         scope.mutate([
-          { op: 'set', path: [providerField], value: route === null ? '' : route.provider },
-          { op: 'set', path: [modelField], value: route === null ? '' : route.model },
+          { op: 'set', path: [providerField], value: provider },
+          { op: 'set', path: [modelField], value: model },
         ], snapshot.revision).then(
-          () => { setStatus(t('saved')) },
+          // A settled write is not necessarily an accepted one: the Host is the
+          // only authority on that, so read back what it actually stored.
+          () => {
+            setStatus(writeLanded(scope, providerField, modelField, provider, model) ? t('saved') : t('failed'))
+          },
           () => { setStatus(t('failed')) },
         )
       }
@@ -133,7 +166,7 @@ window.__ModuleLoader__.load({
           value: optionValue(route),
           disabled: !writable,
           onChange: (event) => { write(providerField, modelField, event.target.value) },
-        }, options),
+        }, optionsFor(route)),
       )
 
       const sameModel = routeA !== null && routeB !== null
