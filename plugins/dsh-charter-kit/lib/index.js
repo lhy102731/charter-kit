@@ -62,6 +62,36 @@ function outputText(result) {
     .trim()
 }
 
+/**
+ * The stop reason a child reports after finishing its turn normally. Every
+ * other value means the run ended without a review. A child that fails without
+ * throwing resolves with one of those values, so the caller has to read this
+ * field: the result promise does not reject on a child-level failure.
+ * @see SubagentStopReasonMap in the DSH subagent types.
+ */
+const COMPLETED_STOP_REASON = 'completed'
+
+/**
+ * Classify one settled child run as a review or a failure.
+ * @param result - settled SubagentResult.
+ * @returns the review text with `failure: null` when the child completed with
+ *   text, else the same review text with a non-empty failure detail carrying
+ *   the provider's diagnostic whenever the provider supplied one.
+ */
+function classifyRun(result) {
+  const review = outputText(result)
+  const stopReason = result.stopReason
+  const diagnostic = typeof result.diagnostic === 'string' ? result.diagnostic.trim() : ''
+  const detail = diagnostic === '' ? '' : `: ${diagnostic}`
+  if (stopReason !== COMPLETED_STOP_REASON) {
+    return { review, failure: `child stopped with stopReason "${stopReason}"${detail}` }
+  }
+  if (review === '') {
+    return { review, failure: `child completed with an empty review${detail}` }
+  }
+  return { review, failure: null }
+}
+
 function parseFrontmatter(text) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text)
   if (!match) return { description: 'Charter Kit development workflow', body: text.trimEnd() + '\n' }
@@ -164,9 +194,31 @@ export function apply(ctx) {
           ...(agentOptions === null ? {} : { agentOptions }),
         })
         try {
-          return await run.result
+          return classifyRun(await run.result)
         } finally {
           await run.dispose()
+        }
+      }
+
+      // A configured route that produced no review is re-run on the session
+      // model. When that second run fails too there is no review to report, so
+      // the tool says `unavailable` instead of returning a success shape with
+      // empty text.
+      const fallback = async (reason) => {
+        const attempt = await runOnce(null)
+        if (attempt.failure !== null) {
+          return {
+            outcome: 'unavailable',
+            model: 'inherited',
+            review: '',
+            routeFallbackReason: `${reason}; the session-model rerun also failed: ${attempt.failure}`,
+          }
+        }
+        return {
+          outcome: 'fallback',
+          model: 'inherited',
+          review: attempt.review,
+          routeFallbackReason: reason,
         }
       }
 
@@ -182,29 +234,33 @@ export function apply(ctx) {
       }
 
       if (configured === null) {
-        return { outcome: 'reviewed', model: 'inherited', review: outputText(await runOnce(null)) }
+        const attempt = await runOnce(null)
+        if (attempt.failure !== null) {
+          return {
+            outcome: 'unavailable',
+            model: 'inherited',
+            review: '',
+            routeFallbackReason: `session model: ${attempt.failure}`,
+          }
+        }
+        return { outcome: 'reviewed', model: 'inherited', review: attempt.review }
       }
 
       const label = `${configured.provider}/${configured.model}`
       const capable = ctx.subagents.getProvider(providerName)?.capabilities?.agentOptions === true
       if (!capable) {
-        return {
-          outcome: 'fallback',
-          model: 'inherited',
-          review: outputText(await runOnce(null)),
-          routeFallbackReason: `${label} not used: provider does not support child agent options`,
-        }
+        return fallback(`${label} not used: provider does not support child agent options`)
       }
+      let attempt
       try {
-        return { outcome: 'reviewed', model: label, review: outputText(await runOnce(configured)) }
+        attempt = await runOnce(configured)
       } catch (error) {
-        return {
-          outcome: 'fallback',
-          model: 'inherited',
-          review: outputText(await runOnce(null)),
-          routeFallbackReason: `${label} unavailable: ${error instanceof Error ? error.message : String(error)}`,
-        }
+        return fallback(`${label} unavailable: ${error instanceof Error ? error.message : String(error)}`)
       }
+      if (attempt.failure !== null) {
+        return fallback(`${label} unavailable: ${attempt.failure}`)
+      }
+      return { outcome: 'reviewed', model: label, review: attempt.review }
     },
   }))
 }
