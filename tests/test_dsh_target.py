@@ -50,6 +50,17 @@ class DshTargetTest(unittest.TestCase):
         data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
         self.assertEqual(data["version"], "0.3.0")
 
+    def test_peer_dependencies_are_the_two_runtime_packages(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            set(data["peerDependencies"]),
+            {"@deepseek-ai/dsh-tools", "@deepseek-ai/schemastery"},
+        )
+
+    def test_files_include_the_client_bundle(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertIn("client", data["files"])
+
 
 if __name__ == "__main__":
     unittest.main()
