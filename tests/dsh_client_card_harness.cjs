@@ -238,9 +238,44 @@ const bundle = registration.factory((specifier) => {
   return React
 })
 
+// What this check can and cannot prove about `inject`.
+//
+// It proves the exported face carries the four platform services the card
+// reaches for — `ctx.slots`, `ctx.settingsScope`, `ctx.remote.session` and
+// `ctx.locale` — and that every dotted property path listed there also declares
+// its root as a service. `remote` must therefore be spelled as a bare service
+// name and not only as the property path `remote.session`: inject names are
+// service names, and a list that names no `remote` service makes the shell wait
+// for nothing, so the card never mounts.
+//
+// It CANNOT prove the card mounts. The shell's inject machinery is what turns
+// this list into a wait, and the harness never runs it: it hands `apply` a
+// hand-written `ctx` whose `remote` member is present unconditionally, so
+// deleting `remote` from the list would not change a single call below. Only
+// driving a live shell proves the mount. Live evidence lives under
+// .superpowers/sdd/2026-09-12-review-model-config/: probe-card4.json captured
+// ['slots', 'settingsScope', 'remote.session', 'locale'] at this line and found
+// no card after driving 设置 → 插件 → 插件配置 in headless Chromium
+// (ckCardPresent: false, no selects), while probe-card5 recorded the corrected
+// line and reported cardPresent: true with two selects, both read back and
+// saved. This check pins the value live testing identified as required; it is
+// not evidence that the card appears.
+//
+// The label is deliberately left as it was: the behaviour test beside this
+// harness asserts that exact label, and inventing a new one would silently
+// oblige that test to list it.
+const REQUIRED_SERVICES = ['slots', 'settingsScope', 'remote', 'locale']
+const injectList = Array.isArray(bundle.inject) ? bundle.inject : []
 check('exports carry apply and inject',
-  typeof bundle.apply === 'function' && Array.isArray(bundle.inject),
-  { apply: typeof bundle.apply, inject: bundle.inject })
+  typeof bundle.apply === 'function'
+  && Array.isArray(bundle.inject)
+  && REQUIRED_SERVICES.every((service) => injectList.includes(service))
+  // `remote.session` is the path the card reads, so it must stay declared too.
+  && injectList.includes('remote.session')
+  // A dotted entry needs the root service declared beside it, or the value it
+  // walks is not there when the shell finally runs `apply`.
+  && injectList.filter((name) => name.includes('.')).every((path) => injectList.includes(path.split('.')[0])),
+  { apply: typeof bundle.apply, inject: bundle.inject, required: REQUIRED_SERVICES })
 
 bundle.apply(ctx)
 

@@ -209,7 +209,7 @@ window.__ModuleLoader__.load({
       '.ck-status{margin:0;font-size:12px;color:var(--dsw-alias-label-secondary,#666)}',
     ].join('')
 
-    exports.inject = ['slots', 'settingsScope', 'remote.session', 'locale']
+    exports.inject = ['slots', 'settingsScope', 'remote', 'remote.session', 'locale']
 
     exports.apply = function apply(ctx) {
       ctx.effect(
