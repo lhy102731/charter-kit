@@ -24,8 +24,9 @@ The plugin also registers the Host settings namespace `charter-kit-review` and
 the `charter_review` tool. The namespace keys a card in the DSH
 plugin-configuration page where Review A and Review B each pick a configured
 model; an unset pick follows the session model. The tool runs one context-free
-review with the configured model and reports the model that actually ran. When
-a configured route is unavailable the tool still reviews on the session model
-and names the route it could not use in `routeFallbackReason`. A missing
-`charter_review` tool or an unused route is not a loss of review independence:
-independence and model routing are recorded separately.
+review with the configured model and reports the route it used, or `inherited`
+when it followed the session model. When a configured route is unavailable the
+tool still reviews on the session model and names the route it could not use in
+`routeFallbackReason`. A missing `charter_review` tool or an unused route is not
+a loss of review independence: independence and model routing are recorded
+separately.

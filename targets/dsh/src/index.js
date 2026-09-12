@@ -121,7 +121,8 @@ export function apply(ctx) {
     description: 'Run one context-free Charter Kit review with the model configured for that review kind. '
       + 'Use kind "A" for every leaf\'s contract and implementation coverage review, and kind "B" for the '
       + 'adversarial review required by a hit RVB trigger. The reviewer receives only the brief you pass — '
-      + 'never the session history — and the returned model names the model that actually ran.',
+      + 'never the session history — and the returned model names the route it used, or `inherited` '
+      + 'when it followed the session model.',
     parameters: {
       kind: {
         type: 'string',
