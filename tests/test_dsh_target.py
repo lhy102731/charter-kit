@@ -39,6 +39,17 @@ class DshTargetTest(unittest.TestCase):
         distributed = (ROOT / "plugins/dsh-charter-kit/client/client.js").read_bytes()
         self.assertEqual(source, distributed)
 
+    def test_declares_the_client_bundle(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["exports"]["./client"], "./client/client.js")
+        client = data["dsh"]["client"]
+        self.assertEqual(client["platform"], "web")
+        self.assertIsInstance(client["inject"], list)
+
+    def test_target_version_is_0_3_0(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["version"], "0.3.0")
+
 
 if __name__ == "__main__":
     unittest.main()
