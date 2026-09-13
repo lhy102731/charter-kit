@@ -68,6 +68,56 @@ class DependencyDiagnosticTests(unittest.TestCase):
                     any(path.startswith("{home}/.agents/skills/") for path in paths),
                     f"{provider} dropped its shared agent-root path",
                 )
+                # Appended last, as one trailing block: an already-provisioned
+                # host resolves at its first `AVAILABLE` candidate, so a path
+                # inserted before, or after, the new block would change which
+                # location that host reports.
+                appended = [
+                    index
+                    for index, path in enumerate(paths)
+                    if path.startswith("{home}/.dsh/skills/")
+                ]
+                self.assertTrue(appended, f"{provider} declares no host skill root")
+                self.assertEqual(
+                    appended,
+                    list(range(appended[0], len(paths))),
+                    f"{provider}: host-skill-root paths must be appended last "
+                    "as one trailing block",
+                )
+
+        # Seven ids resolve by their own directory name, so the appended entry
+        # is exactly the last one.  superpowers and grill-me append member and
+        # alias directories after theirs, pinned separately below.
+        for provider in (
+            "j-space",
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        ):
+            with self.subTest(provider=provider, position="last"):
+                self.assertEqual(
+                    by_id[provider]["paths"][-1],
+                    f"{{home}}/.dsh/skills/{provider}",
+                )
+        with self.subTest(provider="superpowers", position="last three"):
+            self.assertEqual(
+                by_id["superpowers"]["paths"][-3:],
+                [
+                    "{home}/.dsh/skills/superpowers",
+                    "{home}/.dsh/skills/brainstorming",
+                    "{home}/.dsh/skills/test-driven-development",
+                ],
+            )
+        with self.subTest(provider="grill-me", position="last two"):
+            self.assertEqual(
+                by_id["grill-me"]["paths"][-2:],
+                [
+                    "{home}/.dsh/skills/grill-me",
+                    "{home}/.dsh/skills/grilling",
+                ],
+            )
 
         # That host keeps these two under their own skill names, so the literal
         # id directory alone would still report `MISSING` there.

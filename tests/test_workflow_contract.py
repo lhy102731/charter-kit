@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+
+# The trees a maintainer hand-edits for the reuse routing rule.  The guard
+# discovers its carriers inside them by content rather than listing them, so an
+# artifact added later is covered by the same assertions.
+CARRIER_TREES = ("portable", "targets", "skills")
+# The probe that only a decision-point routing rule can carry.
+REUSE_PROBE_COMMAND = (
+    "--optional reuse-first --optional find-skills "
+    "--optional framework-first-coding "
+    "--optional reduce-reinvention --json"
+)
 
 
 def read(relative: str) -> str:
@@ -489,6 +501,12 @@ class WorkflowContractTests(unittest.TestCase):
                 self.assertNotIn("when probed `AVAILABLE`", text)
                 self.assertIn("not from an earlier log", text)
                 self.assertIn("`AVAILABLE` in this probe", text)
+                # Which record is current: the run just executed, never a
+                # section the reader happened to find first.
+                self.assertIn("the last section", text)
+                self.assertIn("the one whose header timestamp is this run", text)
+                self.assertIn("stale exactly like an absent log", text)
+                self.assertIn("first matching line", text)
                 # Why the probe is taken here rather than read from the log.
                 self.assertIn("may be absent or stale", text)
                 self.assertIn("a stale log is indistinguishable", text)
@@ -500,50 +518,64 @@ class WorkflowContractTests(unittest.TestCase):
 
 
     def test_every_reuse_routing_artifact_probes_at_the_decision_point(self) -> None:
-        """No reuse-routing artifact may bind its branch to a log entry again.
+        """Guard the space, not a snapshot of it.
 
         `SKILL.md` was fixed first, but the record a leaf actually fills in is
         the reuse-discovery template, and every entry point repeats the routing
         rule. One surviving log-bound copy re-creates the defect this change
         exists to remove: the log may not exist yet, and because it is appended
-        to, its newest section may still predate the decision.
+        to, its newest section may still predate the decision. The carriers are
+        therefore discovered by content, so an artifact cannot evade the guard
+        merely by being absent from a hand-written list.
         """
 
-        for relative in (
-            "portable/templates/reuse-discovery.md",
-            "targets/codex/skills/charter-workflow/templates/reuse-discovery.md",
-            "targets/zcode/skills/charter-workflow/templates/reuse-discovery.md",
-            "skills/charter-workflow/templates/reuse-discovery.md",
-            "portable/commands/charter-workflow.md",
-            "targets/zcode/commands/charter-workflow.md",
-            "portable/prompts/generic-bootstrap.md",
-            "portable/prompts/codex-bootstrap.md",
-            "portable/prompts/claude-bootstrap.md",
-            "portable/prompts/gemini-bootstrap.md",
-            "portable/prompts/deepseek-bootstrap.md",
-        ):
+        carriers = sorted(
+            path
+            for tree in CARRIER_TREES
+            for path in (PACKAGE_ROOT / tree).rglob("*.md")
+            if REUSE_PROBE_COMMAND in path.read_text(encoding="utf-8")
+        )
+        # A discovery that silently found nothing would pass everything below.
+        self.assertGreaterEqual(
+            len(carriers), 12, f"carrier discovery found too few files: {carriers}"
+        )
+
+        for path in carriers:
+            relative = path.relative_to(PACKAGE_ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
             with self.subTest(relative=relative):
-                text = read(relative)
                 # Probe at the decision point, not from an earlier log.
                 self.assertIn("not from an earlier log", text)
-                self.assertIn(
-                    "--optional reuse-first --optional find-skills "
-                    "--optional framework-first-coding "
-                    "--optional reduce-reinvention --json",
-                    text,
-                )
-                # The record emitted by this run, never the exit code.
+                # Which record is current: the run just executed, identified by
+                # its own section, never "some section of the file".
+                self.assertIn("the last section", text)
+                self.assertIn("the one whose header timestamp is this run", text)
+                # Never the exit code: an absent optional provider still exits 0.
                 self.assertIn("never the exit code", text)
                 self.assertIn("still exits 0", text)
-                # An earlier section of the append-only log is stale.
-                self.assertIn("stale", text)
+                # An earlier section is stale, and grepping for the first match
+                # is exactly how a reader lands on it.
+                self.assertIn("stale exactly like an absent log", text)
+                self.assertIn("first matching line", text)
                 # The AVAILABLE-then-call-fails escape hatch.
                 self.assertIn(
                     "record `FALLBACK` naming the failure and continue", text
                 )
-                # Retired phrasings must not come back.
-                self.assertNotIn("as probed in `dependency-check.log`", text)
-                self.assertNotIn("When the probed status in", text)
+
+        # The retired phrasings, and the log-bound idioms generally, must not
+        # survive anywhere in the space - including in a reworded form.
+        for tree in CARRIER_TREES:
+            for path in (PACKAGE_ROOT / tree).rglob("*.md"):
+                relative = path.relative_to(PACKAGE_ROOT).as_posix()
+                text = path.read_text(encoding="utf-8")
+                with self.subTest(relative=relative):
+                    self.assertNotIn("as probed in `dependency-check.log`", text)
+                    self.assertNotIn("When the probed status in", text)
+                    if "reuse-first" in text:
+                        self.assertIsNone(
+                            re.search(r"(?i)probed status|as probed", text),
+                            f"{relative}: reuse routing is log-bound again",
+                        )
 
 
 if __name__ == "__main__":
