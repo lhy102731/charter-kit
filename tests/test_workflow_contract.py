@@ -460,5 +460,44 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn("REVIEW_MODEL", text, relative)
 
 
+    def test_provider_branches_bind_to_a_probe_taken_at_the_decision_point(self) -> None:
+        """A provider branch must read a probe taken now, not an earlier log.
+
+        The dependency log is written at the start of the session, while the
+        intent interview and the reuse discovery can run later.  In a real
+        project the reuse discovery ran on 2026-09-01 and the dependency check
+        first ran on 2026-09-03, so `AVAILABLE` had no truth value at the
+        decision point and the workflow silently took the portable path.
+        """
+
+        for relative in (
+            "skills/charter-workflow/SKILL.md",
+            "targets/codex/skills/charter-workflow/SKILL.md",
+            "targets/zcode/skills/charter-workflow/SKILL.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                # Step 3 probes for the interview provider at the interview.
+                self.assertIn("--optional grill-me --json", text)
+                # Step 6 probes every reuse-tier provider before routing.
+                self.assertIn(
+                    "--optional reuse-first --optional find-skills "
+                    "--optional framework-first-coding "
+                    "--optional reduce-reinvention --json",
+                    text,
+                )
+                self.assertNotIn("when probed `AVAILABLE`", text)
+                self.assertIn("not from an earlier log", text)
+                self.assertIn("`AVAILABLE` in this probe", text)
+                # Why the probe is taken here rather than read from the log.
+                self.assertIn("may be absent or stale", text)
+                self.assertIn("a stale log is indistinguishable", text)
+                # The emitted record, never the exit code: optional gaps exit 0.
+                self.assertIn("never the exit code", text)
+                self.assertIn("still exits 0", text)
+                # An installed-but-broken provider must not deadlock the leaf.
+                self.assertIn("record `FALLBACK` naming the failure and continue", text)
+
+
 if __name__ == "__main__":
     unittest.main()

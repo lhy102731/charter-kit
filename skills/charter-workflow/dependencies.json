@@ -46,7 +46,8 @@
         "{home}/.agents/skills/reuse-first",
         "{home}/.codex/skills/reuse-first",
         "{project}/.agents/skills/reuse-first",
-        "{project}/.codex/skills/reuse-first"
+        "{project}/.codex/skills/reuse-first",
+        "{home}/.dsh/skills/reuse-first"
       ],
       "markers": [
         "SKILL.md",
@@ -65,7 +66,8 @@
         "{home}/.agents/skills/framework-first-coding",
         "{home}/.codex/skills/framework-first-coding",
         "{project}/.agents/skills/framework-first-coding",
-        "{project}/.codex/skills/framework-first-coding"
+        "{project}/.codex/skills/framework-first-coding",
+        "{home}/.dsh/skills/framework-first-coding"
       ],
       "markers": [
         "SKILL.md",
@@ -84,7 +86,8 @@
         "{home}/.agents/skills/reduce-reinvention",
         "{home}/.codex/skills/reduce-reinvention",
         "{project}/.agents/skills/reduce-reinvention",
-        "{project}/.codex/skills/reduce-reinvention"
+        "{project}/.codex/skills/reduce-reinvention",
+        "{home}/.dsh/skills/reduce-reinvention"
       ],
       "markers": [
         "SKILL.md",
@@ -103,7 +106,8 @@
         "{home}/.agents/skills/find-skills",
         "{home}/.codex/skills/find-skills",
         "{project}/.agents/skills/find-skills",
-        "{project}/.codex/skills/find-skills"
+        "{project}/.codex/skills/find-skills",
+        "{home}/.dsh/skills/find-skills"
       ],
       "markers": [
         "SKILL.md",
@@ -122,7 +126,8 @@
         "{home}/.agents/skills/repo-to-skill",
         "{home}/.codex/skills/repo-to-skill",
         "{project}/.agents/skills/repo-to-skill",
-        "{project}/.codex/skills/repo-to-skill"
+        "{project}/.codex/skills/repo-to-skill",
+        "{home}/.dsh/skills/repo-to-skill"
       ],
       "markers": [
         "SKILL.md",
@@ -185,7 +190,10 @@
         "{home}/.claude/skills/brainstorming",
         "{project}/.agents/skills/brainstorming",
         "{project}/.codex/skills/brainstorming",
-        "{project}/.claude/skills/brainstorming"
+        "{project}/.claude/skills/brainstorming",
+        "{home}/.dsh/skills/superpowers",
+        "{home}/.dsh/skills/brainstorming",
+        "{home}/.dsh/skills/test-driven-development"
       ],
       "markers": [
         "SKILL.md",
@@ -203,7 +211,8 @@
         "{home}/.agents/skills/j-space",
         "{home}/.codex/skills/j-space",
         "{project}/.agents/skills/j-space",
-        "{project}/.codex/skills/j-space"
+        "{project}/.codex/skills/j-space",
+        "{home}/.dsh/skills/j-space"
       ],
       "markers": [
         "SKILL.md",
@@ -225,7 +234,9 @@
         "{project}/.agents/skills/grill-me",
         "{project}/.agents/skills/grilling",
         "{project}/.codex/skills/grill-me",
-        "{project}/.codex/skills/grilling"
+        "{project}/.codex/skills/grilling",
+        "{home}/.dsh/skills/grill-me",
+        "{home}/.dsh/skills/grilling"
       ],
       "markers": [
         "SKILL.md",

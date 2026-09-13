@@ -32,6 +32,50 @@ class DependencyDiagnosticTests(unittest.TestCase):
                 self.assertTrue(declaration["role"])
                 self.assertTrue(declaration["fallback"])
 
+    def test_every_skill_declaration_probes_the_host_skill_root(self) -> None:
+        """A host with its own skill root must still find an installed provider.
+
+        The manifest declared provider locations under the shared agent roots
+        only.  On a host whose skills live in their own root every provider
+        probed `MISSING` even while installed, and the decision-point rule then
+        routed deterministically to the portable path.  This widens the probe:
+        every previously declared path stays, and the per-id host-skill-root
+        path is added.
+        """
+
+        payload = json.loads((PACKAGE_ROOT / "dependencies.json").read_text(encoding="utf-8"))
+        entries = [*payload.get("providers", []), *payload.get("capabilities", [])]
+        by_id = {entry.get("id"): entry for entry in entries}
+        for provider in (
+            "superpowers",
+            "j-space",
+            "grill-me",
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        ):
+            with self.subTest(provider=provider):
+                entry = by_id.get(provider)
+                self.assertIsNotNone(entry)
+                assert entry is not None
+                paths = entry["paths"]
+                with self.subTest(declared="host skill root"):
+                    self.assertIn(f"{{home}}/.dsh/skills/{provider}", paths)
+                # Widening, not replacing: the shared agent root is retained.
+                self.assertTrue(
+                    any(path.startswith("{home}/.agents/skills/") for path in paths),
+                    f"{provider} dropped its shared agent-root path",
+                )
+
+        # That host keeps these two under their own skill names, so the literal
+        # id directory alone would still report `MISSING` there.
+        superpowers_paths = by_id["superpowers"]["paths"]
+        for member in ("brainstorming", "test-driven-development"):
+            with self.subTest(declared=member):
+                self.assertIn(f"{{home}}/.dsh/skills/{member}", superpowers_paths)
+
     def test_reuse_provider_gaps_remain_distinct_from_dependency_statuses(self) -> None:
         payload = json.loads((PACKAGE_ROOT / "dependencies.json").read_text(encoding="utf-8"))
         self.assertEqual(
