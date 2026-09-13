@@ -499,5 +499,52 @@ class WorkflowContractTests(unittest.TestCase):
                 self.assertIn("record `FALLBACK` naming the failure and continue", text)
 
 
+    def test_every_reuse_routing_artifact_probes_at_the_decision_point(self) -> None:
+        """No reuse-routing artifact may bind its branch to a log entry again.
+
+        `SKILL.md` was fixed first, but the record a leaf actually fills in is
+        the reuse-discovery template, and every entry point repeats the routing
+        rule. One surviving log-bound copy re-creates the defect this change
+        exists to remove: the log may not exist yet, and because it is appended
+        to, its newest section may still predate the decision.
+        """
+
+        for relative in (
+            "portable/templates/reuse-discovery.md",
+            "targets/codex/skills/charter-workflow/templates/reuse-discovery.md",
+            "targets/zcode/skills/charter-workflow/templates/reuse-discovery.md",
+            "skills/charter-workflow/templates/reuse-discovery.md",
+            "portable/commands/charter-workflow.md",
+            "targets/zcode/commands/charter-workflow.md",
+            "portable/prompts/generic-bootstrap.md",
+            "portable/prompts/codex-bootstrap.md",
+            "portable/prompts/claude-bootstrap.md",
+            "portable/prompts/gemini-bootstrap.md",
+            "portable/prompts/deepseek-bootstrap.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                # Probe at the decision point, not from an earlier log.
+                self.assertIn("not from an earlier log", text)
+                self.assertIn(
+                    "--optional reuse-first --optional find-skills "
+                    "--optional framework-first-coding "
+                    "--optional reduce-reinvention --json",
+                    text,
+                )
+                # The record emitted by this run, never the exit code.
+                self.assertIn("never the exit code", text)
+                self.assertIn("still exits 0", text)
+                # An earlier section of the append-only log is stale.
+                self.assertIn("stale", text)
+                # The AVAILABLE-then-call-fails escape hatch.
+                self.assertIn(
+                    "record `FALLBACK` naming the failure and continue", text
+                )
+                # Retired phrasings must not come back.
+                self.assertNotIn("as probed in `dependency-check.log`", text)
+                self.assertNotIn("When the probed status in", text)
+
+
 if __name__ == "__main__":
     unittest.main()

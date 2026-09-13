@@ -38,7 +38,7 @@ Discovery is read-only. Do not send private source, secrets, credentials, real u
 
 ### Expert-skill routing per stage
 
-When the probed status in `.charter/evidence/dependency-check.log` is `AVAILABLE`, consult the stage's expert skill before searching and follow its method; an `AVAILABLE` expert skill must be used or its non-use explicitly recorded with a reason:
+Probe before searching, at this point and not from an earlier log: `python scripts/check_dependencies.py . --optional reuse-first --optional find-skills --optional framework-first-coding --optional reduce-reinvention --json --log-file .charter/evidence/dependency-check.log`. When the record emitted by that run (the one just executed) reports the stage's expert skill as `AVAILABLE`, consult it before searching and follow its method; an `AVAILABLE` expert skill must be used or its non-use explicitly recorded with a reason. Read that record's own status and never the exit code: an absent optional provider still exits 0, and a section from an earlier run is stale exactly like an absent log. If the probe reports `AVAILABLE` but the call then fails or cannot load, record `FALLBACK` naming the failure and continue under this contract:
 
 - `LOCAL` tier → `reuse-first` (project-local reuse discovery);
 - installed skills / cache / manifest tier → `find-skills` (Agent Skill inventory only; discovery never installs a Skill);
