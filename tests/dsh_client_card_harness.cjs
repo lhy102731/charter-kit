@@ -29,6 +29,8 @@ if (bundlePath === undefined) {
 
 const A_PAIR = ['reviewAProvider', 'reviewAModel']
 const B_PAIR = ['reviewBProvider', 'reviewBModel']
+const TIMEOUT_FIELD = 'reviewTimeoutSeconds'
+const TIMEOUT_DEFAULT = 240
 const ENCODE = (provider, model) => `${provider}\u0000${model}`
 
 let failures = 0
@@ -137,6 +139,22 @@ function optionValues(select) {
 
 function optionTexts(select) {
   return select.children.filter(isOption).map((option) => option.children.join(''))
+}
+
+// The timeout control is a number input, not a third select: the two dropdowns
+// stay the only selects on the card, so these helpers reach it by element type.
+function textInputs(tree) {
+  return collect(tree, 'input')
+}
+
+function inputValue(tree, index) {
+  const node = textInputs(tree)[index]
+  return node === undefined ? undefined : node.props.value
+}
+
+function inputType(tree, index) {
+  const node = textInputs(tree)[index]
+  return node === undefined ? undefined : node.props.type
 }
 
 function statusText(tree) {
@@ -328,6 +346,15 @@ async function choose(index, value) {
   return renderSettled()
 }
 
+/** Drive the timeout input the way a browser reports a typed value. */
+async function type(index, value) {
+  const node = textInputs(renderSettled())[index]
+  if (node === undefined) throw new Error(`the card rendered no input at index ${index}`)
+  node.props.onChange({ target: { value } })
+  await flush()
+  return renderSettled()
+}
+
 /**
  * Fire several selections in one round-trip, i.e. before the mirror advances.
  * Two `choose` calls cannot model this: the await between them lets the first
@@ -360,8 +387,12 @@ function ready(value, revision, writable) {
   }
 }
 
-const VALUE = (aProvider = '', aModel = '', bProvider = '', bModel = '') => ({
-  reviewAProvider: aProvider, reviewAModel: aModel, reviewBProvider: bProvider, reviewBModel: bModel,
+const VALUE = (aProvider = '', aModel = '', bProvider = '', bModel = '', timeout = TIMEOUT_DEFAULT) => ({
+  reviewAProvider: aProvider,
+  reviewAModel: aModel,
+  reviewBProvider: bProvider,
+  reviewBModel: bModel,
+  reviewTimeoutSeconds: timeout,
 })
 
 const CATALOG = {
@@ -506,6 +537,54 @@ async function main() {
     selects(tree)[0].props.value === ENCODE('openai', 'gpt')
     && selects(tree)[1].props.value === ENCODE('anthropic', 'sonnet'),
     selects(tree).map((node) => node.props.value))
+
+  // 12. The timeout control sits beside the two dropdowns, is a number input,
+  //     and reads back the stored value rather than a hard-coded default. The
+  //     two reviews keep exactly two selects: the timeout is not a third one.
+  snapshot = ready(VALUE('', '', '', '', 90), 50)
+  tree = await mount()
+  check('the timeout control is one number input beside the two dropdowns',
+    textInputs(tree).length === 1 && inputType(tree, 0) === 'number'
+    && selects(tree).length === 2,
+    { inputs: textInputs(tree).length, type: inputType(tree, 0), selects: selects(tree).length })
+  check('the timeout control reads the stored value',
+    inputValue(tree, 0) === '90', inputValue(tree, 0))
+
+  // 13. Editing it writes exactly that one field, and the write is judged by
+  //     what the Host stored rather than by the promise resolving.
+  mutations.length = 0
+  conflicts.length = 0
+  writeOutcome = 'accept'
+  tree = await type(0, '300')
+  check('a timeout edit writes only the timeout field',
+    mutations.length === 1 && mutations[0].ops.length === 1
+    && JSON.stringify(mutations[0].ops) === asSet([TIMEOUT_FIELD, 300]),
+    mutations)
+  check('a landed timeout edit reports saved', statusText(tree) === 'Saved', statusText(tree))
+
+  // 14. A refused write must be reported as a failure and must leave the stored
+  //     value standing, exactly like the dropdowns.
+  writeOutcome = 'refuse'
+  snapshot = ready(VALUE('', '', '', '', 120), 51)
+  tree = await mount()
+  tree = await type(0, '450')
+  check('a refused timeout edit reports failure', statusText(tree) === 'Save failed', statusText(tree))
+  check('a refused timeout edit leaves the stored value standing',
+    inputValue(tree, 0) === '120', inputValue(tree, 0))
+
+  // 15. A blank or non-numeric entry writes nothing at all. Writing a coerced 0
+  //     would be silently clamped by the tool to its 30 s floor, which is the
+  //     silent deviation this refusal avoids.
+  writeOutcome = 'accept'
+  mutations.length = 0
+  snapshot = ready(VALUE('', '', '', '', 120), 52)
+  tree = await mount()
+  tree = await type(0, '')
+  check('a blank timeout entry writes nothing', mutations.length === 0, mutations)
+  tree = await type(0, 'soon')
+  check('a non-numeric timeout entry writes nothing', mutations.length === 0, mutations)
+  check('a rejected timeout entry is reported rather than silently dropped',
+    statusText(tree) !== '' && statusText(tree) !== 'Saved', statusText(tree))
 
   console.log(failures === 0 ? 'HARNESS: ALL PASS' : `HARNESS: ${failures} FAILURE(S)`)
   process.exitCode = failures === 0 ? 0 : 1

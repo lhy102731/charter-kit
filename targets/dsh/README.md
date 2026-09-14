@@ -23,10 +23,19 @@ download superpowers / j-space / grill-me.
 The plugin also registers the Host settings namespace `charter-kit-review` and
 the `charter_review` tool. The namespace keys a card in the DSH
 plugin-configuration page where Review A and Review B each pick a configured
-model; an unset pick follows the session model. The tool runs one context-free
-review with the configured model and reports the route it used, or `inherited`
-when it followed the session model. When a configured route is unavailable the
-tool still reviews on the session model and names the route it could not use in
-`routeFallbackReason`. A missing `charter_review` tool or an unused route is not
-a loss of review independence: independence and model routing are recorded
-separately.
+model, an unset pick follows the session model, and a numeric field sets the
+per-review timeout in seconds (default 240, clamped by the tool to 30–540 s —
+below the Host's 600 s external ceiling, so the tool returns its own result
+before that ceiling). The tool runs one context-free review with the configured
+model and reports the route it used, or `inherited` when it followed the session
+model. Every way the configured route fails to produce a review — a failed
+child, an empty result, or that timeout, which makes the tool abort the child —
+is handled the same way: the same brief is rerun on the session model in a
+fresh, context-free child, the result is `outcome: "fallback"`, and
+`routeFallbackReason` names the route, what happened, and how long it took. The
+call never waits past its budget and never hands back an empty review. An
+optional `route: "session"` argument skips the configured route and runs the
+session model directly, which is how later reviews of a `(kind, route)` that
+already failed in this session avoid re-paying the timeout. A missing
+`charter_review` tool or an unused route is not a loss of review independence:
+independence and model routing are recorded separately.

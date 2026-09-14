@@ -23,11 +23,22 @@ window.__ModuleLoader__.load({
     const NS = 'charter-kit-review'
     const INHERIT = ''
 
+    // Mirrors the Host half's bounds. They are repeated here for the hint text
+    // only: the tool clamps defensively at execution time, so what this card
+    // writes is a request and the tool's clamp is the authority.
+    const TIMEOUT_FIELD = 'reviewTimeoutSeconds'
+    const TIMEOUT_DEFAULT = 240
+    const TIMEOUT_MIN = 30
+    const TIMEOUT_MAX = 540
+
     const zh = {
       title: 'Charter Kit 评审模型',
-      description: '为 Review A / Review B 指定模型；未指定时跟随当前会话模型。',
+      description: '为 Review A / Review B 指定模型，并设置单次评审的超时时间；未指定模型时跟随当前会话模型。',
       reviewA: 'Review A（契约与实现覆盖）',
       reviewB: 'Review B（对抗性评审）',
+      timeout: '单次评审超时（秒）',
+      timeoutHint: '默认 240；工具会把该值限制在 30–540 秒之间，配置的路由超时后自动改用会话模型评审。',
+      invalidTimeout: '请输入整数秒；本次未保存。',
       inherit: '默认（跟随当前模型）',
       unavailable: '不可用',
       saving: '保存中…',
@@ -38,9 +49,12 @@ window.__ModuleLoader__.load({
     }
     const en = {
       title: 'Charter Kit review models',
-      description: 'Choose the model for Review A / Review B. Unset follows the current session model.',
+      description: 'Choose the model for Review A / Review B and the per-review timeout. An unset model follows the current session model.',
       reviewA: 'Review A (contract and implementation coverage)',
       reviewB: 'Review B (adversarial review)',
+      timeout: 'Per-review timeout (seconds)',
+      timeoutHint: 'Default 240; the tool clamps this to 30–540 seconds and reviews on the session model when the configured route times out.',
+      invalidTimeout: 'Enter a whole number of seconds; nothing was saved.',
       inherit: 'Default (follow current model)',
       unavailable: 'Unavailable',
       saving: 'Saving…',
@@ -70,6 +84,19 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Whether the stored user layer holds one intended field value.
+     * @param scope - the bound namespace scope the write went through.
+     * @param field - the field the write addressed.
+     * @param value - the value the write intended.
+     * @returns whether the user layer now holds it.
+     */
+    function landedField(scope, field, value) {
+      const user = scope.getSnapshot().user
+      if (user === null || typeof user !== 'object') return false
+      return user[field] === value
+    }
+
+    /**
      * Decide whether a queued write actually landed.
      *
      * `scope.mutate` RESOLVES when the Host refuses a write — the controller
@@ -86,9 +113,37 @@ window.__ModuleLoader__.load({
      * @returns whether the user layer now holds both intended values.
      */
     function writeLanded(scope, providerField, modelField, provider, model) {
-      const user = scope.getSnapshot().user
-      if (user === null || typeof user !== 'object') return false
-      return user[providerField] === provider && user[modelField] === model
+      return landedField(scope, providerField, provider) && landedField(scope, modelField, model)
+    }
+
+    /**
+     * Read the stored timeout as the input's value.
+     *
+     * The resolved settings value carries the schema default, so an untouched
+     * deployment renders the same number the tool will use. A stored value of
+     * the wrong type is shown as the default rather than as `NaN`, because this
+     * control must never render a value the tool cannot act on.
+     * @param value - effective settings value.
+     * @returns the whole number of seconds to display.
+     */
+    function storedTimeout(value) {
+      const raw = value[TIMEOUT_FIELD]
+      return typeof raw === 'number' && Number.isFinite(raw) ? String(Math.round(raw)) : String(TIMEOUT_DEFAULT)
+    }
+
+    /**
+     * Parse one typed timeout entry.
+     *
+     * A blank or non-numeric entry returns null and is NOT written: coercing it
+     * to 0 would store a number the tool silently clamps to its floor, which is
+     * the silent deviation this refusal exists to avoid.
+     * @param text - the raw input value.
+     * @returns a whole number of seconds, or null when the entry is not one.
+     */
+    function parseTimeout(text) {
+      if (typeof text !== 'string' || text.trim() === '') return null
+      const seconds = Number(text)
+      return Number.isFinite(seconds) ? Math.round(seconds) : null
     }
 
     function ReviewModelCard(props) {
@@ -176,6 +231,41 @@ window.__ModuleLoader__.load({
         }, optionsFor(route)),
       )
 
+      // One field, one op, and the same read-back the dropdowns use: a write
+      // the Host refuses has to read as a failure rather than as a save.
+      const writeTimeout = (text) => {
+        const seconds = parseTimeout(text)
+        if (seconds === null) {
+          setStatus(t('invalidTimeout'))
+          return
+        }
+        setStatus(t('saving'))
+        scope.mutate([{ op: 'set', path: [TIMEOUT_FIELD], value: seconds }]).then(
+          () => {
+            setStatus(landedField(scope, TIMEOUT_FIELD, seconds) ? t('saved') : t('failed'))
+          },
+          () => { setStatus(t('failed')) },
+        )
+      }
+
+      const timeoutValue = storedTimeout(value)
+
+      const timeout = h(
+        'label',
+        { className: 'ck-row' },
+        h('span', { className: 'ck-label' }, t('timeout')),
+        h('input', {
+          className: 'ck-input',
+          type: 'number',
+          min: TIMEOUT_MIN,
+          max: TIMEOUT_MAX,
+          step: 1,
+          value: timeoutValue,
+          disabled: !writable,
+          onChange: (event) => { writeTimeout(event.target.value) },
+        }),
+      )
+
       const sameModel = routeA !== null && routeB !== null
         && routeA.provider === routeB.provider && routeA.model === routeB.model
 
@@ -188,6 +278,8 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ck-body' },
           select(t('reviewA'), 'reviewAProvider', 'reviewAModel', routeA),
           select(t('reviewB'), 'reviewBProvider', 'reviewBModel', routeB),
+          timeout,
+          h('p', { className: 'ck-note' }, t('timeoutHint')),
           catalogFailed ? h('p', { className: 'ck-note' }, t('loadFailed')) : null,
           sameModel ? h('p', { className: 'ck-note' }, t('sameModel')) : null,
           status === '' ? null : h('p', { className: 'ck-status' }, status)),
@@ -203,6 +295,9 @@ window.__ModuleLoader__.load({
       '.ck-row{display:flex;align-items:center;gap:10px}',
       '.ck-label{flex:0 0 210px;font-size:13px;color:var(--dsw-alias-label-primary,#111)}',
       '.ck-select{flex:1;min-width:0;padding:6px 8px;border-radius:6px;font-size:13px;'
+        + 'border:1px solid var(--dsw-alias-border-l2,#ccc);background:var(--dsw-alias-bg-base,#fff);'
+        + 'color:var(--dsw-alias-label-primary,#111)}',
+      '.ck-input{flex:0 0 120px;min-width:0;padding:6px 8px;border-radius:6px;font-size:13px;'
         + 'border:1px solid var(--dsw-alias-border-l2,#ccc);background:var(--dsw-alias-bg-base,#fff);'
         + 'color:var(--dsw-alias-label-primary,#111)}',
       '.ck-note{margin:0;font-size:12px;color:var(--dsw-alias-label-secondary,#666)}',

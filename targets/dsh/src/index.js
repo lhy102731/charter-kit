@@ -11,12 +11,41 @@ const SKILL_FILE = join(SKILL_DIR, 'SKILL.md')
 /** Settings namespace keying the Review A/B model card. Its key IS the card key. */
 export const REVIEW_SETTINGS_NAMESPACE = 'charter-kit-review'
 
+/** Settings field holding one review attempt's budget, in whole seconds. */
+export const REVIEW_TIMEOUT_FIELD = 'reviewTimeoutSeconds'
+
+/**
+ * Bounds on one review attempt, in whole seconds.
+ *
+ * The floor keeps a mistyped card from aborting every review before the child
+ * can answer. The ceiling exists because a real project saw the host's own
+ * ceiling kill this call at 600 s three times: returning our own fallback
+ * before that ceiling is the entire point of the budget, so the configured
+ * value must stay strictly below it.
+ */
+const MIN_REVIEW_TIMEOUT_SECONDS = 30
+const MAX_REVIEW_TIMEOUT_SECONDS = 540
+const DEFAULT_REVIEW_TIMEOUT_SECONDS = 240
+
+/**
+ * The cooperative tool-call deadline this tool declares to the harness.
+ *
+ * The setting is dynamic while a declared `timeoutMs` is fixed at registration,
+ * so this is derived from the worst case the setting can express — the
+ * configured attempt and the session-model rerun, each bounded by the ceiling —
+ * plus a minute of margin. Any smaller fixed value would let the harness
+ * deadline preempt this tool's own budget and replace the fallback record with
+ * an opaque `TOOL_TIMEOUT`.
+ */
+const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + 60) * 1000
+
 /** Empty provider or model means "inherit the calling session's model". */
 const REVIEW_SETTINGS_SCHEMA = z.object({
   reviewAProvider: z.string().default(''),
   reviewAModel: z.string().default(''),
   reviewBProvider: z.string().default(''),
   reviewBModel: z.string().default(''),
+  [REVIEW_TIMEOUT_FIELD]: z.number().default(DEFAULT_REVIEW_TIMEOUT_SECONDS),
 })
 
 /**
@@ -31,6 +60,7 @@ const REVIEW_SETTINGS_DEFAULTS = {
   reviewAModel: '',
   reviewBProvider: '',
   reviewBModel: '',
+  [REVIEW_TIMEOUT_FIELD]: DEFAULT_REVIEW_TIMEOUT_SECONDS,
 }
 
 /**
@@ -43,6 +73,25 @@ function reviewRoute(value, kind) {
   const provider = value[kind === 'B' ? 'reviewBProvider' : 'reviewAProvider']
   const model = value[kind === 'B' ? 'reviewBModel' : 'reviewAModel']
   return provider === '' || model === '' ? null : { provider, model }
+}
+
+/**
+ * Read one review attempt's budget out of the settings value.
+ *
+ * Clamped here rather than in the card, because this is the only place that can
+ * guarantee the bound: a card version that predates the field, a hand-edited
+ * settings file, and a stored value of the wrong type all reach this function,
+ * and none of them may be able to abort every review or to outlive the host's
+ * own ceiling.
+ * @param value - effective settings value.
+ * @returns whole seconds within [MIN, MAX]; the default for anything unusable.
+ */
+function reviewTimeoutSeconds(value) {
+  const raw = value[REVIEW_TIMEOUT_FIELD]
+  const seconds = typeof raw === 'number' && Number.isFinite(raw)
+    ? Math.floor(raw)
+    : DEFAULT_REVIEW_TIMEOUT_SECONDS
+  return Math.min(MAX_REVIEW_TIMEOUT_SECONDS, Math.max(MIN_REVIEW_TIMEOUT_SECONDS, seconds))
 }
 
 /**
@@ -80,23 +129,31 @@ const COMPLETED_STOP_REASON = 'completed'
 
 /**
  * Classify one settled child run as a review or a failure.
+ *
+ * The timeout case is NOT decided here: an expired budget races the settled run
+ * in `runReview`, which reports it as `kind: 'timeout'`.
  * @param result - settled SubagentResult.
- * @returns the review text with `failure: null` when the child completed with
- *   text, else the same review text with a non-empty failure detail carrying
- *   the provider's diagnostic whenever the provider supplied one.
+ * @param elapsedMs - how long the attempt took, kept for the failure record.
+ * @returns the attempt: `kind` is null when it reviewed, else 'error' for a
+ *   settled non-completion and 'empty' for a completed run with no text.
  */
-function classifyRun(result) {
+function classifyRun(result, elapsedMs) {
   const review = outputText(result)
   const stopReason = result.stopReason
   const diagnostic = typeof result.diagnostic === 'string' ? result.diagnostic.trim() : ''
   const detail = diagnostic === '' ? '' : `: ${diagnostic}`
   if (stopReason !== COMPLETED_STOP_REASON) {
-    return { review, failure: `child stopped with stopReason "${stopReason}"${detail}` }
+    return {
+      review,
+      kind: 'error',
+      elapsedMs,
+      detail: `child stopped with stopReason "${stopReason}"${detail}`,
+    }
   }
   if (review === '') {
-    return { review, failure: `child completed with an empty review${detail}` }
+    return { review, kind: 'empty', elapsedMs, detail: `child completed with an empty review${detail}` }
   }
-  return { review, failure: null }
+  return { review, kind: null, elapsedMs, detail: '' }
 }
 
 function parseFrontmatter(text) {
@@ -172,7 +229,13 @@ export function apply(ctx) {
         + 'Use kind "A" for every leaf\'s contract and implementation coverage review, and kind "B" for the '
         + 'adversarial review required by a hit RVB trigger. The reviewer receives only the brief you pass — '
         + 'never the session history — and the returned model names the route it used, or `inherited` '
-        + 'when it followed the session model.',
+        + 'when it followed the session model. An attempt is bounded by the configured timeout; any way the '
+        + 'configured route fails to produce a review — a settled failure, an empty result, or that timeout — '
+        + 'reruns the same brief on the session model and reports `outcome: "fallback"`, so the call never '
+        + 'waits and never returns an empty review.',
+      // See REVIEW_TOOL_TIMEOUT_MS: the harness's cooperative deadline must sit
+      // outside this tool's own worst case, or it would preempt the fallback.
+      timeoutMs: REVIEW_TOOL_TIMEOUT_MS,
       parameters: {
         kind: {
           type: 'string',
@@ -189,6 +252,17 @@ export function apply(ctx) {
           description: 'Self-contained review brief: the leaf contract, the spec, and the candidate diff. '
             + 'The reviewer sees nothing else, so never include session history.',
         },
+        route: {
+          type: 'string',
+          // The enum is the gate here too: an unrecognized value would silently
+          // run the configured route the caller was trying to skip.
+          enum: ['configured', 'session'],
+          description: 'Which route to run. "configured" (default) tries the model set for this kind and '
+            + 'falls back to the session model if it produces no review. "session" skips the configured '
+            + 'route and runs the session model directly: use it for later reviews of a kind whose '
+            + 'configured route has already failed in this session, so the call does not re-pay the '
+            + 'timeout. It still reports `outcome: "fallback"`, because the configured route was not used.',
+        },
       },
       output: {
         schema: {
@@ -204,71 +278,155 @@ export function apply(ctx) {
         render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
       },
       async execute(args, exec) {
-        // The declared enum above refuses any other value before this point, so
-        // this default only covers a value that never reached that validation.
+        // A blank brief is a malformed call, not a review. Spawning a child with
+        // an empty prompt returns text that reads like a review of nothing, and
+        // a real project reported exactly that as a normal review. Refuse it
+        // before any child exists, so nothing here can report `reviewed`.
+        const brief = typeof args.brief === 'string' ? args.brief : ''
+        if (brief.trim() === '') {
+          throw new Error(
+            'charter_review: refusing an empty brief. Pass the leaf contract, the spec, and the '
+            + 'candidate diff; no reviewer was started and no review was produced.',
+          )
+        }
+        // The declared enums above refuse any other value before this point, so
+        // these defaults only cover a value that never reached that validation.
         const kind = args.kind === 'B' ? 'B' : 'A'
-        const configured = reviewRoute(readReviewSettings(), kind)
+        const wantSessionRoute = args.route === 'session'
+        // Read at execution time, never memoized at registration: the settings
+        // provider binds this reader to a live thunk, so a card edit applies to
+        // the very next call with no reload.
+        const settings = readReviewSettings()
+        const configured = reviewRoute(settings, kind)
+        const budgetSeconds = reviewTimeoutSeconds(settings)
+        const budgetMs = budgetSeconds * 1000
         const parent = exec.agent
         const providerName = pickSubagentProvider(scope)
-        const prompt = [{ type: 'text', text: args.brief }]
+        const prompt = [{ type: 'text', text: brief }]
 
         /** Read one throwable's message for a failure detail. */
         const messageOf = (error) => (error instanceof Error ? error.message : String(error))
 
         /**
-         * Run one review attempt through the host's delegation path.
-         *
-         * Every call site goes through this one wrapper, so dispatch,
-         * classification, disposal, and error mapping exist once: an attempt
-         * that cannot be dispatched, cannot settle, or cannot be released is a
-         * failure this returns, never a throw `execute` would leak as a raw
-         * tool rejection.
-         * @param agentOptions - the child's route, or null to inherit.
-         * @returns the classified attempt; `failure` is null when it reviewed.
+         * Render one failed attempt as the record that makes it actionable: the
+         * route that was tried, what happened to it, and how long it took.
+         * @param label - the route, or a name for the session-model rerun.
+         * @param attempt - a classified failure.
+         * @returns a one-line reason.
          */
-        const runReview = async (agentOptions) => {
-          let run
-          try {
-            run = await scope.subagents.start(providerName, {
-              prompt,
-              parent,
-              signal: exec.signal,
-              ...(agentOptions === null ? {} : { agentOptions }),
-            })
-          } catch (error) {
-            return { review: '', failure: messageOf(error) }
+        const failureReason = (label, attempt) => {
+          const seconds = `${(attempt.elapsedMs / 1000).toFixed(1)}s`
+          if (attempt.kind === 'timeout') {
+            return `${label} timed out after ${seconds} (budget ${budgetSeconds}s)`
           }
-          let attempt
-          let disposal
-          try {
-            attempt = classifyRun(await run.result)
-          } catch (error) {
-            attempt = { review: '', failure: messageOf(error) }
-          } finally {
-            try {
-              await run.dispose()
-            } catch (error) {
-              // A child this tool could not release is reported as the
-              // attempt's failure instead of escaping `execute`.
-              disposal = { review: '', failure: `child disposal failed: ${messageOf(error)}` }
-            }
+          if (attempt.kind === 'empty') {
+            return `${label} returned an empty review after ${seconds}`
           }
-          // A teardown that failed outweighs the attempt it could not release.
-          return disposal ?? attempt
+          return `${label} failed after ${seconds}: ${attempt.detail}`
         }
 
-        // A configured route that produced no review is re-run on the session
-        // model. When that second run fails too there is no review to report, so
-        // the tool says `unavailable` instead of returning a success shape with
-        // empty text.
+        /** One failed attempt, in the shape every call site returns. */
+        const failed = (kindOfFailure, elapsedMs, detail) => ({
+          review: '',
+          kind: kindOfFailure,
+          elapsedMs,
+          detail,
+        })
+
+        /**
+         * Run one review attempt through the host's delegation path.
+         *
+         * Every call site goes through this one wrapper, so dispatch, the
+         * per-attempt deadline, classification, disposal, and error mapping
+         * exist once: an attempt that cannot be dispatched, cannot settle,
+         * exceeds its budget, or cannot be released is an attempt this returns,
+         * never a throw `execute` would leak as a raw tool rejection.
+         * @param agentOptions - the child's route, or null to inherit.
+         * @returns the classified attempt; `kind` is null when it reviewed.
+         */
+        const runReview = async (agentOptions) => {
+          const startedAt = Date.now()
+          const elapsedMs = () => Date.now() - startedAt
+          // `exec.signal` carries the harness's own cancellation (a caller
+          // cancel, or the cooperative deadline declared above). Composing it
+          // with a controller this tool owns is what lets this tool's budget
+          // abort the child on its own terms.
+          const controller = new AbortController()
+          const forwardAbort = () => { controller.abort() }
+          if (exec.signal.aborted) forwardAbort()
+          else exec.signal.addEventListener('abort', forwardAbort, { once: true })
+          let reachDeadline
+          const deadline = new Promise((resolve) => { reachDeadline = resolve })
+          // The one timer this tool arms. It is disarmed in the same `finally`
+          // that releases the child, so no attempt leaves a timer behind.
+          const timer = setTimeout(() => {
+            controller.abort()
+            reachDeadline()
+          }, budgetMs)
+          try {
+            let run
+            try {
+              run = await scope.subagents.start(providerName, {
+                prompt,
+                parent,
+                signal: controller.signal,
+                ...(agentOptions === null ? {} : { agentOptions }),
+              })
+            } catch (error) {
+              // A dispatch that never published a run cannot settle, so the
+              // deadline is the only thing that can have ended it.
+              return controller.signal.aborted && !exec.signal.aborted
+                ? failed('timeout', elapsedMs(), `no child was published within the ${budgetSeconds}s budget`)
+                : failed('error', elapsedMs(), messageOf(error))
+            }
+            // Both arms are observed. A deadline that wins the race below must
+            // not leave `run.result` as an unhandled rejection when it settles
+            // afterwards.
+            const settled = run.result.then(
+              (value) => ({ value }),
+              (error) => ({ error }),
+            )
+            let attempt
+            let disposal
+            try {
+              const outcome = await Promise.race([settled, deadline.then(() => null)])
+              if (outcome === null) {
+                attempt = failed('timeout', elapsedMs(), `no review within the ${budgetSeconds}s budget`)
+              } else if ('error' in outcome) {
+                attempt = failed('error', elapsedMs(), messageOf(outcome.error))
+              } else {
+                attempt = classifyRun(outcome.value, elapsedMs())
+              }
+            } finally {
+              try {
+                await run.dispose()
+              } catch (error) {
+                // A child this tool could not release is reported as the
+                // attempt's failure instead of escaping `execute`.
+                disposal = failed('error', elapsedMs(), `child disposal failed: ${messageOf(error)}`)
+              }
+            }
+            // A teardown that failed outweighs the attempt it could not release.
+            return disposal ?? attempt
+          } finally {
+            clearTimeout(timer)
+            exec.signal.removeEventListener('abort', forwardAbort)
+          }
+        }
+
+        // A configured route that produced no review — a settled failure, an
+        // empty result, or the timeout above — is re-run on the session model in
+        // a fresh, context-free child. When that second run fails too there is no
+        // review to report, so the tool says `unavailable` instead of returning a
+        // success shape with empty text.
         const fallback = async (reason) => {
           const attempt = await runReview(null)
-          if (attempt.failure !== null) {
+          if (attempt.kind !== null) {
             return {
               outcome: 'unavailable',
               model: 'inherited',
               review: '',
-              routeFallbackReason: `${reason}; the session-model rerun also failed: ${attempt.failure}`,
+              routeFallbackReason: `${reason}; the session-model rerun also failed: ${failureReason('the session model', attempt)}`,
             }
           }
           return {
@@ -290,30 +448,43 @@ export function apply(ctx) {
           }
         }
 
-        if (configured === null) {
+        const label = configured === null ? '' : `${configured.provider}/${configured.model}`
+
+        // No configured route, or a caller that already recorded this route as
+        // failed and asked for the session model: both run one session-model
+        // child. Only the second is a degradation, and it is reported as one so
+        // the leaf's evidence shows it without the caller having to remember.
+        if (configured === null || wantSessionRoute) {
           const attempt = await runReview(null)
-          if (attempt.failure !== null) {
+          if (attempt.kind !== null) {
             return {
               outcome: 'unavailable',
               model: 'inherited',
               review: '',
-              routeFallbackReason: `session model: ${attempt.failure}`,
+              routeFallbackReason: failureReason('the session model', attempt),
             }
           }
-          return { outcome: 'reviewed', model: 'inherited', review: attempt.review }
+          if (configured === null) {
+            return { outcome: 'reviewed', model: 'inherited', review: attempt.review }
+          }
+          return {
+            outcome: 'fallback',
+            model: 'inherited',
+            review: attempt.review,
+            routeFallbackReason: `${label} skipped: the caller asked for the session route`,
+          }
         }
 
-        const label = `${configured.provider}/${configured.model}`
         const capable = scope.subagents.getProvider(providerName)?.capabilities?.agentOptions === true
         if (!capable) {
           return fallback(`${label} not used: provider does not support child agent options`)
         }
-        // The wrapper reports instead of throwing, so a rejected dispatch, a
-        // rejected result, and a failed teardown all reach the same fallback the
-        // configured path already had.
+        // The wrapper reports instead of throwing, so a rejected dispatch, an
+        // expired budget, a rejected result, and a failed teardown all reach the
+        // same fallback the configured path already had.
         const attempt = await runReview(configured)
-        if (attempt.failure !== null) {
-          return fallback(`${label} unavailable: ${attempt.failure}`)
+        if (attempt.kind !== null) {
+          return fallback(failureReason(label, attempt))
         }
         return { outcome: 'reviewed', model: label, review: attempt.review }
       },

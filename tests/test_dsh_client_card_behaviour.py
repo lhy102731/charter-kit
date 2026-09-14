@@ -39,6 +39,17 @@ REQUIRED_BEHAVIOURS = (
     "inherit reports saved once it lands",
     "two selections in one round-trip both land",
     "both of the round-trip selections are stored",
+    # The timeout control: the tool's budget has to be editable from this card,
+    # and the card must not turn a typo into a silently clamped write.
+    "the timeout control is one number input beside the two dropdowns",
+    "the timeout control reads the stored value",
+    "a timeout edit writes only the timeout field",
+    "a landed timeout edit reports saved",
+    "a refused timeout edit reports failure",
+    "a refused timeout edit leaves the stored value standing",
+    "a blank timeout entry writes nothing",
+    "a non-numeric timeout entry writes nothing",
+    "a rejected timeout entry is reported rather than silently dropped",
 )
 
 
