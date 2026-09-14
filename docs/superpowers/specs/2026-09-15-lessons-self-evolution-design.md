@@ -153,6 +153,29 @@ init 时随标准工作集创建（模板来自 `portable/templates/lessons.md`�
 | `test_workflow_contract.py` read-set 断言（`required_block` 循环）为加法式扩展点 | ✅ |
 | `targets/codex` 与 `targets/zcode` 的 skill 树为手工源多份拷贝，需同步编辑 | ✅ `docs/MIRROR-TOPOLOGY.md` 手工源表 |
 
+## 与两份未落地遗留计划的关系（吸收与分歧）
+
+仓库 `docs/superpowers/plans/` 里有两份今天日期、未跟踪的实施计划，均无对应 spec 落地，推断为前期探索（很可能即用户与 qwen 的讨论）遗留：
+
+- `2026-09-15-lesson-ledger.md`：跨项目全局账本（`{home}/.charter/lessons/`，一坑一文件 + `INDEX.md`），纯 stdlib Python 脚本随技能分发，阈值触发自动提议晋升。
+- `2026-09-15-gate-immunity.md`：守卫破坏测试——`gates.json` 注册表 + scratch 树变异重放历史缺陷，守卫对重放缺陷必须变红，否则报 `VACUOUS`。
+
+**本设计与其分歧**（用户四个已确认决策为据）：
+
+| 分歧点 | 遗留计划 | 本设计 |
+| --- | --- | --- |
+| 作用范围 | 跨项目全局账本 | 项目本地单文件 + 人工确认提升到 kit 本体（用户决策 1） |
+| 机制形态 | 新增 Python 脚本随技能分发到宿主 | 零新脚本，纯规则文本 + 既有汇报时刻（kit 哲学：文件 + 规则） |
+| 记录粒度 | 一坑一文件，append-only 目录 | 单文件有界（≤8 KB）条目制，命中计数合并同坑 |
+
+**从遗留计划吸收的三个点**（它们是被验证过的教训，本身就是 lessons）：
+
+1. **晋升门槛："无可检测失败，不晋升"**（lesson-ledger 全局约束：晋升候选必须同时给出 detectable failure 和能抓住它的 gate，缺一即拒绝）。本设计的 GENERALIZE 提升规则采纳此条：候选必须指明"该坑对应哪个可检测的失败模式 + kit 里哪个决策点/门能拦住它"，否则用户应拒绝提升。
+2. **反模式警告："未挂钩的账本会死"**（证据：`PA_Agent/experience/` 是五个只剩 `.gitkeep` 的空目录）。本设计靠叶关闭提炼扫掠 + Resume 必读 + 汇报行三处强制挂钩，与该教训一致——但把它明文写进 references/lessons.md 作为反模式警示。
+3. **规则数上限**（lesson-ledger："每个被接受的晋升必须指明它替换哪条子句，否则账本变成 prompt 膨胀"）。本设计采纳：GENERALIZE 候选除指明可检测失败外，还应指明它替换或强化 kit 里哪条现有规则；纯增量规则膨胀应被用户拒绝。
+
+**明确不做**（本设计非目标已覆盖，此处记录原因）：gate-immunity 的破坏测试运行器（`sabotage_check.py`）是有价值的独立维护工具，但它是**仓库维护命令**而非工作流层，且遗留计划自己也否决了把它接入叶关闭（"per-leaf tax was one of the costs this plan explicitly rejected"）。若未来要做，应作为独立 feature 走自己的 spec，不与 lessons 层捆绑。
+
 ## 验收标准
 
 1. `python scripts/validate_kit.py .` 通过（含新模板注册与镜像比对）。
