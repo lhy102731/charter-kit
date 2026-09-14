@@ -356,13 +356,35 @@ async function choose(index, value) {
   return renderSettled()
 }
 
-/** Drive the timeout input the way a browser reports a typed value. */
-async function type(index, value) {
+/**
+ * Type into the timeout input WITHOUT committing it: one `change` event, which
+ * is all a real browser sends per keystroke.
+ */
+async function draft(index, value) {
   const node = textInputs(renderSettled())[index]
   if (node === undefined) throw new Error(`the card rendered no input at index ${index}`)
   node.props.onChange({ target: { value } })
   await flush()
   return renderSettled()
+}
+
+/**
+ * Commit the field the way a browser does when focus leaves it. The node is
+ * re-read afterwards, because the commit handler closes over the draft from the
+ * render that produced it.
+ */
+async function commit(index) {
+  const node = textInputs(renderSettled())[index]
+  if (node === undefined) throw new Error(`the card rendered no input at index ${index}`)
+  node.props.onBlur()
+  await flush()
+  return renderSettled()
+}
+
+/** A whole edit: type into the field, then leave it. */
+async function type(index, value) {
+  await draft(index, value)
+  return commit(index)
 }
 
 /**
@@ -607,6 +629,53 @@ async function main() {
   check('a non-numeric timeout entry writes nothing', mutations.length === 0, mutations)
   check('a rejected timeout entry is reported rather than silently dropped',
     statusText(tree) !== '' && statusText(tree) !== 'Saved', statusText(tree))
+
+  // 16. The field carries its own draft and commits on blur. This is what makes
+  //     an emptied field reachable at all: a card that wrote on every keystroke
+  //     would re-render from the store after each one, and React would put the
+  //     old text back, so Backspace and select-all-then-delete fight the user.
+  //
+  //     WHAT THIS CANNOT PROVE: it drives the handlers with a synthetic
+  //     `target.value`, which is exactly the pattern that hides real-DOM
+  //     controlled-input behaviour — the defect this scenario is about is
+  //     invisible here by construction. Only a real browser can show that the
+  //     field can actually be cleared; that evidence is a headless-Chromium probe
+  //     recorded in the task report, not this check. What is pinned here is the
+  //     draft-then-commit contract the fix introduced.
+  mutations.length = 0
+  writeOutcome = 'accept'
+  snapshot = ready(VALUE('', '', '', '', 120), 60)
+  tree = await mount()
+  tree = await draft(0, '')
+  check('an emptied field is reachable while editing',
+    inputValue(tree, 0) === '' && mutations.length === 0,
+    { value: inputValue(tree, 0), writes: mutations.length })
+  tree = await draft(0, '999')
+  check('typing does not write until the edit is committed',
+    inputValue(tree, 0) === '999' && mutations.length === 0,
+    { value: inputValue(tree, 0), writes: mutations.length })
+
+  // 17. Leaving the field commits what was typed, and the field then shows the
+  //     stored value again rather than a stale draft.
+  tree = await commit(0)
+  check('leaving the field commits the draft',
+    mutations.length === 1
+    && JSON.stringify(mutations[0].ops) === asSet([TIMEOUT_FIELD, 999]),
+    mutations)
+  check('the committed field shows the stored value again',
+    inputValue(tree, 0) === '999' && statusText(tree) === 'Saved',
+    { value: inputValue(tree, 0), status: statusText(tree) })
+
+  // 18. Leaving an emptied field writes nothing and restores what is stored:
+  //     the clear is reachable, and abandoning it changes nothing.
+  mutations.length = 0
+  snapshot = ready(VALUE('', '', '', '', 120), 61)
+  tree = await mount()
+  tree = await draft(0, '')
+  tree = await commit(0)
+  check('leaving an emptied field writes nothing and restores the stored value',
+    mutations.length === 0 && inputValue(tree, 0) === '120',
+    { writes: mutations.length, value: inputValue(tree, 0) })
 
   console.log(failures === 0 ? 'HARNESS: ALL PASS' : `HARNESS: ${failures} FAILURE(S)`)
   process.exitCode = failures === 0 ? 0 : 1

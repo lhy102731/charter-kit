@@ -51,6 +51,15 @@ REQUIRED_BEHAVIOURS = (
     "a blank timeout entry writes nothing",
     "a non-numeric timeout entry writes nothing",
     "a rejected timeout entry is reported rather than silently dropped",
+    # The draft-then-commit contract. These pin the card's shape only: the
+    # harness drives the handlers with a synthetic `target.value`, so it cannot
+    # see whether a real browser can clear the field. That is a headless-Chromium
+    # probe recorded in the task report, and the harness says so at the scenario.
+    "an emptied field is reachable while editing",
+    "typing does not write until the edit is committed",
+    "leaving the field commits the draft",
+    "the committed field shows the stored value again",
+    "leaving an emptied field writes nothing and restores the stored value",
 )
 
 

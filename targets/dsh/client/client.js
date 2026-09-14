@@ -155,6 +155,10 @@ window.__ModuleLoader__.load({
       const [groups, setGroups] = React.useState(null)
       const [catalogFailed, setCatalogFailed] = React.useState(false)
       const [status, setStatus] = React.useState('')
+      // The timeout field's own text while it is being edited. `null` means
+      // "show the stored value"; a string means the user is mid-edit and nothing
+      // has been written yet.
+      const [timeoutDraft, setTimeoutDraft] = React.useState(null)
 
       React.useEffect(() => scope.subscribe(() => { setSnapshot(scope.getSnapshot()) }), [scope])
       React.useEffect(() => {
@@ -234,10 +238,24 @@ window.__ModuleLoader__.load({
         }, optionsFor(route)),
       )
 
-      // One field, one op, and the same read-back the dropdowns use: a write
-      // the Host refuses has to read as a failure rather than as a save.
-      const writeTimeout = (text) => {
-        const seconds = parseTimeout(text)
+      // The field keeps its own draft and commits on blur or Enter, rather than
+      // writing on every keystroke. Writing per keystroke is what makes a
+      // controlled number input impossible to clear: the write is refused for a
+      // blank value, the card re-renders from the store, and React puts the old
+      // text back — so Backspace and select-all-then-delete fight the user. With
+      // a draft, an empty field is reachable while editing, and the commit is
+      // where the value is judged.
+      //
+      // The commit keeps the read-back the dropdowns use: a write the Host
+      // refuses has to read as a failure rather than as a save.
+      const commitTimeout = () => {
+        if (timeoutDraft === null) return
+        const seconds = parseTimeout(timeoutDraft)
+        // The draft is finished either way: a committed value is re-read from the
+        // store, and a rejected one falls back to what is stored — which is why
+        // a blank or non-numeric entry writes nothing instead of storing a
+        // number the tool would silently clamp.
+        setTimeoutDraft(null)
         if (seconds === null) {
           setStatus(t('invalidTimeout'))
           return
@@ -251,8 +269,6 @@ window.__ModuleLoader__.load({
         )
       }
 
-      const timeoutValue = storedTimeout(value)
-
       const timeout = h(
         'label',
         { className: 'ck-row' },
@@ -263,9 +279,11 @@ window.__ModuleLoader__.load({
           min: TIMEOUT_MIN,
           max: TIMEOUT_MAX,
           step: 1,
-          value: timeoutValue,
+          value: timeoutDraft === null ? storedTimeout(value) : timeoutDraft,
           disabled: !writable,
-          onChange: (event) => { writeTimeout(event.target.value) },
+          onChange: (event) => { setTimeoutDraft(event.target.value) },
+          onBlur: () => { commitTimeout() },
+          onKeyDown: (event) => { if (event.key === 'Enter') commitTimeout() },
         }),
       )
 

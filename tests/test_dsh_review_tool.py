@@ -108,8 +108,12 @@ class DshReviewToolFailureReportingTest(unittest.TestCase):
         self.assertIn("failed after ${seconds}: ${attempt.detail}", self.text)
 
     def test_keeps_the_child_guard_in_a_finally_block(self):
+        # The child is still released on every path — including the deadline
+        # path — but the release is now bounded, so what is pinned is the guard
+        # call inside the `finally` rather than a bare `await run.dispose()`.
         self.assertIn("} finally {", self.text)
-        self.assertIn("await run.dispose()", self.text)
+        self.assertIn("disposal = await releaseRun(run)", self.text)
+        self.assertIn("run.dispose()", self.text)
 
     def test_still_skips_a_route_the_provider_cannot_carry(self):
         self.assertIn("capabilities?.agentOptions === true", self.text)
@@ -169,7 +173,8 @@ class DshReviewTimeoutTest(unittest.TestCase):
             name: int(value)
             for name, value in re.findall(
                 r"^const (MIN_REVIEW_TIMEOUT_SECONDS|MAX_REVIEW_TIMEOUT_SECONDS"
-                r"|DEFAULT_REVIEW_TIMEOUT_SECONDS|REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) = (\d+)$",
+                r"|DEFAULT_REVIEW_TIMEOUT_SECONDS|REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS"
+                r"|REVIEW_TEARDOWN_GRACE_SECONDS) = (\d+)$",
                 self.text,
                 re.MULTILINE,
             )
@@ -180,6 +185,7 @@ class DshReviewTimeoutTest(unittest.TestCase):
                 "DEFAULT_REVIEW_TIMEOUT_SECONDS",
                 "MAX_REVIEW_TIMEOUT_SECONDS",
                 "MIN_REVIEW_TIMEOUT_SECONDS",
+                "REVIEW_TEARDOWN_GRACE_SECONDS",
                 "REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS",
             ],
             f"could not read every bound out of the source: {numbers}",
@@ -188,22 +194,56 @@ class DshReviewTimeoutTest(unittest.TestCase):
         maximum = numbers["MAX_REVIEW_TIMEOUT_SECONDS"]
         default = numbers["DEFAULT_REVIEW_TIMEOUT_SECONDS"]
         margin = numbers["REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS"]
+        grace = numbers["REVIEW_TEARDOWN_GRACE_SECONDS"]
 
         # The default has to be a value the clamp leaves alone.
         self.assertLessEqual(minimum, default)
         self.assertLessEqual(default, maximum)
 
-        worst_case_s = maximum * 2
-        declared_s = worst_case_s + margin
-        # The agreed bounds: 2 x 270 + 30 = 570 s.
+        # One attempt can spend its own timer AND a teardown grace, so the worst
+        # case a single attempt contributes is MAX + GRACE, not MAX.
+        per_attempt_s = maximum + grace
+        worst_case_s = per_attempt_s * 2
+        declared_s = maximum * 2 + margin
+        # The agreed bounds: 2 * 270 + 30 = 570 s, over 2 * (270 + 10) = 560 s.
         self.assertEqual((minimum, maximum, default), (30, 270, 240))
         self.assertEqual(declared_s, 570)
-        # The declared deadline covers the worst case this clamp can express...
-        self.assertGreater(declared_s, worst_case_s)
+        # The declared deadline covers the whole call, teardown included...
+        self.assertGreaterEqual(declared_s, worst_case_s)
         # ...and still fires before the ~600 s ceiling the host enforces, so THIS
         # tool renders the fallback instead of being preempted by an opaque
         # TOOL_TIMEOUT.
         self.assertLess(declared_s, 600)
+
+    def test_bounds_every_await_it_owns_not_only_the_child_result(self):
+        """The residual defect: only `run.result` was inside a race.
+
+        `start()` and `dispose()` were awaited outside every timer, so a provider
+        that never publishes a run, or never reaches quiescence, held the call
+        open past the deadline this tool declares. Nothing else stops that: the
+        harness's tool deadline arms a signal and then awaits the tool's promise
+        rather than racing or abandoning it, so the external ~600 s ceiling was
+        the only backstop — and it kills the call with nothing rendered.
+        """
+        # Dispatch is raced against the attempt's own deadline, and both arms of
+        # the dispatch promise are observed.
+        self.assertIn("const published = await Promise.race([dispatch, deadline.then(() => null)])", self.text)
+        self.assertIn("(value) => ({ run: value }),", self.text)
+        self.assertIn("(error) => ({ error }),", self.text)
+        # A run published after the deadline still gets released.
+        self.assertIn("void dispatch.then((late) => {", self.text)
+        # Teardown is raced against what is left of the declared call budget,
+        # capped by the per-teardown grace.
+        self.assertIn(
+            "const window = Math.min(callBudgetLeftMs(), REVIEW_TEARDOWN_GRACE_SECONDS * 1000)",
+            self.text,
+        )
+        self.assertIn("disposal = await releaseRun(run)", self.text)
+        # The call budget is anchored once, at execute time.
+        self.assertIn("const callDeadlineAt = Date.now() + REVIEW_TOOL_TIMEOUT_MS", self.text)
+        self.assertIn("const callBudgetLeftMs = () => Math.max(0, callDeadlineAt - Date.now())", self.text)
+        # The old unbounded teardown is gone.
+        self.assertNotIn("await run.dispose()", self.text)
 
     def test_composes_its_own_controller_with_the_harness_signal(self):
         # The tool's budget has to be able to abort the child on its own terms,

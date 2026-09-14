@@ -35,9 +35,26 @@ const DEFAULT_REVIEW_TIMEOUT_SECONDS = 240
 
 /**
  * Slack, in seconds, between the worst case the clamp above can express and the
- * deadline this tool declares: enough for dispatch, disposal, and rendering.
+ * deadline this tool declares.
+ *
+ * It has to cover what an attempt spends BESIDE its own timer: the teardown
+ * grace below, plus dispatch and rendering. 2 * (270 + 10) = 560 s of worst case
+ * fits inside 2 * 270 + 30 = 570 s, which is what makes the declared deadline a
+ * real bound on the call rather than on one timer.
  */
 const REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS = 30
+
+/**
+ * How long one teardown may take before this tool stops waiting for it.
+ *
+ * `dispose()` is the provider's promise to reach quiescence, and nothing
+ * enforces it. It is awaited only inside this window, because the harness's own
+ * tool deadline is signal-only — it awaits the tool's promise rather than racing
+ * or abandoning it — so an un-settling `dispose()` would otherwise hold the call
+ * open past every number here and leave the external ~600 s ceiling to kill it
+ * with nothing rendered.
+ */
+const REVIEW_TEARDOWN_GRACE_SECONDS = 10
 
 /**
  * The cooperative tool-call deadline this tool declares to the harness.
@@ -45,10 +62,10 @@ const REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS = 30
  * The setting is dynamic while a declared `timeoutMs` is fixed at registration,
  * so this is derived from the worst case the clamp can express: the configured
  * attempt and the session-model rerun, each at `MAX`, plus the margin.
- * 2 * 270 + 30 = 570 s, which is above the 540 s this tool can actually spend
- * and still below the ~600 s external ceiling — so THIS tool's deadline fires
- * first and renders a result, instead of the call being preempted by an opaque
- * `TOOL_TIMEOUT`.
+ * 2 * 270 + 30 = 570 s, which is above the 2 * (270 + 10) = 560 s this tool can
+ * actually spend and still below the ~600 s external ceiling — so THIS tool's
+ * deadline fires first and renders a result, instead of the call being preempted
+ * by an opaque `TOOL_TIMEOUT`.
  */
 const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) * 1000
 
@@ -313,6 +330,15 @@ export function apply(ctx) {
         const configured = reviewRoute(settings, kind)
         const budgetSeconds = reviewTimeoutSeconds(settings)
         const budgetMs = budgetSeconds * 1000
+        // When the call started, so every await below — dispatch, the child's
+        // result, and teardown — can be bounded by what is left of the deadline
+        // this tool declares. Nothing else bounds them: the harness's tool
+        // deadline arms a signal and then awaits this tool's promise rather than
+        // racing it, so a provider that never settles a call would hold the
+        // whole call open until the external ceiling killed it with nothing
+        // rendered.
+        const callDeadlineAt = Date.now() + REVIEW_TOOL_TIMEOUT_MS
+        const callBudgetLeftMs = () => Math.max(0, callDeadlineAt - Date.now())
         const parent = exec.agent
         const providerName = pickSubagentProvider(scope)
         const prompt = [{ type: 'text', text: brief }]
@@ -368,30 +394,79 @@ export function apply(ctx) {
           const forwardAbort = () => { controller.abort() }
           if (exec.signal.aborted) forwardAbort()
           else exec.signal.addEventListener('abort', forwardAbort, { once: true })
+          let expired = false
           let reachDeadline
           const deadline = new Promise((resolve) => { reachDeadline = resolve })
           // The one timer this tool arms. It is disarmed in the same `finally`
           // that releases the child, so no attempt leaves a timer behind.
           const timer = setTimeout(() => {
+            expired = true
             controller.abort()
             reachDeadline()
           }, budgetMs)
-          try {
-            let run
+          const timedOut = () => failed('timeout', elapsedMs(), `no review within the ${budgetSeconds}s budget`)
+
+          /**
+           * Stop waiting for a settled-but-unreleased child.
+           *
+           * The run has already settled or been aborted by the time this is
+           * called, so a provider that does not reach quiescence inside the
+           * window is left to finish on its own: waiting longer would spend the
+           * rest of the call budget on teardown and leave nothing for the
+           * session-model rerun that is the whole point of this tool.
+           * @param run - the published run to release.
+           * @returns the disposal failure, or null when it released in time.
+           */
+          const releaseRun = async (run) => {
+            const window = Math.min(callBudgetLeftMs(), REVIEW_TEARDOWN_GRACE_SECONDS * 1000)
+            let timer
             try {
-              run = await scope.subagents.start(providerName, {
-                prompt,
-                parent,
-                signal: controller.signal,
-                ...(agentOptions === null ? {} : { agentOptions }),
-              })
-            } catch (error) {
-              // A dispatch that never published a run cannot settle, so the
-              // deadline is the only thing that can have ended it.
-              return controller.signal.aborted && !exec.signal.aborted
-                ? failed('timeout', elapsedMs(), `no child was published within the ${budgetSeconds}s budget`)
-                : failed('error', elapsedMs(), messageOf(error))
+              const releasing = run.dispose().then(
+                () => null,
+                (error) => `child disposal failed: ${messageOf(error)}`,
+              )
+              const detail = await Promise.race([
+                releasing,
+                new Promise((resolve) => { timer = setTimeout(() => resolve(null), window) }),
+              ])
+              return detail === null ? null : failed('error', elapsedMs(), detail)
+            } finally {
+              clearTimeout(timer)
             }
+          }
+
+          try {
+            // Dispatch is raced against the attempt's own deadline too: a
+            // provider that never publishes a run would otherwise hold the call
+            // open past every budget this tool declares. Both arms are handled,
+            // so this promise never rejects.
+            const dispatch = scope.subagents.start(providerName, {
+              prompt,
+              parent,
+              signal: controller.signal,
+              ...(agentOptions === null ? {} : { agentOptions }),
+            }).then(
+              (value) => ({ run: value }),
+              (error) => ({ error }),
+            )
+            const published = await Promise.race([dispatch, deadline.then(() => null)])
+            if (published === null) {
+              // The deadline won, but `start` may still publish a run after it.
+              // Release that one if it ever arrives, so a late publication is
+              // not a child nobody owns.
+              void dispatch.then((late) => {
+                if ('run' in late) void releaseRun(late.run)
+              })
+              return timedOut()
+            }
+            if ('error' in published) {
+              // A dispatch that rejected because this tool's own deadline
+              // aborted it is a timeout, not a provider error.
+              return expired && !exec.signal.aborted
+                ? failed('timeout', elapsedMs(), `no child was published within the ${budgetSeconds}s budget`)
+                : failed('error', elapsedMs(), messageOf(published.error))
+            }
+            const run = published.run
             // Both arms are observed. A deadline that wins the race below must
             // not leave `run.result` as an unhandled rejection when it settles
             // afterwards.
@@ -404,22 +479,19 @@ export function apply(ctx) {
             try {
               const outcome = await Promise.race([settled, deadline.then(() => null)])
               if (outcome === null) {
-                attempt = failed('timeout', elapsedMs(), `no review within the ${budgetSeconds}s budget`)
+                attempt = timedOut()
               } else if ('error' in outcome) {
                 attempt = failed('error', elapsedMs(), messageOf(outcome.error))
               } else {
                 attempt = classifyRun(outcome.value, elapsedMs())
               }
             } finally {
-              try {
-                await run.dispose()
-              } catch (error) {
-                // A child this tool could not release is reported as the
-                // attempt's failure instead of escaping `execute`.
-                disposal = failed('error', elapsedMs(), `child disposal failed: ${messageOf(error)}`)
-              }
+              disposal = await releaseRun(run)
             }
-            // A teardown that failed outweighs the attempt it could not release.
+            // A teardown that FAILED outweighs the attempt it could not release.
+            // A teardown that merely ran out of its window does not: this tool
+            // has a result in hand, and discarding it for a slow release would
+            // throw away the very thing the call exists to produce.
             return disposal ?? attempt
           } finally {
             clearTimeout(timer)

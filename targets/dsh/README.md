@@ -35,8 +35,15 @@ model. Every way the configured route fails to produce a review — a failed
 child, an empty result, or that timeout, which makes the tool abort the child —
 is handled the same way: the same brief is rerun on the session model in a
 fresh, context-free child, the result is `outcome: "fallback"`, and
-`routeFallbackReason` names the route, what happened, and how long it took. The
-call never waits past its budget and never hands back an empty review. An
+`routeFallbackReason` names the route, what happened, and how long it took. That
+fallback still produces a review on the session model, so a configured route that
+cannot deliver does not cost the leaf its review. The call never waits past its
+budget: dispatch, the child's result, and teardown are each raced against it, so
+a provider that never publishes a run or never releases one cannot hold the call
+open. An empty `review` is never returned as a success shape — it comes back only
+as an explicit `outcome: "unavailable"` whose reason names both failures, which
+is what happens when the rerun fails too and there is genuinely no review to
+report. An
 optional `route: "session"` argument skips the configured route and runs the
 session model directly, which is how later reviews of a `(kind, route)` that
 already failed in this session avoid re-paying the timeout. A missing
