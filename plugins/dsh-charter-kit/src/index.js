@@ -261,8 +261,11 @@ export function apply(ctx) {
         + 'never the session history — and the returned model names the route it used, or `inherited` '
         + 'when it followed the session model. An attempt is bounded by the configured timeout; any way the '
         + 'configured route fails to produce a review — a settled failure, an empty result, or that timeout — '
-        + 'reruns the same brief on the session model and reports `outcome: "fallback"`, so the call never '
-        + 'waits and never returns an empty review.',
+        + 'reruns the same brief on the session model and reports `outcome: "fallback"`, so a configured route '
+        + 'that cannot deliver still produces a review. The call never waits past its budget. An empty `review` '
+        + 'is never returned as a success shape: it comes back only as an explicit `outcome: "unavailable"` '
+        + 'carrying a reason — when no reviewer could be started at all, when the session-model attempt itself '
+        + 'failed, or when the rerun failed too.',
       // See REVIEW_TOOL_TIMEOUT_MS: the harness's cooperative deadline must sit
       // outside this tool's own worst case, or it would preempt the fallback.
       timeoutMs: REVIEW_TOOL_TIMEOUT_MS,

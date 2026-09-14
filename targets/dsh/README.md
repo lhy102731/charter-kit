@@ -41,9 +41,11 @@ cannot deliver does not cost the leaf its review. The call never waits past its
 budget: dispatch, the child's result, and teardown are each raced against it, so
 a provider that never publishes a run or never releases one cannot hold the call
 open. An empty `review` is never returned as a success shape — it comes back only
-as an explicit `outcome: "unavailable"` whose reason names both failures, which
-is what happens when the rerun fails too and there is genuinely no review to
-report. An
+as an explicit `outcome: "unavailable"` carrying a reason. That is what happens
+when no reviewer could be started at all (no calling agent, or no unambiguous
+subagent provider), when the session-model attempt itself failed, or when the
+configured route failed and the rerun failed too; there is genuinely no review to
+report in each of those cases. An
 optional `route: "session"` argument skips the configured route and runs the
 session model directly, which is how later reviews of a `(kind, route)` that
 already failed in this session avoid re-paying the timeout. A missing
