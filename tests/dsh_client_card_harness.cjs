@@ -157,6 +157,16 @@ function inputType(tree, index) {
   return node === undefined ? undefined : node.props.type
 }
 
+/**
+ * The bounds the input advertises. These are the card's own copy of the tool's
+ * clamp, so they have to agree with it: a card offering a range the tool does
+ * not accept, or hiding one it does, is the drift this pins.
+ */
+function inputBounds(tree, index) {
+  const node = textInputs(tree)[index]
+  return node === undefined ? undefined : { min: node.props.min, max: node.props.max }
+}
+
 function statusText(tree) {
   const notes = collect(tree, 'p').filter((node) => node.props.className === 'ck-status')
   return notes.length === 0 ? '' : notes[0].children.join('')
@@ -549,6 +559,18 @@ async function main() {
     { inputs: textInputs(tree).length, type: inputType(tree, 0), selects: selects(tree).length })
   check('the timeout control reads the stored value',
     inputValue(tree, 0) === '90', inputValue(tree, 0))
+  // The card's advertised range is the tool's clamp. 270, not the host's 600 s
+  // ceiling: a review makes at most two attempts (configured + session rerun),
+  // so 2 x 270 + 30 = 570 s has to fit under that ceiling. A card advertising
+  // the ceiling instead would invite a value the tool then silently halves.
+  // `min`/`max` are compared as strings because this harness reads the React
+  // element's props — the numbers the card passes — while a browser sees the
+  // attribute form; String() makes the check mean the same thing in both.
+  check('the timeout control advertises the tool\'s clamped range',
+    inputBounds(tree, 0) !== undefined
+    && String(inputBounds(tree, 0).min) === '30'
+    && String(inputBounds(tree, 0).max) === '270',
+    inputBounds(tree, 0))
 
   // 13. Editing it writes exactly that one field, and the write is judged by
   //     what the Host stored rather than by the promise resolving.

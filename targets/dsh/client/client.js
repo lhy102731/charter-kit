@@ -23,13 +23,16 @@ window.__ModuleLoader__.load({
     const NS = 'charter-kit-review'
     const INHERIT = ''
 
-    // Mirrors the Host half's bounds. They are repeated here for the hint text
-    // only: the tool clamps defensively at execution time, so what this card
-    // writes is a request and the tool's clamp is the authority.
+    // Mirrors the Host half's bounds. They are repeated here for the input's
+    // min/max attributes and the hint text only: the tool clamps defensively at
+    // execution time, so what this card writes is a request and the tool's clamp
+    // is the authority. The ceiling is dimensioned against the whole call — a
+    // configured attempt plus a session-model rerun, 2 * 270 + 30 = 570 s — so it
+    // is below the Host's ~600 s ceiling, not equal to it.
     const TIMEOUT_FIELD = 'reviewTimeoutSeconds'
     const TIMEOUT_DEFAULT = 240
     const TIMEOUT_MIN = 30
-    const TIMEOUT_MAX = 540
+    const TIMEOUT_MAX = 270
 
     const zh = {
       title: 'Charter Kit 评审模型',
@@ -37,7 +40,7 @@ window.__ModuleLoader__.load({
       reviewA: 'Review A（契约与实现覆盖）',
       reviewB: 'Review B（对抗性评审）',
       timeout: '单次评审超时（秒）',
-      timeoutHint: '默认 240；工具会把该值限制在 30–540 秒之间，配置的路由超时后自动改用会话模型评审。',
+      timeoutHint: '默认 240；工具会把该值限制在 30–270 秒之间（一次评审最多两次尝试，合计仍低于宿主约 600 秒的上限），配置的路由超时后自动改用会话模型评审。',
       invalidTimeout: '请输入整数秒；本次未保存。',
       inherit: '默认（跟随当前模型）',
       unavailable: '不可用',
@@ -53,7 +56,7 @@ window.__ModuleLoader__.load({
       reviewA: 'Review A (contract and implementation coverage)',
       reviewB: 'Review B (adversarial review)',
       timeout: 'Per-review timeout (seconds)',
-      timeoutHint: 'Default 240; the tool clamps this to 30–540 seconds and reviews on the session model when the configured route times out.',
+      timeoutHint: 'Default 240; the tool clamps this to 30–270 seconds — a review makes at most two attempts, keeping the whole call under the host\'s ~600-second ceiling — and reviews on the session model when the configured route times out.',
       invalidTimeout: 'Enter a whole number of seconds; nothing was saved.',
       inherit: 'Default (follow current model)',
       unavailable: 'Unavailable',

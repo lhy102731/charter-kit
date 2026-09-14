@@ -7,6 +7,7 @@ site. It cannot execute the tool, so these tests are NOT evidence that
 evidence. They exist to catch a regression in the shape the fix established.
 """
 
+import re
 import unittest
 from pathlib import Path
 
@@ -130,19 +131,20 @@ class DshReviewTimeoutTest(unittest.TestCase):
         self.text = SOURCE.read_text(encoding="utf-8")
 
     def test_declares_a_deadline_the_harness_cannot_preempt(self):
-        # The setting is dynamic and `timeoutMs` is fixed, so the declared value
-        # has to cover the worst case the setting can express: both attempts at
-        # the ceiling plus margin. A smaller literal would let the harness
-        # deadline replace this tool's fallback with an opaque TOOL_TIMEOUT.
+        # The setting is dynamic and `timeoutMs` is fixed at registration, so the
+        # declared value has to cover the worst case the clamp can express. It is
+        # DERIVED from that clamp rather than written as a second literal, so the
+        # two cannot drift apart when either is edited.
         self.assertIn("timeoutMs: REVIEW_TOOL_TIMEOUT_MS,", self.text)
         self.assertIn(
-            "const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + 60) * 1000",
+            "const REVIEW_TOOL_TIMEOUT_MS = "
+            "(MAX_REVIEW_TIMEOUT_SECONDS * 2 + REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) * 1000",
             self.text,
         )
 
     def test_clamps_the_configured_budget_between_the_two_bounds(self):
         self.assertIn("const MIN_REVIEW_TIMEOUT_SECONDS = 30", self.text)
-        self.assertIn("const MAX_REVIEW_TIMEOUT_SECONDS = 540", self.text)
+        self.assertIn("const MAX_REVIEW_TIMEOUT_SECONDS = 270", self.text)
         self.assertIn("const DEFAULT_REVIEW_TIMEOUT_SECONDS = 240", self.text)
         # A non-number defaults; anything numeric is floored into [MIN, MAX].
         self.assertIn("typeof raw === 'number' && Number.isFinite(raw)", self.text)
@@ -150,6 +152,58 @@ class DshReviewTimeoutTest(unittest.TestCase):
             "Math.min(MAX_REVIEW_TIMEOUT_SECONDS, Math.max(MIN_REVIEW_TIMEOUT_SECONDS, seconds))",
             self.text,
         )
+
+    def test_the_declared_deadline_covers_the_two_attempt_worst_case(self):
+        """The defect this pins: a clamp dimensioned against ONE attempt.
+
+        A call may spend the configured attempt and then a session-model rerun,
+        so the quantity that has to fit under the host's ~600 s ceiling is
+        ``2 * MAX``, not ``MAX``. Sized at the ceiling itself, a full-budget
+        attempt plus a full-budget rerun overruns it and the call is killed from
+        outside with nothing rendered — the exact failure this budget exists to
+        remove. The numbers are read out of the shipped source rather than
+        restated here, so editing a constant without redoing the arithmetic
+        fails this test instead of passing it.
+        """
+        numbers = {
+            name: int(value)
+            for name, value in re.findall(
+                r"^const (MIN_REVIEW_TIMEOUT_SECONDS|MAX_REVIEW_TIMEOUT_SECONDS"
+                r"|DEFAULT_REVIEW_TIMEOUT_SECONDS|REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) = (\d+)$",
+                self.text,
+                re.MULTILINE,
+            )
+        }
+        self.assertEqual(
+            sorted(numbers),
+            [
+                "DEFAULT_REVIEW_TIMEOUT_SECONDS",
+                "MAX_REVIEW_TIMEOUT_SECONDS",
+                "MIN_REVIEW_TIMEOUT_SECONDS",
+                "REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS",
+            ],
+            f"could not read every bound out of the source: {numbers}",
+        )
+        minimum = numbers["MIN_REVIEW_TIMEOUT_SECONDS"]
+        maximum = numbers["MAX_REVIEW_TIMEOUT_SECONDS"]
+        default = numbers["DEFAULT_REVIEW_TIMEOUT_SECONDS"]
+        margin = numbers["REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS"]
+
+        # The default has to be a value the clamp leaves alone.
+        self.assertLessEqual(minimum, default)
+        self.assertLessEqual(default, maximum)
+
+        worst_case_s = maximum * 2
+        declared_s = worst_case_s + margin
+        # The agreed bounds: 2 x 270 + 30 = 570 s.
+        self.assertEqual((minimum, maximum, default), (30, 270, 240))
+        self.assertEqual(declared_s, 570)
+        # The declared deadline covers the worst case this clamp can express...
+        self.assertGreater(declared_s, worst_case_s)
+        # ...and still fires before the ~600 s ceiling the host enforces, so THIS
+        # tool renders the fallback instead of being preempted by an opaque
+        # TOOL_TIMEOUT.
+        self.assertLess(declared_s, 600)
 
     def test_composes_its_own_controller_with_the_harness_signal(self):
         # The tool's budget has to be able to abort the child on its own terms,

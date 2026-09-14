@@ -24,9 +24,12 @@ The plugin also registers the Host settings namespace `charter-kit-review` and
 the `charter_review` tool. The namespace keys a card in the DSH
 plugin-configuration page where Review A and Review B each pick a configured
 model, an unset pick follows the session model, and a numeric field sets the
-per-review timeout in seconds (default 240, clamped by the tool to 30–540 s —
-below the Host's 600 s external ceiling, so the tool returns its own result
-before that ceiling). The tool runs one context-free review with the configured
+per-review timeout in seconds (default 240, clamped by the tool to 30–270 s).
+That range is dimensioned against the whole call, not one attempt: a configured
+attempt plus a session-model rerun is at most 2 × 270 + 30 = 570 s, still below
+the Host's ~600 s external ceiling, so the tool returns its own result before
+that ceiling instead of being preempted by it. The tool runs one context-free
+review with the configured
 model and reports the route it used, or `inherited` when it followed the session
 model. Every way the configured route fails to produce a review — a failed
 child, an empty result, or that timeout, which makes the tool abort the child —

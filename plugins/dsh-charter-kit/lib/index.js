@@ -18,26 +18,39 @@ export const REVIEW_TIMEOUT_FIELD = 'reviewTimeoutSeconds'
  * Bounds on one review attempt, in whole seconds.
  *
  * The floor keeps a mistyped card from aborting every review before the child
- * can answer. The ceiling exists because a real project saw the host's own
- * ceiling kill this call at 600 s three times: returning our own fallback
- * before that ceiling is the entire point of the budget, so the configured
- * value must stay strictly below it.
+ * can answer.
+ *
+ * The ceiling is dimensioned against the WHOLE call, not one attempt, because a
+ * call may spend the configured attempt and then a session-model rerun. The
+ * budget therefore has to satisfy `2 * MAX + margin < ceiling`, where the
+ * ceiling is the ~600 s a real project observed the host enforcing:
+ * 2 * 270 + 30 = 570 s. Sizing MAX at the ceiling itself (540) would let a
+ * full-budget attempt plus a full-budget rerun reach 1080 s and be killed
+ * externally with nothing to show — the exact failure this budget exists to
+ * remove.
  */
 const MIN_REVIEW_TIMEOUT_SECONDS = 30
-const MAX_REVIEW_TIMEOUT_SECONDS = 540
+const MAX_REVIEW_TIMEOUT_SECONDS = 270
 const DEFAULT_REVIEW_TIMEOUT_SECONDS = 240
+
+/**
+ * Slack, in seconds, between the worst case the clamp above can express and the
+ * deadline this tool declares: enough for dispatch, disposal, and rendering.
+ */
+const REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS = 30
 
 /**
  * The cooperative tool-call deadline this tool declares to the harness.
  *
  * The setting is dynamic while a declared `timeoutMs` is fixed at registration,
- * so this is derived from the worst case the setting can express — the
- * configured attempt and the session-model rerun, each bounded by the ceiling —
- * plus a minute of margin. Any smaller fixed value would let the harness
- * deadline preempt this tool's own budget and replace the fallback record with
- * an opaque `TOOL_TIMEOUT`.
+ * so this is derived from the worst case the clamp can express: the configured
+ * attempt and the session-model rerun, each at `MAX`, plus the margin.
+ * 2 * 270 + 30 = 570 s, which is above the 540 s this tool can actually spend
+ * and still below the ~600 s external ceiling — so THIS tool's deadline fires
+ * first and renders a result, instead of the call being preempted by an opaque
+ * `TOOL_TIMEOUT`.
  */
-const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + 60) * 1000
+const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) * 1000
 
 /** Empty provider or model means "inherit the calling session's model". */
 const REVIEW_SETTINGS_SCHEMA = z.object({

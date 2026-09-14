@@ -43,6 +43,7 @@ REQUIRED_BEHAVIOURS = (
     # and the card must not turn a typo into a silently clamped write.
     "the timeout control is one number input beside the two dropdowns",
     "the timeout control reads the stored value",
+    "the timeout control advertises the tool's clamped range",
     "a timeout edit writes only the timeout field",
     "a landed timeout edit reports saved",
     "a refused timeout edit reports failure",
