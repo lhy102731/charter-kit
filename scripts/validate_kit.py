@@ -167,6 +167,13 @@ SKILL_DEFAULT_ON_REFERENCE = "skills/charter-workflow/references/default-on-poli
 TARGET_DEFAULT_ON_REFERENCE = "targets/codex/skills/charter-workflow/references/default-on-policy.md"
 DISTRIBUTION_DEFAULT_ON_REFERENCE = "plugins/charter-kit/skills/charter-workflow/references/default-on-policy.md"
 
+LESSONS_REFERENCE = "portable/references/lessons.md"
+SKILL_LESSONS_REFERENCE = "skills/charter-workflow/references/lessons.md"
+TARGET_LESSONS_REFERENCE = "targets/codex/skills/charter-workflow/references/lessons.md"
+DISTRIBUTION_LESSONS_REFERENCE = (
+    "plugins/charter-kit/skills/charter-workflow/references/lessons.md"
+)
+
 # Review B triggers used to be prose repeated across six documents, and the
 # copies had already drifted: one of them split "security or authentication"
 # into two items, so the trigger count depended on which document a project
@@ -342,6 +349,10 @@ REQUIRED_FILES = (
     "dependencies.install.json",
     TARGET_CHANGE_TRIAGE_REFERENCE,
     DISTRIBUTION_CHANGE_TRIAGE_REFERENCE,
+    LESSONS_REFERENCE,
+    SKILL_LESSONS_REFERENCE,
+    TARGET_LESSONS_REFERENCE,
+    DISTRIBUTION_LESSONS_REFERENCE,
     TARGET_CONTRACT_MIGRATIONS_REFERENCE,
     DISTRIBUTION_CONTRACT_MIGRATIONS_REFERENCE,
     DEFAULT_ON_REFERENCE,
@@ -365,6 +376,7 @@ MIRRORS = (
     (CHANGE_TRIAGE_REFERENCE, SKILL_CHANGE_TRIAGE_REFERENCE),
     (CONTRACT_MIGRATIONS_REFERENCE, SKILL_CONTRACT_MIGRATIONS_REFERENCE),
     (DEFAULT_ON_REFERENCE, SKILL_DEFAULT_ON_REFERENCE),
+    (LESSONS_REFERENCE, SKILL_LESSONS_REFERENCE),
     *((path, f"{SKILL_TEMPLATE_ROOT}/{Path(path).name}") for path in PORTABLE_TEMPLATES),
     (
         "portable/references/design-interview.md",
@@ -825,6 +837,7 @@ class Checker:
         self.check_contract_migrations()
         self.check_review_b_triggers()
         self.check_default_on_reference()
+        self.check_lessons_reference()
         self.check_generated_markers()
         self.check_builder_sync()
         self.check_readme()
@@ -2848,6 +2861,30 @@ class Checker:
             ):
                 self.require(text, phrase, relative)
 
+    def check_lessons_reference(self) -> None:
+        """Keep the lesson-layer rules whole in one reference.
+
+        The entry documents carry compact bullets; the distill/cite/report/
+        decay/generalize definitions live here so two paraphrases cannot drift.
+        """
+
+        for relative in (LESSONS_REFERENCE, SKILL_LESSONS_REFERENCE):
+            text = self.read(relative)
+            for phrase in (
+                "# Lessons rules",
+                "## Distill",
+                "## Cite",
+                "## Report",
+                "## Decay",
+                "## Generalize",
+                "8 KB",
+                "Zero output is a legal result",
+                "detectable failure",
+                "not a gate",
+                "unhooked ledger",
+            ):
+                self.require(text, phrase, relative)
+
     def check_generated_markers(self) -> None:
         """Require the builder-written marker in every generated tree.
 
@@ -3034,6 +3071,8 @@ class Checker:
             CONTRACT_MIGRATIONS_REFERENCE,
             DEFAULT_ON_REFERENCE,
             SKILL_DEFAULT_ON_REFERENCE,
+            LESSONS_REFERENCE,
+            SKILL_LESSONS_REFERENCE,
             *PORTABLE_TEMPLATES,
             *HOST_PROMPTS,
             "skills/charter-workflow/SKILL.md",

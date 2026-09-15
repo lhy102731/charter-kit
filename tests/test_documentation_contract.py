@@ -123,6 +123,24 @@ class DocumentationContractTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
 
+    def test_lessons_reference_keeps_the_five_rules_in_one_place(self) -> None:
+        text = read("portable/references/lessons.md")
+        for phrase in (
+            "# Lessons rules",
+            "## Distill",
+            "## Cite",
+            "## Report",
+            "## Decay",
+            "## Generalize",
+            "8 KB",
+            "Zero output is a legal result",
+            "detectable failure",
+            "not a gate",
+            "unhooked ledger",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
 
 if __name__ == "__main__":
     unittest.main()
