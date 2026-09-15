@@ -111,6 +111,11 @@ PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
         "## Coverage and limitations",
         "## Interpretation",
     ),
+    "portable/templates/lessons.md": (
+        "# Lessons",
+        "## Entries",
+        "## Archive pointers",
+    ),
 }
 
 # The leaf contract is in the required-start read set, so every resume pays for

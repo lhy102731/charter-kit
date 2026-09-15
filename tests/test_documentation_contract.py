@@ -104,6 +104,25 @@ class DocumentationContractTests(unittest.TestCase):
             with self.subTest(document="structure", phrase=phrase):
                 self.assertIn(phrase, structure)
 
+    def test_lessons_template_defines_bounded_advisory_entries(self) -> None:
+        text = read("portable/templates/lessons.md")
+        for phrase in (
+            "# Lessons",
+            "## Entries",
+            "## Archive pointers",
+            "Status: ACTIVE",
+            "Hits:",
+            "Pitfall:",
+            "Evidence:",
+            "Next defense:",
+            "Generalize candidate:",
+            "8 KB",
+            "lessons-archive.md",
+            "not a gate",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
 
 if __name__ == "__main__":
     unittest.main()
