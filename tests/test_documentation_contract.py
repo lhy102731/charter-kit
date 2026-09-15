@@ -141,6 +141,17 @@ class DocumentationContractTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
 
+    def test_charter_and_readme_carry_the_lessons_layer(self) -> None:
+        charter = read("DEVELOPMENT_CHARTER.md")
+        self.assertIn("handoff.md → lessons.md（如存在）", charter)
+        self.assertIn("建议性知识而非门", charter)
+        self.assertIn("用户显式确认", charter)
+
+        readme = read("README.md")
+        chinese, _, english = readme.partition("## English")
+        self.assertIn("lessons.md", chinese)
+        self.assertIn("lessons.md", english)
+
 
 if __name__ == "__main__":
     unittest.main()

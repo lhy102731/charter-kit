@@ -293,12 +293,13 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             self.assertIn(path, required_block)
         self.assertIn("auxiliary:", required_block)
+        self.assertIn(".charter/lessons.md", required_block)
         self.assertIn(".charter/evidence/", required_block)
 
     def test_resume_pressure_scenario_reads_reuse_before_current_task(self) -> None:
         pressure = read("tests/pressure-scenarios.md")
         self.assertIn(
-            "project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md (if present)",
+            "project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md → lessons.md (if present)",
             pressure,
         )
 
