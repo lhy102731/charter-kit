@@ -578,5 +578,36 @@ class WorkflowContractTests(unittest.TestCase):
                         )
 
 
+    def test_entry_documents_wire_the_lessons_layer(self) -> None:
+        for relative in (
+            "portable/commands/charter-workflow.md",
+            "targets/zcode/commands/charter-workflow.md",
+            "targets/codex/skills/charter-workflow/SKILL.md",
+            "targets/zcode/skills/charter-workflow/SKILL.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                self.assertIn(".charter/lessons.md", text)
+                self.assertIn("references/lessons.md", text)
+                self.assertIn("GENERALIZE", text)
+
+        skill = read("targets/codex/skills/charter-workflow/SKILL.md")
+        self.assertIn("nine templates", skill)
+        self.assertIn("nine files", skill)
+
+    def test_bootstrap_prompts_read_and_create_lessons(self) -> None:
+        for relative in (
+            "portable/prompts/generic-bootstrap.md",
+            "portable/prompts/codex-bootstrap.md",
+            "portable/prompts/claude-bootstrap.md",
+            "portable/prompts/gemini-bootstrap.md",
+            "portable/prompts/deepseek-bootstrap.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                self.assertIn("lessons.md", text)
+                self.assertIn("GENERALIZE", text)
+
+
 if __name__ == "__main__":
     unittest.main()
