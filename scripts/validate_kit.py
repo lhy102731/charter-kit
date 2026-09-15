@@ -2877,7 +2877,7 @@ class Checker:
                 "## Report",
                 "## Decay",
                 "## Generalize",
-                "8 KB",
+                "64 KB",
                 "Zero output is a legal result",
                 "detectable failure",
                 "not a gate",

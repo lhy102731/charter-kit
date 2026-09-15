@@ -6,7 +6,7 @@
 > authorization.
 
 **Bounded size.** This file is in the required-start read set whenever it exists, so every
-resume pays for it. Keep it at or under 8 KB. When it exceeds the bound, archive the weakest
+resume pays for it. Keep it at or under 64 KB. When it exceeds the bound, archive the weakest
 entries (lowest hit count first, then oldest) to `.charter/lessons-archive.md` — outside the
 required-start read set — and leave one pointer line per archived entry in the Archive
 pointers section. Never archive an entry that a leaf cites as its defense basis or that

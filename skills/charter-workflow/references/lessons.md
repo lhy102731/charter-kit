@@ -40,7 +40,7 @@ recorded on the entry.
 
 ## Decay — how the file stays bounded
 
-`.charter/lessons.md` is capped at 8 KB because every resume re-reads it. Over the cap,
+`.charter/lessons.md` is capped at 64 KB because every resume re-reads it. Over the cap,
 archive the weakest entries — lowest hit count first, then oldest — to
 `.charter/lessons-archive.md`, leaving one pointer line each. Before archiving any entry,
 run the promotion sweep: an entry cited as a defense basis by any leaf, or carrying an open

@@ -116,7 +116,7 @@ class DocumentationContractTests(unittest.TestCase):
             "Evidence:",
             "Next defense:",
             "Generalize candidate:",
-            "8 KB",
+            "64 KB",
             "lessons-archive.md",
             "not a gate",
         ):
@@ -132,7 +132,7 @@ class DocumentationContractTests(unittest.TestCase):
             "## Report",
             "## Decay",
             "## Generalize",
-            "8 KB",
+            "64 KB",
             "Zero output is a legal result",
             "detectable failure",
             "not a gate",
