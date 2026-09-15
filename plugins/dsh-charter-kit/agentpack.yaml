@@ -21,6 +21,7 @@ working_set:
     - .charter/current-task.md
   optional:
     - .charter/handoff.md
+    - .charter/lessons.md
   auxiliary:
     - .charter/decision.md
     - .charter/review.md

@@ -152,6 +152,25 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertIn("lessons.md", chinese)
         self.assertIn("lessons.md", english)
 
+    def test_lessons_files_are_mirrored_into_skill_and_target_trees(self) -> None:
+        template = read("portable/templates/lessons.md")
+        for relative in (
+            "skills/charter-workflow/templates/lessons.md",
+            "targets/codex/skills/charter-workflow/templates/lessons.md",
+            "targets/zcode/skills/charter-workflow/templates/lessons.md",
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual(read(relative), template)
+
+        reference = read("portable/references/lessons.md")
+        for relative in (
+            "skills/charter-workflow/references/lessons.md",
+            "targets/codex/skills/charter-workflow/references/lessons.md",
+            "targets/zcode/skills/charter-workflow/references/lessons.md",
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual(read(relative), reference)
+
 
 if __name__ == "__main__":
     unittest.main()
