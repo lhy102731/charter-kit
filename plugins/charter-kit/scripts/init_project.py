@@ -37,6 +37,7 @@ FILES = {
     "decision.md": "decision.md",
     "review.md": "review.md",
     "evidence-receipt.md": "evidence-receipt.md",
+    "lessons.md": "lessons.md",
 }
 
 

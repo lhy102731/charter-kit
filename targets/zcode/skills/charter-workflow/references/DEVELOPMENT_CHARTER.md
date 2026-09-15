@@ -362,7 +362,9 @@ DRAFT
 
 `.charter/handoff.md` 是可选的项目本地恢复快照，不是跨 Agent 通道、消息队列或同步服务。需要暂停、压缩上下文或在另一 Harness 独立继续时，可以更新它；重要状态仍以 `project.md`、`roadmap.md`、`current-task.md` 和 `reuse-discovery.md` 为准，不能只依赖快照或口头承诺。
 
-快照应让下一次运行快速回答：目标、当前叶、已验证事实、未解决问题、唯一下一动作、禁止动作、依赖状态、复用 discovery ID、证据和授权引用。恢复时重新按 `project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md（如存在）` 检查；文件缺失或互相冲突时保持 `BLOCKED`，先修复工作集。
+快照应让下一次运行快速回答：目标、当前叶、已验证事实、未解决问题、唯一下一动作、禁止动作、依赖状态、复用 discovery ID、证据和授权引用。恢复时重新按 `project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md → lessons.md（如存在）` 检查；文件缺失或互相冲突时保持 `BLOCKED`，先修复工作集。
+
+`.charter/lessons.md` 是初始化即建、存在即读的项目本地经验层：记录实战中真实踩过的坑与下次防御。它有界（≤ 8 KB）、是建议性知识而非门——引用教训不改变任何门状态或授权。叶 `PASS_CLOSED`、handoff 归档提升扫掠与 Change Triage 缺陷路由时按 `portable/references/lessons.md` 的规则提炼条目；同一坑只保留一条，零提炼产出合法。教训要进套件本体，必须经用户显式确认后手工编辑，绝不由 agent 自动写入。
 
 ## 8. 工具路由
 

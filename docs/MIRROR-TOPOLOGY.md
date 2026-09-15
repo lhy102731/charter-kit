@@ -30,6 +30,7 @@ is the map. It documents the current behavior; it does not change it.
 | `targets/codex/` | Codex adapter source: `.codex-plugin/plugin.json` plus a self-contained `skills/charter-workflow/` tree. |
 | `targets/zcode/` | ZCode adapter source: `.zcode-plugin/plugin.json`, `commands/charter-workflow.md`, and its own self-contained `skills/charter-workflow/` tree. |
 | `targets/dsh/` | DSH adapter source: `package.json`, `src/`, `client/`, `build.sh`, `README.md`. It carries no skill tree of its own. |
+| `portable/templates/lessons.md`, `portable/references/lessons.md` | Lessons-layer sources; mirrored byte-identically into both target skill trees like the other portable files. |
 
 A file that exists in more than one of these places must be edited in every one
 of them in the same change. `SKILL.md` has three hand-edited copies (root and

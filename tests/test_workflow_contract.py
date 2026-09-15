@@ -293,12 +293,13 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             self.assertIn(path, required_block)
         self.assertIn("auxiliary:", required_block)
+        self.assertIn(".charter/lessons.md", required_block)
         self.assertIn(".charter/evidence/", required_block)
 
     def test_resume_pressure_scenario_reads_reuse_before_current_task(self) -> None:
         pressure = read("tests/pressure-scenarios.md")
         self.assertIn(
-            "project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md (if present)",
+            "project.md → roadmap.md → reuse-discovery.md → current-task.md → handoff.md → lessons.md (if present)",
             pressure,
         )
 
@@ -576,6 +577,37 @@ class WorkflowContractTests(unittest.TestCase):
                             re.search(r"(?i)probed status|as probed", text),
                             f"{relative}: reuse routing is log-bound again",
                         )
+
+
+    def test_entry_documents_wire_the_lessons_layer(self) -> None:
+        for relative in (
+            "portable/commands/charter-workflow.md",
+            "targets/zcode/commands/charter-workflow.md",
+            "targets/codex/skills/charter-workflow/SKILL.md",
+            "targets/zcode/skills/charter-workflow/SKILL.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                self.assertIn(".charter/lessons.md", text)
+                self.assertIn("references/lessons.md", text)
+                self.assertIn("GENERALIZE", text)
+
+        skill = read("targets/codex/skills/charter-workflow/SKILL.md")
+        self.assertIn("nine templates", skill)
+        self.assertIn("nine files", skill)
+
+    def test_bootstrap_prompts_read_and_create_lessons(self) -> None:
+        for relative in (
+            "portable/prompts/generic-bootstrap.md",
+            "portable/prompts/codex-bootstrap.md",
+            "portable/prompts/claude-bootstrap.md",
+            "portable/prompts/gemini-bootstrap.md",
+            "portable/prompts/deepseek-bootstrap.md",
+        ):
+            with self.subTest(relative=relative):
+                text = read(relative)
+                self.assertIn("lessons.md", text)
+                self.assertIn("GENERALIZE", text)
 
 
 if __name__ == "__main__":
