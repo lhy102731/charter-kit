@@ -46,7 +46,9 @@ archive the weakest entries — lowest hit count first, then oldest — to
 run the promotion sweep: an entry cited as a defense basis by any leaf, or carrying an open
 `GENERALIZE` candidacy, is not archivable. Archiving without the sweep silently deletes a
 live rule from every later reader — the same defect as archiving a handoff block by leaf ID
-alone.
+alone. An entry whose pitfall no longer applies — for example a defect class a new version
+eliminated — is marked `RETIRED`: it keeps its ID and stays until the next decay pass, and
+its zero-hit weakness is what archives it.
 
 ## Generalize — how the kit itself improves
 

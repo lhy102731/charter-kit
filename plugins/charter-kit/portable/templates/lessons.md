@@ -16,7 +16,8 @@ rule.
 **One pitfall, one entry.** Before adding an entry, check whether the pitfall already has
 one: a repeat hit updates that entry (hit count +1, evidence appended, defense revised)
 instead of creating a duplicate. `LS-NNN` IDs are frozen, including after archival, so one
-ID never names two different pitfalls.
+ID never names two different pitfalls. An entry whose pitfall no longer applies is marked
+`RETIRED` rather than deleted, so its ID stays meaningful.
 
 ## Entries
 
