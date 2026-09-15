@@ -12,7 +12,7 @@ behavioral contract, not a claim that every Harness has identical tooling.
 missing project-local working-set files, runs capability diagnosis, conducts
 the intent interview, and waits for project and leaf authorization. A later
 Resume reads `project.md → roadmap.md → reuse-discovery.md → current-task.md →
-handoff.md (if present)` and enters the same `READY` Leaf loop. No conversation
+handoff.md → lessons.md (if present)` and enters the same `READY` Leaf loop. No conversation
 memory or cross-Harness service is treated as state.
 
 ## Scenario 1: Time pressure and “just start coding”
