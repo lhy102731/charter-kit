@@ -30,7 +30,7 @@ The lightweight kit is valid only when these paths exist:
 - `skills/charter-workflow/references/tool-routing.md`
 - `skills/charter-workflow/references/DEVELOPMENT_CHARTER.md`
 - `skills/charter-workflow/references/design-interview.md`
-- `skills/charter-workflow/templates/` — byte-identical copies of all eight `portable/templates/` files
+- `skills/charter-workflow/templates/` — byte-identical copies of all nine `portable/templates/` files
 - `scripts/validate_kit.py`
 - `scripts/init_project.py`
 - `tests/test_charter_kit.py` — standard-library behavior tests for backup, refusal, safe `--add-missing` migration, and validator gates

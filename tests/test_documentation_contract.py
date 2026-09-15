@@ -104,6 +104,73 @@ class DocumentationContractTests(unittest.TestCase):
             with self.subTest(document="structure", phrase=phrase):
                 self.assertIn(phrase, structure)
 
+    def test_lessons_template_defines_bounded_advisory_entries(self) -> None:
+        text = read("portable/templates/lessons.md")
+        for phrase in (
+            "# Lessons",
+            "## Entries",
+            "## Archive pointers",
+            "Status: ACTIVE",
+            "Hits:",
+            "Pitfall:",
+            "Evidence:",
+            "Next defense:",
+            "Generalize candidate:",
+            "8 KB",
+            "lessons-archive.md",
+            "not a gate",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_lessons_reference_keeps_the_five_rules_in_one_place(self) -> None:
+        text = read("portable/references/lessons.md")
+        for phrase in (
+            "# Lessons rules",
+            "## Distill",
+            "## Cite",
+            "## Report",
+            "## Decay",
+            "## Generalize",
+            "8 KB",
+            "Zero output is a legal result",
+            "detectable failure",
+            "not a gate",
+            "unhooked ledger",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_charter_and_readme_carry_the_lessons_layer(self) -> None:
+        charter = read("DEVELOPMENT_CHARTER.md")
+        self.assertIn("handoff.md → lessons.md（如存在）", charter)
+        self.assertIn("建议性知识而非门", charter)
+        self.assertIn("用户显式确认", charter)
+
+        readme = read("README.md")
+        chinese, _, english = readme.partition("## English")
+        self.assertIn("lessons.md", chinese)
+        self.assertIn("lessons.md", english)
+
+    def test_lessons_files_are_mirrored_into_skill_and_target_trees(self) -> None:
+        template = read("portable/templates/lessons.md")
+        for relative in (
+            "skills/charter-workflow/templates/lessons.md",
+            "targets/codex/skills/charter-workflow/templates/lessons.md",
+            "targets/zcode/skills/charter-workflow/templates/lessons.md",
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual(read(relative), template)
+
+        reference = read("portable/references/lessons.md")
+        for relative in (
+            "skills/charter-workflow/references/lessons.md",
+            "targets/codex/skills/charter-workflow/references/lessons.md",
+            "targets/zcode/skills/charter-workflow/references/lessons.md",
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual(read(relative), reference)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,6 +31,36 @@ class DshTargetTest(unittest.TestCase):
         distributed = (ROOT / "plugins/dsh-charter-kit/src/index.js").read_bytes()
         self.assertEqual(source, distributed)
 
+    def test_distribution_ships_the_client_bundle(self):
+        self.assertTrue((ROOT / "plugins/dsh-charter-kit/client/client.js").is_file())
+
+    def test_distribution_client_matches_target(self):
+        source = (ROOT / "targets/dsh/client/client.js").read_bytes()
+        distributed = (ROOT / "plugins/dsh-charter-kit/client/client.js").read_bytes()
+        self.assertEqual(source, distributed)
+
+    def test_declares_the_client_bundle(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["exports"]["./client"], "./client/client.js")
+        client = data["dsh"]["client"]
+        self.assertEqual(client["platform"], "web")
+        self.assertIsInstance(client["inject"], list)
+
+    def test_target_version_is_0_3_0(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["version"], "0.3.0")
+
+    def test_peer_dependencies_are_the_two_runtime_packages(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            set(data["peerDependencies"]),
+            {"@deepseek-ai/dsh-tools", "@deepseek-ai/schemastery"},
+        )
+
+    def test_files_include_the_client_bundle(self):
+        data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
+        self.assertIn("client", data["files"])
+
 
 if __name__ == "__main__":
     unittest.main()

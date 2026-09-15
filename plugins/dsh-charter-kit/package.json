@@ -1,17 +1,19 @@
 {
   "name": "@dsh-external/dsh-charter-kit",
-  "version": "0.2.0",
-  "description": "DSH plugin distribution for Charter Kit: portable charter workflow and the model-driven charter-workflow skill.",
+  "version": "0.3.0",
+  "description": "DSH plugin distribution for Charter Kit: portable charter workflow, the model-driven charter-workflow skill, and the Review A/B model card.",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./client/client.js",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
     "src",
+    "client",
     "scripts",
     "portable",
     "skills",
@@ -25,5 +27,17 @@
   "license": "MIT",
   "scripts": {
     "build": "bash scripts/build.sh"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ],
+      "platform": "web"
+    }
   }
 }

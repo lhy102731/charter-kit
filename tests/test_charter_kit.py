@@ -215,6 +215,20 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertTrue(reuse.is_file(), result.stdout + result.stderr)
         self.assertIn("Reuse Discovery", reuse.read_text(encoding="utf-8"))
 
+    def test_init_creates_the_lessons_record(self) -> None:
+        package = self.make_package_copy()
+        project = package.parent / "project"
+        init_script = package / "scripts" / "init_project.py"
+
+        result = self.run_script(init_script, project)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        lessons = project / ".charter" / "lessons.md"
+        self.assertTrue(lessons.is_file(), result.stdout + result.stderr)
+        template = (package / "portable" / "templates" / "lessons.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(lessons.read_text(encoding="utf-8"), template)
+
     def test_add_missing_preserves_existing_charter_files(self) -> None:
         package = self.make_package_copy()
         project = package.parent / "project"

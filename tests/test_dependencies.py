@@ -32,6 +32,100 @@ class DependencyDiagnosticTests(unittest.TestCase):
                 self.assertTrue(declaration["role"])
                 self.assertTrue(declaration["fallback"])
 
+    def test_every_skill_declaration_probes_the_host_skill_root(self) -> None:
+        """A host with its own skill root must still find an installed provider.
+
+        The manifest declared provider locations under the shared agent roots
+        only.  On a host whose skills live in their own root every provider
+        probed `MISSING` even while installed, and the decision-point rule then
+        routed deterministically to the portable path.  This widens the probe:
+        every previously declared path stays, and the per-id host-skill-root
+        path is added.
+        """
+
+        payload = json.loads((PACKAGE_ROOT / "dependencies.json").read_text(encoding="utf-8"))
+        entries = [*payload.get("providers", []), *payload.get("capabilities", [])]
+        by_id = {entry.get("id"): entry for entry in entries}
+        for provider in (
+            "superpowers",
+            "j-space",
+            "grill-me",
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        ):
+            with self.subTest(provider=provider):
+                entry = by_id.get(provider)
+                self.assertIsNotNone(entry)
+                assert entry is not None
+                paths = entry["paths"]
+                with self.subTest(declared="host skill root"):
+                    self.assertIn(f"{{home}}/.dsh/skills/{provider}", paths)
+                # Widening, not replacing: the shared agent root is retained.
+                self.assertTrue(
+                    any(path.startswith("{home}/.agents/skills/") for path in paths),
+                    f"{provider} dropped its shared agent-root path",
+                )
+                # Appended last, as one trailing block: an already-provisioned
+                # host resolves at its first `AVAILABLE` candidate, so a path
+                # inserted before, or after, the new block would change which
+                # location that host reports.
+                appended = [
+                    index
+                    for index, path in enumerate(paths)
+                    if path.startswith("{home}/.dsh/skills/")
+                ]
+                self.assertTrue(appended, f"{provider} declares no host skill root")
+                self.assertEqual(
+                    appended,
+                    list(range(appended[0], len(paths))),
+                    f"{provider}: host-skill-root paths must be appended last "
+                    "as one trailing block",
+                )
+
+        # Seven ids resolve by their own directory name, so the appended entry
+        # is exactly the last one.  superpowers and grill-me append member and
+        # alias directories after theirs, pinned separately below.
+        for provider in (
+            "j-space",
+            "reuse-first",
+            "framework-first-coding",
+            "reduce-reinvention",
+            "find-skills",
+            "repo-to-skill",
+        ):
+            with self.subTest(provider=provider, position="last"):
+                self.assertEqual(
+                    by_id[provider]["paths"][-1],
+                    f"{{home}}/.dsh/skills/{provider}",
+                )
+        with self.subTest(provider="superpowers", position="last three"):
+            self.assertEqual(
+                by_id["superpowers"]["paths"][-3:],
+                [
+                    "{home}/.dsh/skills/superpowers",
+                    "{home}/.dsh/skills/brainstorming",
+                    "{home}/.dsh/skills/test-driven-development",
+                ],
+            )
+        with self.subTest(provider="grill-me", position="last two"):
+            self.assertEqual(
+                by_id["grill-me"]["paths"][-2:],
+                [
+                    "{home}/.dsh/skills/grill-me",
+                    "{home}/.dsh/skills/grilling",
+                ],
+            )
+
+        # That host keeps these two under their own skill names, so the literal
+        # id directory alone would still report `MISSING` there.
+        superpowers_paths = by_id["superpowers"]["paths"]
+        for member in ("brainstorming", "test-driven-development"):
+            with self.subTest(declared=member):
+                self.assertIn(f"{{home}}/.dsh/skills/{member}", superpowers_paths)
+
     def test_reuse_provider_gaps_remain_distinct_from_dependency_statuses(self) -> None:
         payload = json.loads((PACKAGE_ROOT / "dependencies.json").read_text(encoding="utf-8"))
         self.assertEqual(

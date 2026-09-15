@@ -50,6 +50,12 @@ TARGET_FILES = (
     Path("src") / "index.js",
     Path("scripts") / "build.sh",
 )
+# The browser bundle the Host loads beside the plugin entry.  It is copied as a
+# whole directory rather than through ``TARGET_FILES`` because the manifest names
+# a directory at load time, so a file added beside the entry ships with it
+# instead of being silently left behind.
+CLIENT_DIR_NAME = "client"
+CLIENT_ENTRY_NAME = "client.js"
 IGNORED_TREE_NAMES = {"__pycache__", ".git", ".hg", ".svn", "plugins", "targets"}
 
 
@@ -393,6 +399,17 @@ def build_stage(repository_root: Path, stage_root: Path) -> None:
         source = target_root / relative
         validate_source_file(source, f"DSH target {relative}")
         copy_file(source, stage_root / relative)
+    # The client bundle is what the Host loads to render the plugin's settings
+    # card.  A distribution that omits it is indistinguishable from one that
+    # ships it until the card fails to load, so a missing entry fails the build
+    # here instead of producing a package that cannot render it.
+    client_root = target_root / CLIENT_DIR_NAME
+    if not (client_root / CLIENT_ENTRY_NAME).is_file():
+        raise OSError(
+            f"DSH target is missing {CLIENT_DIR_NAME}/{CLIENT_ENTRY_NAME}; "
+            "the package declares dsh.client and would fail to load without it"
+        )
+    copy_tree(client_root, stage_root / CLIENT_DIR_NAME)
     copy_tree(repository_root / PACKAGE_SKILL_RELATIVE, stage_root / "skills" / "charter-workflow")
 
     lib_dir = stage_root / "lib"
