@@ -25,13 +25,18 @@ class DshReviewToolTest(unittest.TestCase):
     def test_registers_settings_section(self):
         self.assertIn("installSection", self.text)
 
-    def test_declares_the_five_settings_fields(self):
+    def test_declares_the_settings_fields(self):
         for field in (
             "reviewAProvider",
             "reviewAModel",
             "reviewBProvider",
             "reviewBModel",
             "reviewTimeoutSeconds",
+            # One selected reasoning-effort level per seat (task 16). '' is the
+            # no-selection value, so the field has to exist for the reader to
+            # see it at all.
+            "reviewAEffort",
+            "reviewBEffort",
         ):
             self.assertIn(field, self.text, field)
 
@@ -123,9 +128,42 @@ class DshReviewToolFailureReportingTest(unittest.TestCase):
         # live in one place, so no call site — the configured one, the recovery
         # rerun, or the session-route branch — can leak a raw rejection out of
         # `execute`.
+        #
+        # The count changed in task 16, deliberately: the three call sites now
+        # go through `runWithEffort`, which records the effort each dispatch
+        # carries before delegating, so the result can report the level of the
+        # run that produced the review rather than of an earlier attempt. The
+        # guarded wrapper is still the only place that dispatches.
         self.assertIn("const runReview = async (agentOptions) => {", self.text)
-        self.assertEqual(self.text.count("await runReview("), 3)
+        # One dispatch, inside the wrapper: the only place `runReview` is called
+        # is the wrapper's own `return runReview(options)`.
+        self.assertEqual(self.text.count("runReview("), 1)
+        self.assertEqual(self.text.count("return runReview(options)"), 1)
+        self.assertIn("const runWithEffort = async (options, applied) => {", self.text)
+        self.assertEqual(self.text.count("await runWithEffort("), 3)
         self.assertNotIn("runOnce", self.text)
+
+    def test_reaches_the_llm_runtime_in_its_own_optional_scope(self):
+        """Pin the scope shape the degrade depends on.
+
+        Two independent failures live in one line here. Naming `llm` in the
+        top-level `inject` array would leave this plugin's fiber PENDING on a
+        host without an LLM runtime, and the skill registration would go down
+        with it. Naming it beside `tools`/`settings`/`subagents` in the outer
+        optional scope is the same failure one level in: the whole tool would
+        wait for a service it is required to degrade without. So `llm` waits in
+        its own inner scope, and the tool keeps running when that scope never
+        fires.
+        """
+        self.assertIn("export const inject = ['skills']", self.text)
+        self.assertIn("scope.inject(['llm'], (llmScope) => {", self.text)
+        self.assertIn("typeof llm.resolveModelInfo !== 'function'", self.text)
+        # The lookup is bounded, and every answer that is not a declaration —
+        # absent service, rejection, timeout, a route with no reasoning — has a
+        # defined result instead of a throw out of the tool.
+        self.assertIn("const LLM_CAPABILITY_TIMEOUT_MS = 5000", self.text)
+        self.assertIn("return { available: false, ids: null }", self.text)
+        self.assertIn("return { available: true, ids: null }", self.text)
 
 
 class DshReviewTimeoutTest(unittest.TestCase):
@@ -293,6 +331,64 @@ class DshReviewBriefGuardTest(unittest.TestCase):
             "`${label} skipped: the caller asked for the session route`",
             self.text,
         )
+
+
+class DshReviewEffortTest(unittest.TestCase):
+    """Structural only. See the module docstring for what these can claim.
+
+    The claims that matter about the effort feature — which object the provider
+    receives, and what the caller reads back — are behavioural and live in
+    ``tests/dsh_review_tool_harness.cjs``. These pin the shape so the wiring
+    cannot be moved or re-spelled without the change coming back through here.
+    """
+
+    def setUp(self):
+        self.text = SOURCE.read_text(encoding="utf-8")
+
+    def test_only_a_known_level_is_a_selection(self):
+        # The list is the LLM layer's own escalation order, and the card's data
+        # module carries the same list: a level the adapter cannot be asked for
+        # must not be storable as a selection.
+        self.assertIn(
+            "const EFFORT_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']",
+            self.text,
+        )
+        self.assertIn("function reviewEffort(value, kind) {", self.text)
+        self.assertIn("EFFORT_LEVELS.includes(raw) ? raw : null", self.text)
+
+    def test_attaches_the_effort_only_when_one_was_applied(self):
+        # The no-selection path has to dispatch the same object it always did:
+        # the spread only happens once a level survived the checks above.
+        self.assertIn(
+            "const childOptions = childEffort === null ? configured "
+            ": { ...configured, reasoningEffort: childEffort }",
+            self.text,
+        )
+
+    def test_drops_a_level_the_route_would_reject(self):
+        # The LLM layer answers an undeclared id with UNSUPPORTED_REASONING_EFFORT,
+        # so a stored-but-undeclared level is dropped rather than sent.
+        self.assertIn("function appliedEffort(wanted, support) {", self.text)
+        self.assertIn(
+            "if (support.available && (support.ids === null || !support.ids.includes(wanted))) return null",
+            self.text,
+        )
+
+    def test_reports_the_effort_beside_the_model(self):
+        self.assertIn("const withEffort = ({ outcome, model, ...rest }) => ({", self.text)
+        self.assertIn(
+            "...readRouteEffort === undefined ? {} : { effort: effortApplied ?? 'default' },",
+            self.text,
+        )
+        # The session-model paths pass no options, so they must not report the
+        # level an earlier attempt carried.
+        self.assertIn("const runWithEffort = async (options, applied) => {", self.text)
+        self.assertIn("effortApplied = applied", self.text)
+
+    def test_the_tool_half_still_waits_only_for_its_three_services(self):
+        # The effort feature must not have widened the outer optional scope.
+        self.assertIn("ctx.inject(['tools', 'settings', 'subagents'], (scope) => {", self.text)
+        self.assertNotIn("ctx.inject(['tools', 'settings', 'subagents', 'llm']", self.text)
 
 
 if __name__ == "__main__":

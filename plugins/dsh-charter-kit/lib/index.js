@@ -76,6 +76,8 @@ const REVIEW_SETTINGS_SCHEMA = z.object({
   reviewBProvider: z.string().default(''),
   reviewBModel: z.string().default(''),
   [REVIEW_TIMEOUT_FIELD]: z.number().default(DEFAULT_REVIEW_TIMEOUT_SECONDS),
+  reviewAEffort: z.string().default(''),
+  reviewBEffort: z.string().default(''),
 })
 
 /**
@@ -91,7 +93,33 @@ const REVIEW_SETTINGS_DEFAULTS = {
   reviewBProvider: '',
   reviewBModel: '',
   [REVIEW_TIMEOUT_FIELD]: DEFAULT_REVIEW_TIMEOUT_SECONDS,
+  reviewAEffort: '',
+  reviewBEffort: '',
 }
+
+/**
+ * The reasoning-effort levels a seat may select, in the order the card renders
+ * them. The set and the order are the LLM layer's own (`THINKING_LEVELS` in the
+ * pi-ai catalog, which is what an adapter validates a request against), and the
+ * card's data module carries the same list under `levels` — a test compares the
+ * two so a level added on one side cannot go missing on the other.
+ */
+const EFFORT_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+
+/** Settings field holding one seat's selected level; '' means none. */
+const EFFORT_FIELDS = { A: 'reviewAEffort', B: 'reviewBEffort' }
+
+/**
+ * How long the route-capability lookup may take before this tool treats the LLM
+ * runtime as unusable.
+ *
+ * It is a local capability read, not a dispatch, so anything approaching this
+ * window is a broken service rather than a slow one — and it is bounded because
+ * nothing else would bound it: the wait sits before the attempt that owns the
+ * only timer this tool arms, so an un-settling lookup would spend the whole
+ * declared budget and leave the review unrun.
+ */
+const LLM_CAPABILITY_TIMEOUT_MS = 5000
 
 /**
  * Read one review route out of the settings value.
@@ -103,6 +131,42 @@ function reviewRoute(value, kind) {
   const provider = value[kind === 'B' ? 'reviewBProvider' : 'reviewAProvider']
   const model = value[kind === 'B' ? 'reviewBModel' : 'reviewAModel']
   return provider === '' || model === '' ? null : { provider, model }
+}
+
+/**
+ * Read one seat's selected reasoning-effort level out of the settings value.
+ *
+ * Only a level this adapter can put on the wire is a selection: a hand-edited
+ * settings file, or a value written by a newer card, reads as "nothing
+ * selected", which is the same thing the card renders and the same thing that
+ * leaves the child's agent options untouched.
+ * @param value - effective settings value.
+ * @param kind - review kind, 'A' or 'B'.
+ * @returns the level id, or null when no usable level is stored.
+ */
+function reviewEffort(value, kind) {
+  const raw = value[EFFORT_FIELDS[kind === 'B' ? 'B' : 'A']]
+  return typeof raw === 'string' && EFFORT_LEVELS.includes(raw) ? raw : null
+}
+
+/**
+ * Decide which level may be attached to one child's agent options.
+ *
+ * A route that declares no reasoning at all rejects ANY effort with
+ * `UNSUPPORTED_REASONING_EFFORT`, and a route that omits the chosen level
+ * rejects that one, so both cases drop the selection instead of turning it into
+ * a guaranteed failure. When the LLM runtime could not be reached the selection
+ * is kept: the card gated it against the same catalogue the host would consult,
+ * and dropping a level the user explicitly chose is the silent downgrade this
+ * tool must not perform.
+ * @param wanted - the stored selection, or null.
+ * @param support - `{available, ids}` from the LLM runtime.
+ * @returns the level to send, or null to send none.
+ */
+function appliedEffort(wanted, support) {
+  if (wanted === null) return null
+  if (support.available && (support.ids === null || !support.ids.includes(wanted))) return null
+  return wanted
 }
 
 /**
@@ -253,13 +317,35 @@ export function apply(ctx) {
       },
     )
 
+    /**
+     * The LLM runtime, reached only to ask what one route declares.
+     *
+     * It waits in its OWN optional scope rather than beside the three services
+     * above: naming `llm` in that list would withhold this whole tool — and the
+     * review it exists for — from a host that has no LLM runtime, while the
+     * required behaviour there is to degrade. Without it the tool still runs,
+     * still sends the level the user selected, and reports no level at all
+     * rather than one it cannot check.
+     */
+    let readRouteEffort
+    scope.inject(['llm'], (llmScope) => {
+      const llm = llmScope.llm
+      if (llm === undefined || typeof llm.resolveModelInfo !== 'function') return
+      readRouteEffort = (route, signal) => llm.resolveModelInfo(route.provider, route.model, signal)
+    })
+
     scope.tools.register(defineTool({
       name: 'charter_review',
       description: 'Run one context-free Charter Kit review with the model configured for that review kind. '
         + 'Use kind "A" for every leaf\'s contract and implementation coverage review, and kind "B" for the '
         + 'adversarial review required by a hit RVB trigger. The reviewer receives only the brief you pass — '
         + 'never the session history — and the returned model names the route it used, or `inherited` '
-        + 'when it followed the session model. An attempt is bounded by the configured timeout; any way the '
+        + 'when it followed the session model. Each seat also carries a reasoning-effort selection in the '
+        + 'model card; when one is set and the route declares it, the child is started with that level as '
+        + '`agentOptions.reasoningEffort`, and the result reports it as `effort` beside `model` — `"default"` '
+        + 'when no level was sent, meaning the provider default applies and this host cannot know it, and no '
+        + 'level at all when the LLM runtime is unavailable to check the route. An attempt is bounded by the '
+        + 'configured timeout; any way the '
         + 'configured route fails to produce a review — a settled failure, an empty result, or that timeout — '
         + 'reruns the same brief on the session model and reports `outcome: "fallback"`, so a configured route '
         + 'that cannot deliver still produces a review. The call never waits past its budget. An empty `review` '
@@ -304,6 +390,10 @@ export function apply(ctx) {
           properties: {
             outcome: { type: 'string', required: true },
             model: { type: 'string', required: true },
+            // Optional on purpose: a host whose LLM runtime is unavailable
+            // reports no level rather than a level it cannot check, so the
+            // field's absence is a state of its own and not a missing value.
+            effort: { type: 'string' },
             routeFallbackReason: { type: 'string' },
             review: { type: 'string', required: true },
           },
@@ -333,6 +423,12 @@ export function apply(ctx) {
         const configured = reviewRoute(settings, kind)
         const budgetSeconds = reviewTimeoutSeconds(settings)
         const budgetMs = budgetSeconds * 1000
+        // The seat's reasoning-effort selection, and the level this call may
+        // actually attach to the child's agent options. `effortApplied` is
+        // rewritten at every dispatch, so the result reports the effort of the
+        // run that produced the review rather than of an earlier attempt.
+        const wantedEffort = reviewEffort(settings, kind)
+        let effortApplied = null
         // When the call started, so every await below — dispatch, the child's
         // result, and teardown — can be bounded by what is left of the deadline
         // this tool declares. Nothing else bounds them: the harness's tool
@@ -348,6 +444,60 @@ export function apply(ctx) {
 
         /** Read one throwable's message for a failure detail. */
         const messageOf = (error) => (error instanceof Error ? error.message : String(error))
+
+        /**
+         * Attach the effort this call may report, immediately after `model`, so
+         * the pair reads together in the rendered result.
+         *
+         * The key is omitted entirely when the LLM runtime is unavailable: a
+         * host that cannot ask what a route declares reports no level at all
+         * rather than one it cannot stand behind, and "no level reported" is a
+         * state the caller can see rather than an empty string it has to
+         * interpret.
+         */
+        const withEffort = ({ outcome, model, ...rest }) => ({
+          outcome,
+          model,
+          ...readRouteEffort === undefined ? {} : { effort: effortApplied ?? 'default' },
+          ...rest,
+        })
+
+        /**
+         * Ask the LLM runtime which effort ids one route declares.
+         *
+         * `ids: null` means the route declares no reasoning at all, which is a
+         * different answer from "the runtime could not be reached": the first
+         * rejects every effort, the second only means this host cannot check.
+         * Both the lookup and the timeout are the only things here that can
+         * answer, so an error, a rejection, or a slow service all land on
+         * `available: false` rather than on a throw out of this tool.
+         * @param route - the configured provider/model route.
+         * @returns `{available, ids}`.
+         */
+        const routeEffortSupport = async (route) => {
+          if (readRouteEffort === undefined) return { available: false, ids: null }
+          let timer
+          try {
+            const lookup = readRouteEffort(route, exec.signal).then(
+              (info) => ({ info }),
+              () => ({ info: undefined }),
+            )
+            const settled = await Promise.race([
+              lookup,
+              new Promise((resolve) => { timer = setTimeout(() => resolve(null), LLM_CAPABILITY_TIMEOUT_MS) }),
+            ])
+            if (settled === null || typeof settled.info !== 'object' || settled.info === null) {
+              return { available: false, ids: null }
+            }
+            const reasoning = settled.info.reasoning
+            if (reasoning === undefined || reasoning === null || !Array.isArray(reasoning.efforts)) {
+              return { available: true, ids: null }
+            }
+            return { available: true, ids: reasoning.efforts.map((effort) => effort.id) }
+          } finally {
+            clearTimeout(timer)
+          }
+        }
 
         /**
          * Render one failed attempt as the record that makes it actionable: the
@@ -502,38 +652,55 @@ export function apply(ctx) {
           }
         }
 
+        /**
+         * Dispatch one attempt with the child options it should carry, and
+         * record which effort those options asked for.
+         *
+         * The record is what the result reports, so it is written here — at the
+         * dispatch — rather than once per call: a call that tries a configured
+         * route and then reruns on the session model must not report the level
+         * the failed attempt carried for the review the session model produced.
+         * @param options - the child's agent options, or null to inherit.
+         * @param applied - the level those options carry, or null for none.
+         * @returns the classified attempt.
+         */
+        const runWithEffort = async (options, applied) => {
+          effortApplied = applied
+          return runReview(options)
+        }
+
         // A configured route that produced no review — a settled failure, an
         // empty result, or the timeout above — is re-run on the session model in
         // a fresh, context-free child. When that second run fails too there is no
         // review to report, so the tool says `unavailable` instead of returning a
         // success shape with empty text.
         const fallback = async (reason) => {
-          const attempt = await runReview(null)
+          const attempt = await runWithEffort(null, null)
           if (attempt.kind !== null) {
-            return {
+            return withEffort({
               outcome: 'unavailable',
               model: 'inherited',
               review: '',
               routeFallbackReason: `${reason}; the session-model rerun also failed: ${failureReason('the session model', attempt)}`,
-            }
+            })
           }
-          return {
+          return withEffort({
             outcome: 'fallback',
             model: 'inherited',
             review: attempt.review,
             routeFallbackReason: reason,
-          }
+          })
         }
 
         if (parent === undefined || providerName === undefined) {
-          return {
+          return withEffort({
             outcome: 'unavailable',
             model: 'inherited',
             review: '',
             routeFallbackReason: parent === undefined
               ? 'no calling agent'
               : 'no unambiguous subagent provider',
-          }
+          })
         }
 
         const label = configured === null ? '' : `${configured.provider}/${configured.model}`
@@ -542,39 +709,52 @@ export function apply(ctx) {
         // failed and asked for the session model: both run one session-model
         // child. Only the second is a degradation, and it is reported as one so
         // the leaf's evidence shows it without the caller having to remember.
+        //
+        // Neither carries a reasoning effort: the seat's selection configures
+        // the route under it, and a run that inherits the session's model
+        // inherits its reasoning setting too. That is also what keeps this path
+        // — the no-route and the session-route path — byte-for-byte the call it
+        // was before: no agent options are passed at all.
         if (configured === null || wantSessionRoute) {
-          const attempt = await runReview(null)
+          const attempt = await runWithEffort(null, null)
           if (attempt.kind !== null) {
-            return {
+            return withEffort({
               outcome: 'unavailable',
               model: 'inherited',
               review: '',
               routeFallbackReason: failureReason('the session model', attempt),
-            }
+            })
           }
           if (configured === null) {
-            return { outcome: 'reviewed', model: 'inherited', review: attempt.review }
+            return withEffort({ outcome: 'reviewed', model: 'inherited', review: attempt.review })
           }
-          return {
+          return withEffort({
             outcome: 'fallback',
             model: 'inherited',
             review: attempt.review,
             routeFallbackReason: `${label} skipped: the caller asked for the session route`,
-          }
+          })
         }
 
         const capable = scope.subagents.getProvider(providerName)?.capabilities?.agentOptions === true
         if (!capable) {
           return fallback(`${label} not used: provider does not support child agent options`)
         }
+        const effortSupport = await routeEffortSupport(configured)
+        const childEffort = appliedEffort(wantedEffort, effortSupport)
+        // The child's options are the route alone unless a level was actually
+        // applied: with no selection this is the same `{provider, model}` object
+        // this call has always dispatched, and nothing about the request
+        // changes.
+        const childOptions = childEffort === null ? configured : { ...configured, reasoningEffort: childEffort }
         // The wrapper reports instead of throwing, so a rejected dispatch, an
         // expired budget, a rejected result, and a failed teardown all reach the
         // same fallback the configured path already had.
-        const attempt = await runReview(configured)
+        const attempt = await runWithEffort(childOptions, childEffort)
         if (attempt.kind !== null) {
           return fallback(failureReason(label, attempt))
         }
-        return { outcome: 'reviewed', model: label, review: attempt.review }
+        return withEffort({ outcome: 'reviewed', model: label, review: attempt.review })
       },
     }))
   })

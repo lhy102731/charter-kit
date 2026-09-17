@@ -60,6 +60,44 @@ REQUIRED_BEHAVIOURS = (
     "leaving the field commits the draft",
     "the committed field shows the stored value again",
     "leaving an emptied field writes nothing and restores the stored value",
+    # The effort area (task 16): one single-choice panel per seat, its rows
+    # gated by the model's OWN declaration, and the copied table's string shown
+    # read-only beside each level. Same blind spot as above: these drive React
+    # elements, not a DOM, so the headless-browser probe is the evidence that a
+    # browser renders these states.
+    "the effort area renders one panel per seat",
+    "each panel lists the reference editor's levels in its order",
+    "a level the model does not declare is not selectable",
+    "a refused row carries a visible reason",
+    "the model declaration decides, not the knowledge base",
+    "the disagreement between the table and the model is stated",
+    "the value column shows the table's string for each level",
+    "a level the table does not carry says so instead of inventing a value",
+    "no text input was added for the value column",
+    "the at-rest panel says nothing is sent",
+    "ticking a level writes only that seat's effort field",
+    "a landed selection reports saved",
+    "the selected row is the only checked one in its seat",
+    "the panel states the value it will send",
+    "the other seat writes its own field",
+    "both seats hold their own selection",
+    "the panel offers a clear-selection affordance",
+    "clearing writes the empty selection",
+    "the cleared panel says nothing is sent",
+    "the panel offers the auto-adapt prefill",
+    "auto-adapt writes the table's default level",
+    "auto-adapt says which level it took and from where",
+    "auto-adapt refuses a default the model does not declare",
+    "a stored level the model does not declare is not shown as selected",
+    "the stale selection is left in the settings rather than rewritten",
+    "a seat with no model has no selectable level",
+    "auto-adapt is unavailable without a model",
+    "a refused effort write reports failure",
+    "a refused effort write leaves the stored selection standing",
+    "the value column and the id are different strings for this level",
+    "a selected level is stored as its id, never as the table's wire string",
+    "the embedded table resolves the live routes",
+    "the copied entries keep their upstream notes",
 )
 
 

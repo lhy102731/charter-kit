@@ -51,3 +51,36 @@ session model directly, which is how later reviews of a `(kind, route)` that
 already failed in this session avoid re-paying the timeout. A missing
 `charter_review` tool or an unused route is not a loss of review independence:
 independence and model routing are recorded separately.
+
+## Reasoning-effort selection
+
+Below the two model rows the card carries a 思考强度 (reasoning-effort) area:
+one single-choice panel per seat, eight cells in two columns, in the same order
+the reference editor renders them — off / low / high / max down the left column,
+minimal / medium / xhigh down the right, with the last row's right cell empty.
+Each row's value column is read-only text showing what the copied knowledge base
+resolves for that model, and 自动适配 fills those values from the table and
+selects the table's default level when the model declares it.
+
+Which levels can be picked follows the model's OWN declaration — the model
+catalog's `reasoning.efforts` — because that is the set the LLM layer checks a
+request against: any other id comes back as `UNSUPPORTED_REASONING_EFFORT`, so a
+level the route does not declare is greyed out with the reason beside it. Where
+the table and the model disagree, the panel prints both and says that the model
+declaration is the one it trusts. The selection is what the tool sends as
+`agentOptions.reasoningEffort` — the level ID, not the table's provider wire
+string; the wire string is a property of the model's configuration, which this
+card displays and does not edit. The table itself is copied data:
+`client/effort-knowledge.js` carries it with the upstream name, version, URL,
+licence and the extraction command in its header, and the same regions are
+embedded in `client/client.js` because the shell's client module table cannot
+load a sibling file — `tests/test_dsh_effort_knowledge.py` compares the two byte
+for byte. Upstream is dsh-better-reasoning-effort 0.3.9 (MIT); the full upstream
+licence text is reproduced under "Third-party notices" in `LICENSE`.
+
+The tool result reports `effort` beside `model`: the level id when one was sent,
+`"default"` when none was, meaning the provider default applies and this Host
+cannot know which level that is. No level is ever guessed, and when the Host has
+no `llm` service to check a route against — that service waits in its own
+optional scope precisely so its absence degrades the report instead of taking
+the tool down — the result carries no `effort` field at all.

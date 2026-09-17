@@ -6,8 +6,16 @@
  * id, factory })`, then `factory(require)` — and drives the registered card
  * directly. It exists because the text-presence tests next to it cannot see
  * behaviour: they would keep passing if a write were wired to the wrong field
- * pair, if a refused write were reported as saved, or if a second selection
- * inside one mirror round-trip were reported as failed.
+ * pair, if a refused write were reported as saved, if a second selection
+ * inside one mirror round-trip were reported as failed, or if the reasoning-
+ * effort area offered a level the model's own declaration does not carry.
+ *
+ * WHAT IT CANNOT SEE, and what the headless-browser probe beside this file is
+ * for: every handler here is driven with a synthetic `target.value` on a
+ * hand-walked element tree. That is how a previous card defect — a controlled
+ * input a real browser could not clear — passed this harness unchanged. It pins
+ * the contract the card implements; it is not evidence that a browser renders
+ * it.
  *
  * Dependency-free by design (no jsdom, no node_modules): React is stubbed down
  * to the three hooks the card uses, the component function is called directly,
@@ -142,18 +150,62 @@ function optionTexts(select) {
 }
 
 // The timeout control is a number input, not a third select: the two dropdowns
-// stay the only selects on the card, so these helpers reach it by element type.
-function textInputs(tree) {
+// stay the only selects on the card.
+//
+// These helpers reach it by input TYPE, deliberately. The effort area added in
+// task 16 renders 14 radios (7 levels x 2 seats) beside it, so "the card's only
+// input" stopped being a property of the card and an index-based helper would
+// quietly start reading a radio. The counts that changed with that area are
+// pinned on purpose in scenario 12 below.
+function inputs(tree) {
   return collect(tree, 'input')
 }
 
+function numberInputs(tree) {
+  return inputs(tree).filter((node) => node.props.type === 'number')
+}
+
+/** Every effort radio, in render order (seat A's seven rows, then seat B's). */
+function radios(tree) {
+  return inputs(tree).filter((node) => node.props.type === 'radio')
+}
+
+/** One seat's radio for one level, or undefined when the row is not rendered. */
+function radioAt(tree, seat, level) {
+  return radios(tree).find((node) => node.props.name === `ck-effort-${seat}` && node.props.value === level)
+}
+
+/** The seat panels, found structurally rather than by text. */
+function effortPanels(tree) {
+  return collect(tree, 'div').filter((node) => node.props.className === 'ck-effort')
+}
+
+/** Every text node under one element, joined: the walker above skips strings. */
+function textOf(node) {
+  if (typeof node === 'string') return node
+  if (Array.isArray(node)) return node.map(textOf).join(' ')
+  if (node === null || node === undefined || typeof node !== 'object') return ''
+  return textOf(node.children)
+}
+
+/** One panel's text content: the state line and the notes live there. */
+function panelText(panel) {
+  return panel === undefined ? '' : textOf(panel)
+}
+
+/** One row's text: the level, the table's wire value, and any refusal reason. */
+function rowText(panel, level) {
+  const row = collect(panel, 'label').find((node) => node.props['data-level'] === level)
+  return row === undefined ? '' : textOf(row)
+}
+
 function inputValue(tree, index) {
-  const node = textInputs(tree)[index]
+  const node = numberInputs(tree)[index]
   return node === undefined ? undefined : node.props.value
 }
 
 function inputType(tree, index) {
-  const node = textInputs(tree)[index]
+  const node = numberInputs(tree)[index]
   return node === undefined ? undefined : node.props.type
 }
 
@@ -163,7 +215,7 @@ function inputType(tree, index) {
  * not accept, or hiding one it does, is the drift this pins.
  */
 function inputBounds(tree, index) {
-  const node = textInputs(tree)[index]
+  const node = numberInputs(tree)[index]
   return node === undefined ? undefined : { min: node.props.min, max: node.props.max }
 }
 
@@ -361,7 +413,7 @@ async function choose(index, value) {
  * is all a real browser sends per keystroke.
  */
 async function draft(index, value) {
-  const node = textInputs(renderSettled())[index]
+  const node = numberInputs(renderSettled())[index]
   if (node === undefined) throw new Error(`the card rendered no input at index ${index}`)
   node.props.onChange({ target: { value } })
   await flush()
@@ -374,7 +426,7 @@ async function draft(index, value) {
  * render that produced it.
  */
 async function commit(index) {
-  const node = textInputs(renderSettled())[index]
+  const node = numberInputs(renderSettled())[index]
   if (node === undefined) throw new Error(`the card rendered no input at index ${index}`)
   node.props.onBlur()
   await flush()
@@ -419,13 +471,23 @@ function ready(value, revision, writable) {
   }
 }
 
-const VALUE = (aProvider = '', aModel = '', bProvider = '', bModel = '', timeout = TIMEOUT_DEFAULT) => ({
+const VALUE = (aProvider = '', aModel = '', bProvider = '', bModel = '', timeout = TIMEOUT_DEFAULT, aEffort = '', bEffort = '') => ({
   reviewAProvider: aProvider,
   reviewAModel: aModel,
   reviewBProvider: bProvider,
   reviewBModel: bModel,
   reviewTimeoutSeconds: timeout,
+  reviewAEffort: aEffort,
+  reviewBEffort: bEffort,
 })
+
+// The catalogue carries each model's OWN reasoning declaration, because that is
+// what the card gates the effort rows on: it is the set the adapter checks a
+// request against. The ids are chosen against the copied table so that both
+// agreement (`deepseek-v4`: the table and the route both say off/low/high/max)
+// and disagreement (`qwen3.8-flash`: the table says off/low/medium/xhigh, the
+// route declares low/high/max) are pinned.
+const effortIds = (...ids) => ids.map((id) => ({ id, name: id }))
 
 const CATALOG = {
   ok: true,
@@ -434,9 +496,38 @@ const CATALOG = {
       {
         id: 'anthropic',
         name: 'Anthropic',
-        models: [{ id: 'opus', name: 'Opus 4' }, { id: 'sonnet', name: 'Sonnet 4' }],
+        models: [
+          {
+            id: 'claude-opus-4-5',
+            name: 'Claude Opus 4.5',
+            reasoning: { efforts: effortIds('low', 'medium', 'high'), defaultEffort: 'high' },
+          },
+          { id: 'opus', name: 'Opus 4' },
+        ],
       },
-      { id: 'openai', name: 'OpenAI', models: [{ id: 'gpt', name: 'GPT-5' }] },
+      {
+        id: 'deepseek',
+        name: 'DeepSeek',
+        models: [
+          {
+            id: 'deepseek-v4',
+            name: 'DeepSeek V4',
+            reasoning: { efforts: effortIds('off', 'low', 'high', 'max'), defaultEffort: 'high' },
+          },
+        ],
+      },
+      {
+        id: 'tt',
+        name: 'tt',
+        models: [
+          {
+            id: 'qwen3.8-flash',
+            name: 'Qwen3.8 Flash',
+            reasoning: { efforts: effortIds('low', 'high', 'max') },
+          },
+          { id: 'gpt', name: 'GPT-5' },
+        ],
+      },
     ],
   },
 }
@@ -455,7 +546,12 @@ async function main() {
   check('options come from the model catalog',
     selects(tree).length === 2
     && JSON.stringify(optionTexts(selects(tree)[0])) === JSON.stringify([
-      'Default (follow current model)', 'Opus 4 — Anthropic', 'Sonnet 4 — Anthropic', 'GPT-5 — OpenAI',
+      'Default (follow current model)',
+      'Claude Opus 4.5 — Anthropic',
+      'Opus 4 — Anthropic',
+      'DeepSeek V4 — DeepSeek',
+      'Qwen3.8 Flash — tt',
+      'GPT-5 — tt',
     ]),
     selects(tree).map(optionTexts))
 
@@ -573,12 +669,27 @@ async function main() {
   // 12. The timeout control sits beside the two dropdowns, is a number input,
   //     and reads back the stored value rather than a hard-coded default. The
   //     two reviews keep exactly two selects: the timeout is not a third one.
+  //
+  //     The input COUNT changed in task 16, deliberately: the effort area adds
+  //     14 radios (7 levels x 2 seats) and no text input at all — the per-level
+  //     value column is read-only text, because the declaration it shows belongs
+  //     to the model, not to this card. A count written from the old card would
+  //     have to be relaxed to keep this passing; instead the number input is now
+  //     identified by type and the radios are counted here, so a future control
+  //     cannot slip in under either number.
   snapshot = ready(VALUE('', '', '', '', 90), 50)
   tree = await mount()
   check('the timeout control is one number input beside the two dropdowns',
-    textInputs(tree).length === 1 && inputType(tree, 0) === 'number'
+    numberInputs(tree).length === 1 && inputType(tree, 0) === 'number'
+    && inputs(tree).length === 15 && radios(tree).length === 14
     && selects(tree).length === 2,
-    { inputs: textInputs(tree).length, type: inputType(tree, 0), selects: selects(tree).length })
+    {
+      inputs: inputs(tree).length,
+      numberInputs: numberInputs(tree).length,
+      radios: radios(tree).length,
+      type: inputType(tree, 0),
+      selects: selects(tree).length,
+    })
   check('the timeout control reads the stored value',
     inputValue(tree, 0) === '90', inputValue(tree, 0))
   // The card's advertised range is the tool's clamp. 270, not the host's 600 s
@@ -676,6 +787,248 @@ async function main() {
   check('leaving an emptied field writes nothing and restores the stored value',
     mutations.length === 0 && inputValue(tree, 0) === '120',
     { writes: mutations.length, value: inputValue(tree, 0) })
+
+  // ---------------------------------------------------------------- effort area
+  //
+  // WHAT THIS CANNOT PROVE, and the reason the live browser probe exists: every
+  // state below is driven through synthetic `target.value` / `checked` props on
+  // a hand-walked element tree, never through a real DOM. A previous card
+  // defect (an uncontrolled input that could not be cleared) escaped this
+  // harness for exactly that reason. It pins the contract — which row is
+  // enabled, which field a click writes, what the panel says it will send — and
+  // it cannot show that a browser renders the same thing. That evidence is the
+  // headless-Chromium probe recorded in the task report.
+
+  // 19. One panel per seat, and the rows are the reference editor's levels in
+  //     the reference editor's order: the grid fills row-major into two columns,
+  //     which is what puts off/low/high/max down the left and
+  //     minimal/medium/xhigh down the right.
+  const LEVEL_ORDER = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+  writeOutcome = 'accept'
+  snapshot = ready(VALUE('deepseek', 'deepseek-v4', 'tt', 'qwen3.8-flash'), 70)
+  tree = await mount()
+  const panels = effortPanels(tree)
+  check('the effort area renders one panel per seat',
+    panels.length === 2 && panels[0].props['data-seat'] === 'A' && panels[1].props['data-seat'] === 'B',
+    panels.map((panel) => panel.props['data-seat']))
+  check('each panel lists the reference editor\'s levels in its order',
+    LEVEL_ORDER.every((level) => radioAt(tree, 'A', level) !== undefined
+      && radioAt(tree, 'B', level) !== undefined)
+    && radios(tree).slice(0, 7).map((node) => node.props.value).join(',') === LEVEL_ORDER.join(','),
+    radios(tree).slice(0, 7).map((node) => node.props.value))
+
+  // 20. The selectable set is the MODEL's own declaration, and each refused row
+  //     says why. deepseek-v4 declares off/low/high/max — the table agrees — so
+  //     minimal/medium/xhigh are refused; qwen3.8-flash declares low/high/max
+  //     while the table says off/low/medium/xhigh, and the declaration wins.
+  check('a level the model does not declare is not selectable',
+    radioAt(tree, 'A', 'minimal').props.disabled === true
+    && radioAt(tree, 'A', 'medium').props.disabled === true
+    && radioAt(tree, 'A', 'xhigh').props.disabled === true
+    && radioAt(tree, 'A', 'off').props.disabled === false
+    && radioAt(tree, 'A', 'low').props.disabled === false
+    && radioAt(tree, 'A', 'high').props.disabled === false
+    && radioAt(tree, 'A', 'max').props.disabled === false,
+    LEVEL_ORDER.map((level) => [level, radioAt(tree, 'A', level).props.disabled]))
+  check('a refused row carries a visible reason',
+    rowText(panels[0], 'minimal').includes('not declared')
+    && rowText(panels[0], 'low').includes('not declared') === false,
+    { minimal: rowText(panels[0], 'minimal'), low: rowText(panels[0], 'low') })
+  check('the model declaration decides, not the knowledge base',
+    radioAt(tree, 'B', 'xhigh').props.disabled === true
+    && radioAt(tree, 'B', 'medium').props.disabled === true
+    && radioAt(tree, 'B', 'off').props.disabled === true
+    && radioAt(tree, 'B', 'high').props.disabled === false
+    && radioAt(tree, 'B', 'max').props.disabled === false,
+    LEVEL_ORDER.map((level) => [level, radioAt(tree, 'B', level).props.disabled]))
+  check('the disagreement between the table and the model is stated',
+    panelText(panels[1]).includes('knowledge base: off/low/medium/xhigh')
+    && panelText(panels[1]).includes('model declares: low/high/max'),
+    panelText(panels[1]))
+
+  // 21. The value column is the table's string, read-only. It is text, not an
+  //     input: this card does not edit the model's declaration.
+  check('the value column shows the table\'s string for each level',
+    rowText(panels[0], 'off').includes('none')
+    && rowText(panels[0], 'low').includes('low')
+    && rowText(panels[0], 'high').includes('high')
+    && rowText(panels[0], 'max').includes('max'),
+    LEVEL_ORDER.map((level) => rowText(panels[0], level)))
+  check('a level the table does not carry says so instead of inventing a value',
+    rowText(panels[1], 'high').includes('not in the knowledge base')
+    && rowText(panels[1], 'xhigh').includes('xhigh'),
+    { high: rowText(panels[1], 'high'), xhigh: rowText(panels[1], 'xhigh') })
+  check('no text input was added for the value column',
+    numberInputs(tree).length === 1 && inputs(tree).length === 15,
+    { numberInputs: numberInputs(tree).length, inputs: inputs(tree).length })
+
+  // 22. No selection is the default state, and the panel says what that means.
+  check('the at-rest panel says nothing is sent',
+    radioAt(tree, 'A', 'high').props.checked === false
+    && radios(tree).every((node) => node.props.checked === false)
+    && panelText(panels[0]).includes('Nothing selected'),
+    panelText(panels[0]).slice(0, 240))
+
+  // 23. One level per seat: ticking a row writes exactly that seat's field, with
+  //     the level id the LLM layer accepts — not the table's wire string.
+  mutations.length = 0
+  conflicts.length = 0
+  radioAt(tree, 'A', 'max').props.onChange({ target: { checked: true } })
+  await flush()
+  tree = await renderSettled()
+  check('ticking a level writes only that seat\'s effort field',
+    mutations.length === 1 && mutations[0].ops.length === 1
+    && JSON.stringify(mutations[0].ops) === asSet(['reviewAEffort', 'max']),
+    mutations)
+  check('a landed selection reports saved', statusText(tree) === 'Saved', statusText(tree))
+  check('the selected row is the only checked one in its seat',
+    radioAt(tree, 'A', 'max').props.checked === true
+    && radios(tree).filter((node) => node.props.checked === true).length === 1,
+    radios(tree).filter((node) => node.props.checked === true).map((node) => node.props.value))
+  check('the panel states the value it will send',
+    panelText(effortPanels(tree)[0]).includes('agentOptions.reasoningEffort = max'),
+    panelText(effortPanels(tree)[0]).slice(0, 240))
+
+  // 24. A second seat keeps its own selection: the two panels are independent.
+  mutations.length = 0
+  radioAt(tree, 'B', 'low').props.onChange({ target: { checked: true } })
+  await flush()
+  tree = await renderSettled()
+  check('the other seat writes its own field',
+    mutations.length === 1
+    && JSON.stringify(mutations[0].ops) === asSet(['reviewBEffort', 'low']),
+    mutations)
+  check('both seats hold their own selection',
+    radioAt(tree, 'A', 'max').props.checked === true && radioAt(tree, 'B', 'low').props.checked === true,
+    radios(tree).filter((node) => node.props.checked === true).map((node) => node.props.value))
+
+  // 25. Clearing is the no-selection path, and it says so: the affordance
+  //     mirrors the reference editor's 清除声明, and what it clears here is the
+  //     seat's choice rather than a model declaration.
+  mutations.length = 0
+  const clearA = collect(effortPanels(tree)[0], 'button').find((node) => textOf(node.children) === 'Clear selection')
+  check('the panel offers a clear-selection affordance', clearA !== undefined, panelText(effortPanels(tree)[0]))
+  clearA.props.onClick()
+  await flush()
+  tree = await renderSettled()
+  check('clearing writes the empty selection',
+    mutations.length === 1 && JSON.stringify(mutations[0].ops) === asSet(['reviewAEffort', '']),
+    mutations)
+  check('the cleared panel says nothing is sent',
+    radioAt(tree, 'A', 'max').props.checked === false
+    && panelText(effortPanels(tree)[0]).includes('Nothing selected'),
+    panelText(effortPanels(tree)[0]).slice(0, 240))
+
+  // 26. 自动适配 takes the table's default level when the model declares it:
+  //     deepseek-v4's entry defaults to high, and the route declares high.
+  mutations.length = 0
+  snapshot = ready(VALUE('deepseek', 'deepseek-v4', 'tt', 'qwen3.8-flash'), 71)
+  tree = await mount()
+  const adaptA = collect(effortPanels(tree)[0], 'button').find((node) => textOf(node.children) === 'Auto-adapt')
+  check('the panel offers the auto-adapt prefill', adaptA !== undefined && adaptA.props.disabled === false,
+    adaptA === undefined ? 'no button' : adaptA.props.disabled)
+  adaptA.props.onClick()
+  await flush()
+  tree = await renderSettled()
+  check('auto-adapt writes the table\'s default level',
+    mutations.length === 1 && JSON.stringify(mutations[0].ops) === asSet(['reviewAEffort', 'high']),
+    mutations)
+  check('auto-adapt says which level it took and from where',
+    panelText(effortPanels(tree)[0]).includes("knowledge base's default level high"),
+    panelText(effortPanels(tree)[0]).slice(0, 300))
+
+  // 27. 自动适配 refuses a default the model does not declare, rather than
+  //     writing a level the adapter would reject: qwen3.8-flash's table entry
+  //     defaults to xhigh, and this route declares only low/high/max.
+  mutations.length = 0
+  tree = await mount()
+  const adaptB = collect(effortPanels(tree)[1], 'button').find((node) => textOf(node.children) === 'Auto-adapt')
+  adaptB.props.onClick()
+  await flush()
+  tree = await renderSettled()
+  check('auto-adapt refuses a default the model does not declare',
+    mutations.length === 0 && panelText(effortPanels(tree)[1]).includes('is not declared by this model'),
+    { writes: mutations.length, panel: panelText(effortPanels(tree)[1]).slice(0, 300) })
+
+  // 28. A stored selection the route does not declare is reported rather than
+  //     rendered as selected, and never silently rewritten.
+  mutations.length = 0
+  snapshot = ready(VALUE('tt', 'qwen3.8-flash', '', '', TIMEOUT_DEFAULT, 'xhigh'), 72)
+  tree = await mount()
+  check('a stored level the model does not declare is not shown as selected',
+    radioAt(tree, 'A', 'xhigh').props.checked === false
+    && radios(tree).every((node) => node.props.checked === false)
+    && panelText(effortPanels(tree)[0]).includes('is not declared by this model'),
+    panelText(effortPanels(tree)[0]).slice(0, 300))
+  check('the stale selection is left in the settings rather than rewritten',
+    mutations.length === 0, mutations)
+
+  // 29. With no model chosen the rows cannot be picked at all: the effort is
+  //     carried on the configured route's agent options, and there is no route.
+  snapshot = ready(VALUE('', '', 'tt', 'qwen3.8-flash'), 73)
+  tree = await mount()
+  const noRoute = effortPanels(tree)[0]
+  check('a seat with no model has no selectable level',
+    radios(tree).slice(0, 7).every((node) => node.props.disabled === true)
+    && rowText(noRoute, 'low').includes('no model'),
+    LEVEL_ORDER.map((level) => rowText(noRoute, level)))
+  check('auto-adapt is unavailable without a model',
+    collect(noRoute, 'button').find((node) => textOf(node.children) === 'Auto-adapt').props.disabled === true,
+    panelText(noRoute).slice(0, 200))
+
+  // 30. A write the Host refuses is a failure for the effort field too, and the
+  //     stored selection stands: the same read-back contract as everywhere else.
+  writeOutcome = 'refuse'
+  snapshot = ready(VALUE('deepseek', 'deepseek-v4', '', '', TIMEOUT_DEFAULT, 'low'), 74)
+  tree = await mount()
+  radioAt(tree, 'A', 'max').props.onChange({ target: { checked: true } })
+  await flush()
+  tree = await renderSettled()
+  check('a refused effort write reports failure', statusText(tree) === 'Save failed', statusText(tree))
+  check('a refused effort write leaves the stored selection standing',
+    radioAt(tree, 'A', 'low').props.checked === true && radioAt(tree, 'A', 'max').props.checked === false,
+    radios(tree).filter((node) => node.props.checked === true).map((node) => node.props.value))
+  writeOutcome = 'accept'
+
+  // 31. What the seat stores is the level ID, not the table's provider wire
+  //     string. The two differ for deepseek-v4's off level: the table resolves
+  //     `off: "none"`, because "none" is what that provider's profile is
+  //     configured to put on the wire, while the value the LLM layer accepts as
+  //     `agentOptions.reasoningEffort` is the id `off`. Storing the wire string
+  //     here would store a level no route declares.
+  mutations.length = 0
+  snapshot = ready(VALUE('deepseek', 'deepseek-v4', 'tt', 'qwen3.8-flash'), 75)
+  tree = await mount()
+  check('the value column and the id are different strings for this level',
+    rowText(effortPanels(tree)[0], 'off').includes('none')
+    && radioAt(tree, 'A', 'off').props.value === 'off',
+    { row: rowText(effortPanels(tree)[0], 'off'), id: radioAt(tree, 'A', 'off').props.value })
+  radioAt(tree, 'A', 'off').props.onChange({ target: { checked: true } })
+  await flush()
+  tree = await renderSettled()
+  check('a selected level is stored as its id, never as the table\'s wire string',
+    mutations.length === 1 && JSON.stringify(mutations[0].ops) === asSet(['reviewAEffort', 'off']),
+    mutations)
+
+  // 32. The table and the matcher are the card's data, so the harness reaches
+  //     them directly as well: the two live routes this task was verified
+  //     against resolve to the entries the report names.
+  check('the embedded table resolves the live routes',
+    bundle.effortKnowledge.entries.length === 60
+    && bundle.matchEffortKnowledge('z-ai/glm-5.3-free', undefined).id === 'glm-5-3'
+    && bundle.matchEffortKnowledge('qwen3.8-flash', undefined).id === 'qwen-3-8'
+    && bundle.effortKnowledge.levels.join(',') === LEVEL_ORDER.join(','),
+    {
+      entries: bundle.effortKnowledge.entries.length,
+      glm: bundle.matchEffortKnowledge('z-ai/glm-5.3-free', undefined).id,
+      qwen: bundle.matchEffortKnowledge('qwen3.8-flash', undefined).id,
+    })
+  check('the copied entries keep their upstream notes',
+    bundle.effortKnowledge.entries.every((entry) => typeof entry.note === 'string' && entry.note.length > 0)
+    && bundle.matchEffortKnowledge('z-ai/glm-5.3-free', undefined).note.includes('GLM-5.3')
+    && bundle.effortKnowledge.upstream.version === '0.3.9'
+    && bundle.effortKnowledge.upstream.license === 'MIT',
+    bundle.effortKnowledge.entries.filter((entry) => typeof entry.note !== 'string').map((entry) => entry.id))
 
   console.log(failures === 0 ? 'HARNESS: ALL PASS' : `HARNESS: ${failures} FAILURE(S)`)
   process.exitCode = failures === 0 ? 0 : 1
