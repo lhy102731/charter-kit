@@ -15,32 +15,45 @@ export const REVIEW_SETTINGS_NAMESPACE = 'charter-kit-review'
 export const REVIEW_TIMEOUT_FIELD = 'reviewTimeoutSeconds'
 
 /**
- * Bounds on one review attempt, in whole seconds.
+ * Bounds on one review ATTEMPT's budget, in whole seconds.
  *
- * The floor keeps a mistyped card from aborting every review before the child
- * can answer.
+ * What the budget bounds is our own patience, nothing else. A review is a
+ * multi-turn child: it reads the leaf contract and the spec, looks at the
+ * candidate diff, and writes. Its cost is turns times tokens, so the only clock
+ * that can end it honestly is one sized for a working review on a slow seat.
  *
- * The ceiling is dimensioned against the WHOLE call, not one attempt, because a
- * call may spend the configured attempt and then a session-model rerun. The
- * budget therefore has to satisfy `2 * MAX + margin < ceiling`, where the
- * ceiling is the ~600 s a real project observed the host enforcing:
- * 2 * 270 + 30 = 570 s. Sizing MAX at the ceiling itself (540) would let a
- * full-budget attempt plus a full-budget rerun reach 1080 s and be killed
- * externally with nothing to show — the exact failure this budget exists to
- * remove.
+ * 270 was measured and found too small. A real project lost a Review B to two
+ * attempts that both died on THIS clock at 270 s — the configured route and the
+ * session-model rerun, 540 021 ms together, with no host mechanism intervening:
+ * one seat needed 130 s for a compact brief, and the other spent 85 s and 5 702
+ * reasoning tokens on a SINGLE completion. A multi-turn review cannot fit in
+ * 270 s, and no host ceiling on total call duration exists to fit under: the
+ * measured mechanism is the adapter's PER-STREAM IDLE watchdog
+ * (`DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000` in
+ * `packages/llm/llm-pi-ai/src/config.ts`, whose `TIMEOUT` is retryable per
+ * `packages/llm/llm/src/retry-policy.ts`). It bounds SILENCE, not duration, so
+ * a review that keeps streaming is not bounded by it at all — `MAX < 300`
+ * therefore protected nothing and only guaranteed that working reviews were
+ * killed before the stall detector could ever act.
+ *
+ * The replacement numbers are a deliberate OVER-correction, and that is the
+ * point: erring low is the defect being fixed, so the first instalment errs
+ * high. The calibration recorded in `docs/superpowers/calibration/` replaces
+ * them with measured values; until it lands they are provisional.
  */
-const MIN_REVIEW_TIMEOUT_SECONDS = 30
-const MAX_REVIEW_TIMEOUT_SECONDS = 270
-const DEFAULT_REVIEW_TIMEOUT_SECONDS = 240
+const MIN_REVIEW_TIMEOUT_SECONDS = 30 // provisional: floor only, measured by nothing
+const MAX_REVIEW_TIMEOUT_SECONDS = 1800 // provisional: deliberate over-correction
+const DEFAULT_REVIEW_TIMEOUT_SECONDS = 600 // provisional: a default someone can leave alone
 
 /**
  * Slack, in seconds, between the worst case the clamp above can express and the
  * deadline this tool declares.
  *
  * It has to cover what an attempt spends BESIDE its own timer: the teardown
- * grace below, plus dispatch and rendering. 2 * (270 + 10) = 560 s of worst case
- * fits inside 2 * 270 + 30 = 570 s, which is what makes the declared deadline a
- * real bound on the call rather than on one timer.
+ * grace below, plus dispatch and rendering. Two attempts at `MAX + GRACE` are
+ * what the derived deadline below has to clear; this is the remainder of that
+ * slack. Nothing here is dimensioned against a host ceiling on total duration —
+ * see the constants above for why that premise was retracted.
  */
 const REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS = 30
 
@@ -51,8 +64,7 @@ const REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS = 30
  * enforces it. It is awaited only inside this window, because the harness's own
  * tool deadline is signal-only — it awaits the tool's promise rather than racing
  * or abandoning it — so an un-settling `dispose()` would otherwise hold the call
- * open past every number here and leave the external ~600 s ceiling to kill it
- * with nothing rendered.
+ * open past every number here and leave nothing to end it.
  */
 const REVIEW_TEARDOWN_GRACE_SECONDS = 10
 
@@ -60,12 +72,14 @@ const REVIEW_TEARDOWN_GRACE_SECONDS = 10
  * The cooperative tool-call deadline this tool declares to the harness.
  *
  * The setting is dynamic while a declared `timeoutMs` is fixed at registration,
- * so this is derived from the worst case the clamp can express: the configured
- * attempt and the session-model rerun, each at `MAX`, plus the margin.
- * 2 * 270 + 30 = 570 s, which is above the 2 * (270 + 10) = 560 s this tool can
- * actually spend and still below the ~600 s external ceiling — so THIS tool's
- * deadline fires first and renders a result, instead of the call being preempted
- * by an opaque `TOOL_TIMEOUT`.
+ * so this is DERIVED from the worst case the clamp can express — never written
+ * as a second literal that could drift from it. Under per-attempt semantics that
+ * worst case is TWO attempts: the configured route, then the session-model
+ * rerun, each at `MAX`, plus the margin. Raising `MAX` without re-deriving this
+ * would let the harness's own deadline fire first and return an opaque
+ * `TOOL_TIMEOUT` — with nothing rendered — for a call that had not finished. The
+ * assertion in `tests/test_dsh_review_tool.py` re-derives it from these
+ * constants, so a constant edit that forgets this line fails rather than ships.
  */
 const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) * 1000
 
@@ -175,8 +189,8 @@ function appliedEffort(wanted, support) {
  * Clamped here rather than in the card, because this is the only place that can
  * guarantee the bound: a card version that predates the field, a hand-edited
  * settings file, and a stored value of the wrong type all reach this function,
- * and none of them may be able to abort every review or to outlive the host's
- * own ceiling.
+ * and none of them may be able to abort every review or to hold a reviewer seat
+ * for longer than this tool is willing to state.
  * @param value - effective settings value.
  * @returns whole seconds within [MIN, MAX]; the default for anything unusable.
  */
@@ -339,19 +353,28 @@ export function apply(ctx) {
       description: 'Run one context-free Charter Kit review with the model configured for that review kind. '
         + 'Use kind "A" for every leaf\'s contract and implementation coverage review, and kind "B" for the '
         + 'adversarial review required by a hit RVB trigger. The reviewer receives only the brief you pass — '
-        + 'never the session history — and the returned model names the route it used, or `inherited` '
-        + 'when it followed the session model. Each seat also carries a reasoning-effort selection in the '
-        + 'model card; when one is set and the route declares it, the child is started with that level as '
-        + '`agentOptions.reasoningEffort`, and the result reports it as `effort` beside `model` — `"default"` '
-        + 'when no level was sent, meaning the provider default applies and this host cannot know it, and no '
-        + 'level at all when the LLM runtime is unavailable to check the route. An attempt is bounded by the '
-        + 'configured timeout; any way the '
-        + 'configured route fails to produce a review — a settled failure, an empty result, or that timeout — '
-        + 'reruns the same brief on the session model and reports `outcome: "fallback"`, so a configured route '
-        + 'that cannot deliver still produces a review. The call never waits past its budget. An empty `review` '
-        + 'is never returned as a success shape: it comes back only as an explicit `outcome: "unavailable"` '
-        + 'carrying a reason — when no reviewer could be started at all, when the session-model attempt itself '
-        + 'failed, or when the rerun failed too.',
+        + 'never the session history — so the self-contained brief is the whole input: the leaf contract, '
+        + 'the spec, and the candidate diff, all of it in the call. A review is a MULTI-TURN agent run — the '
+        + 'child reads files, runs `git diff`, then writes — and at a slow seat\'s throughput turns x '
+        + 'tokens is the whole '
+        + 'cost, so a child that has to discover the diff itself pays for that discovery in turns. For the '
+        + 'same reason a slow seat belongs on a NARROW, RISK-TRIGGERED review rather than on every leaf. '
+        + 'The returned model names the route it used, or `inherited` when it followed the session model. '
+        + 'Each seat also carries a reasoning-effort selection in the model card; when one is set and the '
+        + 'route declares it, the child is started with that level as `agentOptions.reasoningEffort`, and the '
+        + 'result reports it as `effort` beside `model` — `"default"` when no level was sent, meaning the '
+        + 'provider default applies and this host cannot know it, and no level at all when the LLM runtime is '
+        + 'unavailable to check the route. The configured timeout is the budget for ONE ATTEMPT, not for the '
+        + 'call; a review makes at most TWO attempts — the configured route, then the session model. A '
+        + 'genuinely silent provider stream is cut by the host\'s own per-stream idle timeout, which this '
+        + 'value does not substitute for and is not sized against. Any way the configured route fails to '
+        + 'produce a review — a settled failure, an empty result, or that timeout — reruns the same brief on '
+        + 'the session model and reports `outcome: "fallback"`, so a configured route that cannot deliver '
+        + 'still produces a review. Dispatch, the child\'s result, and teardown are each raced against the '
+        + 'attempt\'s deadline, so a provider that never publishes a run or never releases one cannot hold '
+        + 'the call open. An empty `review` is never returned as a success shape: it comes back only as an '
+        + 'explicit `outcome: "unavailable"` carrying a reason — when no reviewer could be started at all, '
+        + 'when the session-model attempt itself failed, or when the rerun failed too.',
       // See REVIEW_TOOL_TIMEOUT_MS: the harness's cooperative deadline must sit
       // outside this tool's own worst case, or it would preempt the fallback.
       timeoutMs: REVIEW_TOOL_TIMEOUT_MS,
@@ -368,8 +391,11 @@ export function apply(ctx) {
         brief: {
           type: 'string',
           required: true,
-          description: 'Self-contained review brief: the leaf contract, the spec, and the candidate diff. '
-            + 'The reviewer sees nothing else, so never include session history.',
+          description: 'Self-contained review brief: the leaf contract, the spec, and the candidate diff, '
+            + 'pasted in full. The reviewer sees nothing else and never the session history, so anything '
+            + 'missing here is missing from the review. Paste the diff rather than leaving the child to '
+            + 'discover it: a review is a multi-turn run and each extra turn it must spend finding the '
+            + 'candidate diff is cost the brief could have paid once.',
         },
         route: {
           type: 'string',
@@ -433,9 +459,9 @@ export function apply(ctx) {
         // result, and teardown — can be bounded by what is left of the deadline
         // this tool declares. Nothing else bounds them: the harness's tool
         // deadline arms a signal and then awaits this tool's promise rather than
-        // racing it, so a provider that never settles a call would hold the
-        // whole call open until the external ceiling killed it with nothing
-        // rendered.
+        // racing it, and the adapter's idle watchdog bounds silence rather than
+        // duration, so a provider that never settles a call would hold the whole
+        // call open with nothing rendered.
         const callDeadlineAt = Date.now() + REVIEW_TOOL_TIMEOUT_MS
         const callBudgetLeftMs = () => Math.max(0, callDeadlineAt - Date.now())
         const parent = exec.agent

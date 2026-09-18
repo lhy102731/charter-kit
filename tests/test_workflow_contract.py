@@ -462,6 +462,88 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn("Record the observed event kind and route", text)
             self.assertIn("New requirement must not silently expand the current Leaf", text)
 
+    def test_every_review_brief_carrier_names_the_diff_and_the_turn_cost(self) -> None:
+        """The brief contract, guarded across the space rather than a list.
+
+        A review is a multi-turn agent run: the child reads files, runs
+        `git diff`, then writes. In a real project a single completion on one
+        seat took 85 s and 5 702 reasoning tokens, which makes turns x tokens the
+        entire cost of a review — so a brief that leaves the candidate diff for
+        the child to find buys that discovery with turns. Every carrier that
+        states the brief contract therefore has to say both things: the diff
+        belongs IN the brief, and the reason is the turn cost. The carriers are
+        discovered by content, so a carrier added later is covered and a carrier
+        that quietly drops the guidance is a failure rather than a smaller pass.
+        """
+
+        carrier_trees = ("targets", "skills")
+        carriers = sorted(
+            path
+            for tree in carrier_trees
+            for path in (PACKAGE_ROOT / tree).rglob("*")
+            if path.is_file()
+            and path.suffix in {".md", ".js"}
+            and "candidate diff" in path.read_text(encoding="utf-8")
+            and (
+                "self-contained brief" in path.read_text(encoding="utf-8")
+                or "SELF-CONTAINED: the leaf contract" in path.read_text(encoding="utf-8")
+                or "SELF-CONTAINED review brief" in path.read_text(encoding="utf-8")
+            )
+        )
+        # A discovery that silently found nothing would pass everything below,
+        # and a shrunken one must fail rather than assert over fewer files.
+        self.assertGreaterEqual(
+            len(carriers), 5, f"carrier discovery found too few files: {carriers}"
+        )
+        # The five carriers this contract actually lives on, named so that one
+        # going missing is visible rather than a thinner discovery.
+        relatives = {path.relative_to(PACKAGE_ROOT).as_posix() for path in carriers}
+        for expected in (
+            "targets/dsh/src/index.js",
+            "targets/dsh/README.md",
+            "skills/charter-workflow/SKILL.md",
+            "targets/codex/skills/charter-workflow/SKILL.md",
+            "targets/zcode/skills/charter-workflow/SKILL.md",
+        ):
+            self.assertIn(expected, relatives, sorted(relatives))
+
+        # Each carrier must name the diff and the turn cost it saves.
+        for path in carriers:
+            relative = path.relative_to(PACKAGE_ROOT).as_posix()
+            flat = " ".join(path.read_text(encoding="utf-8").split())
+            with self.subTest(relative=relative):
+                # The diff is named as something the brief carries, and the
+                # reason given for carrying it is the turn cost — in the same
+                # sentence, so a carrier cannot satisfy this with an unrelated
+                # mention of either word somewhere else in the file.
+                self.assertRegex(
+                    flat,
+                    r"candidate diff.{0,240}?(multi-turn|turn cost|in turns|turns)",
+                    f"{relative}: the brief contract no longer ties the diff to the turn cost",
+                )
+                # The routing note travels with it: at a slow seat's throughput a
+                # review belongs on a narrow, risk-triggered leaf, not on all of
+                # them.
+                self.assertRegex(
+                    flat,
+                    r"(?i)(narrow,? risk-triggered|risk-triggered review)",
+                    f"{relative}: the slow-seat routing note is gone",
+                )
+
+        # And the retracted premise must not be how the budget is explained: a
+        # carrier that re-derives a host ceiling on total duration from the
+        # adapter's idle watchdog re-creates the defect this change retracts.
+        for tree in CARRIER_TREES:
+            for path in (PACKAGE_ROOT / tree).rglob("*"):
+                if not path.is_file() or path.suffix not in {".md", ".js"}:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                relative = path.relative_to(PACKAGE_ROOT).as_posix()
+                with self.subTest(relative=relative):
+                    self.assertNotIn("600 秒的上限", text)
+                    self.assertNotIn("600-second ceiling", text)
+                    self.assertNotIn("external ~600", text)
+
     def test_skill_names_the_host_review_tool_conditionally(self) -> None:
         for relative in (
             "skills/charter-workflow/SKILL.md",

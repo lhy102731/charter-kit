@@ -34,13 +34,22 @@ window.__ModuleLoader__.load({
     // Mirrors the Host half's bounds. They are repeated here for the input's
     // min/max attributes and the hint text only: the tool clamps defensively at
     // execution time, so what this card writes is a request and the tool's clamp
-    // is the authority. The ceiling is dimensioned against the whole call — a
-    // configured attempt plus a session-model rerun, 2 * 270 + 30 = 570 s — so it
-    // is below the Host's ~600 s ceiling, not equal to it.
+    // is the authority.
+    //
+    // The three numbers are PROVISIONAL, and they are the Host half's current
+    // values rather than a range derived from anything the card can measure:
+    // 270 was measured and found too small (a real project lost a Review B to
+    // two attempts that both died on this tool's own clock at 270 s, one seat
+    // needing 130 s for a compact brief and the other spending 85 s and 5 702
+    // reasoning tokens on a single completion). The previous rationale here —
+    // a ~600 s host ceiling on total duration, which 2 x 270 + 30 = 570 s had to
+    // fit under — is RETRACTED: the measured mechanism is a per-stream IDLE
+    // watchdog, which bounds silence rather than duration, so nothing on this
+    // card is dimensioned against a ceiling on how long a call may run.
     const TIMEOUT_FIELD = 'reviewTimeoutSeconds'
-    const TIMEOUT_DEFAULT = 240
+    const TIMEOUT_DEFAULT = 600
     const TIMEOUT_MIN = 30
-    const TIMEOUT_MAX = 270
+    const TIMEOUT_MAX = 1800
 
     // One selected reasoning-effort level per seat, stored as the level id the
     // LLM layer accepts as `agentOptions.reasoningEffort`. '' means "no
@@ -53,7 +62,7 @@ window.__ModuleLoader__.load({
       reviewA: 'Review A（契约与实现覆盖）',
       reviewB: 'Review B（对抗性评审）',
       timeout: '单次评审超时（秒）',
-      timeoutHint: '默认 240；工具会把该值限制在 30–270 秒之间（一次评审最多两次尝试，合计仍低于宿主约 600 秒的上限），配置的路由超时后自动改用会话模型评审。',
+      timeoutHint: '默认 600；该值是**一次尝试**的预算（30–1800 秒），不是整次调用的预算：一次评审最多两次尝试（先配置的路由，再会话模型），配置的路由超时后自动改用会话模型评审。真正不出字的流由宿主自己的空闲超时切断，与这个值无关，它也不替代那个机制。设为最大值 1800 秒时，两次尝试可能占用评审席位约一小时，请按需选择。',
       invalidTimeout: '请输入整数秒；本次未保存。',
       inherit: '默认（跟随当前模型）',
       unavailable: '不可用',
@@ -91,7 +100,7 @@ window.__ModuleLoader__.load({
       reviewA: 'Review A (contract and implementation coverage)',
       reviewB: 'Review B (adversarial review)',
       timeout: 'Per-review timeout (seconds)',
-      timeoutHint: 'Default 240; the tool clamps this to 30–270 seconds — a review makes at most two attempts, keeping the whole call under the host\'s ~600-second ceiling — and reviews on the session model when the configured route times out.',
+      timeoutHint: 'Default 600; this is the budget for ONE ATTEMPT (30–1800 s), not for the whole call: a review makes at most two attempts — the configured route, then the session model — and it reviews on the session model when the configured route times out. A genuinely silent stream is cut by the host\'s own idle timeout, which this value neither replaces nor is sized against. At the 1800 s maximum, two attempts can hold the reviewer seat for about an hour — choose it deliberately.',
       invalidTimeout: 'Enter a whole number of seconds; nothing was saved.',
       inherit: 'Default (follow current model)',
       unavailable: 'Unavailable',

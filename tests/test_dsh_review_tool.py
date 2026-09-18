@@ -186,8 +186,16 @@ class DshReviewTimeoutTest(unittest.TestCase):
 
     def test_clamps_the_configured_budget_between_the_two_bounds(self):
         self.assertIn("const MIN_REVIEW_TIMEOUT_SECONDS = 30", self.text)
-        self.assertIn("const MAX_REVIEW_TIMEOUT_SECONDS = 270", self.text)
-        self.assertIn("const DEFAULT_REVIEW_TIMEOUT_SECONDS = 240", self.text)
+        # The maximum and the default are deliberately NOT pinned to a digit
+        # here: what they are, and on what evidence, is asserted by
+        # test_no_unmeasured_threshold_is_presented_as_decided. This test is
+        # about the clamp, so it pins only that there is a clamp.
+        self.assertRegex(
+            self.text, r"(?m)^const MAX_REVIEW_TIMEOUT_SECONDS = \d+"
+        )
+        self.assertRegex(
+            self.text, r"(?m)^const DEFAULT_REVIEW_TIMEOUT_SECONDS = \d+"
+        )
         # A non-number defaults; anything numeric is floored into [MIN, MAX].
         self.assertIn("typeof raw === 'number' && Number.isFinite(raw)", self.text)
         self.assertIn(
@@ -195,24 +203,23 @@ class DshReviewTimeoutTest(unittest.TestCase):
             self.text,
         )
 
-    def test_the_declared_deadline_covers_the_two_attempt_worst_case(self):
-        """The defect this pins: a clamp dimensioned against ONE attempt.
+    def test_the_default_and_the_limits_are_ordered(self):
+        """The clamp's shape, with no premise attached to the numbers.
 
-        A call may spend the configured attempt and then a session-model rerun,
-        so the quantity that has to fit under the host's ~600 s ceiling is
-        ``2 * MAX``, not ``MAX``. Sized at the ceiling itself, a full-budget
-        attempt plus a full-budget rerun overruns it and the call is killed from
-        outside with nothing rendered — the exact failure this budget exists to
-        remove. The numbers are read out of the shipped source rather than
-        restated here, so editing a constant without redoing the arithmetic
-        fails this test instead of passing it.
+        What the bounds are worth — and that 270 was measurably too small — is
+        judged by ``test_no_unmeasured_threshold_is_presented_as_decided``, and
+        the relationship between them and the declared deadline by
+        ``test_the_declared_deadline_covers_the_two_attempt_worst_case``. This
+        test only says the clamp is a clamp. Its numbers used to be pinned to
+        ``(30, 270, 240)``; that pin is deliberately gone, because it made the
+        values unraisable — the defect the retraction exists to fix.
         """
         numbers = {
             name: int(value)
             for name, value in re.findall(
                 r"^const (MIN_REVIEW_TIMEOUT_SECONDS|MAX_REVIEW_TIMEOUT_SECONDS"
                 r"|DEFAULT_REVIEW_TIMEOUT_SECONDS|REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS"
-                r"|REVIEW_TEARDOWN_GRACE_SECONDS) = (\d+)$",
+                r"|REVIEW_TEARDOWN_GRACE_SECONDS) = (\d+).*$",
                 self.text,
                 re.MULTILINE,
             )
@@ -243,15 +250,96 @@ class DshReviewTimeoutTest(unittest.TestCase):
         per_attempt_s = maximum + grace
         worst_case_s = per_attempt_s * 2
         declared_s = maximum * 2 + margin
-        # The agreed bounds: 2 * 270 + 30 = 570 s, over 2 * (270 + 10) = 560 s.
-        self.assertEqual((minimum, maximum, default), (30, 270, 240))
-        self.assertEqual(declared_s, 570)
-        # The declared deadline covers the whole call, teardown included...
+        # The declared deadline covers the whole call, teardown included. Both
+        # sides are read out of the source, so the relationship is what is
+        # asserted and a constant edit cannot quietly break it.
         self.assertGreaterEqual(declared_s, worst_case_s)
-        # ...and still fires before the ~600 s ceiling the host enforces, so THIS
-        # tool renders the fallback instead of being preempted by an opaque
-        # TOOL_TIMEOUT.
-        self.assertLess(declared_s, 600)
+        # The retracted rule was `declared_s < 600`, justified by a host ceiling
+        # on total call duration that nobody had measured. It is deleted rather
+        # than renumbered: the measured mechanism is the adapter's PER-STREAM
+        # IDLE watchdog (DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000 in
+        # packages/llm/llm-pi-ai/src/config.ts, a retryable TIMEOUT in
+        # packages/llm/llm/src/retry-policy.ts), which bounds SILENCE, not
+        # duration. A review that keeps streaming is not bounded by it at all,
+        # so no assertion may derive a ceiling on our total duration from it.
+
+    def test_no_unmeasured_threshold_is_presented_as_decided(self):
+        """Both halves of the retraction, asserted where they can bite.
+
+        The previous round failed with two attempts dying at 270 s each on this
+        tool's own clock: one seat needed 130 s for a compact brief, and the
+        other spent 85 s and 5 702 reasoning tokens on a SINGLE completion. So
+        270 s is known insufficient BY MEASUREMENT, and the numbers that replace
+        it are deliberately generous because erring low is the defect.
+
+        They are also unmeasured, and this test is what keeps them from being
+        read as decided: the source has to carry both the derivation the
+        constants imply and an explicit `provisional` label, and it must record
+        that the idle watchdog — not this budget — owns a silent stream. The
+        calibration in ``docs/superpowers/calibration/`` is what replaces them.
+        """
+        # The declaration is derived from the constants, never a second literal.
+        self.assertIn(
+            "const REVIEW_TOOL_TIMEOUT_MS = "
+            "(MAX_REVIEW_TIMEOUT_SECONDS * 2 + REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) * 1000",
+            self.text,
+        )
+        # Two attempts is one more than one: a clamp dimensioned against a single
+        # attempt is the defect this derivation exists to prevent.
+        numbers = {
+            name: int(value)
+            for name, value in re.findall(
+                r"^const (MIN_REVIEW_TIMEOUT_SECONDS|MAX_REVIEW_TIMEOUT_SECONDS"
+                r"|DEFAULT_REVIEW_TIMEOUT_SECONDS|REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) = (\d+).*$",
+                self.text,
+                re.MULTILINE,
+            )
+        }
+        self.assertEqual(len(numbers), 4, f"a bound is no longer a plain integer: {numbers}")
+        # The declaration has to be an EXPRESSION over those constants, and it
+        # has to evaluate to their two-attempt worst case. Re-deriving it here is
+        # what makes a constant edit without re-deriving the deadline fail.
+        declaration = re.search(
+            r"(?m)^const REVIEW_TOOL_TIMEOUT_MS = (.+)$", self.text
+        )
+        self.assertIsNotNone(declaration, "the declared deadline is gone or is no longer a const")
+        formula = declaration.group(1).strip()
+        self.assertRegex(
+            formula, r"^\([\w\s*+]+\) \* 1000$",
+            "the declared deadline must be derived in code, not written as a literal",
+        )
+        evaluated = formula
+        for name, value in numbers.items():
+            evaluated = evaluated.replace(name, str(value))
+        # Only arithmetic over the constants survives the substitution above.
+        self.assertRegex(evaluated, r"^\([\d\s*+]+\) \* 1000$", evaluated)
+        expected_ms = (
+            numbers["MAX_REVIEW_TIMEOUT_SECONDS"] * 2
+            + numbers["REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS"]
+        ) * 1000
+        self.assertEqual(eval(evaluated, {"__builtins__": {}}, {}), expected_ms)  # noqa: S307
+        # And the declared deadline still clears the worst case it must cover:
+        # two attempts, each allowed its own timer plus one teardown grace.
+        grace = int(re.search(r"(?m)^const REVIEW_TEARDOWN_GRACE_SECONDS = (\d+)", self.text).group(1))
+        self.assertGreaterEqual(
+            expected_ms,
+            (numbers["MAX_REVIEW_TIMEOUT_SECONDS"] + grace) * 2 * 1000,
+        )
+        # A threshold nobody has measured says so, in the source, as `provisional`.
+        self.assertIn("provisional", self.text.lower())
+        for name in ("MIN_REVIEW_TIMEOUT_SECONDS", "MAX_REVIEW_TIMEOUT_SECONDS",
+                     "DEFAULT_REVIEW_TIMEOUT_SECONDS"):
+            with self.subTest(constant=name):
+                line = re.search(rf"^const {name} = \d+.*$", self.text, re.MULTILINE)
+                self.assertIsNotNone(line, f"{name} is no longer a single labelled line")
+                self.assertIn("provisional", line.group(0).lower(), line.group(0))
+        # The control handover: silence is the host's, our clock is ours.
+        self.assertIn("idle", self.text.lower())
+        # And the retracted CLAIM never comes back. Match the claim, never the
+        # digits: the comment recording the retraction legitimately names them.
+        for retracted in ("~600 s", "600 s ceiling", "约 600 秒的上限", "合计仍低于"):
+            with self.subTest(retracted=retracted):
+                self.assertNotIn(retracted, self.text)
 
     def test_bounds_every_await_it_owns_not_only_the_child_result(self):
         """The residual defect: only `run.result` was inside a race.
@@ -260,8 +348,9 @@ class DshReviewTimeoutTest(unittest.TestCase):
         that never publishes a run, or never reaches quiescence, held the call
         open past the deadline this tool declares. Nothing else stops that: the
         harness's tool deadline arms a signal and then awaits the tool's promise
-        rather than racing or abandoning it, so the external ~600 s ceiling was
-        the only backstop — and it kills the call with nothing rendered.
+        rather than racing or abandoning it, and the adapter's idle watchdog
+        bounds silence rather than duration — so a provider that publishes
+        nothing was bounded by nothing, and the call hung with nothing rendered.
         """
         # Dispatch is raced against the attempt's own deadline, and both arms of
         # the dispatch promise are observed.

@@ -692,17 +692,23 @@ async function main() {
     })
   check('the timeout control reads the stored value',
     inputValue(tree, 0) === '90', inputValue(tree, 0))
-  // The card's advertised range is the tool's clamp. 270, not the host's 600 s
-  // ceiling: a review makes at most two attempts (configured + session rerun),
-  // so 2 x 270 + 30 = 570 s has to fit under that ceiling. A card advertising
-  // the ceiling instead would invite a value the tool then silently halves.
+  // The card's advertised range is the tool's clamp, which was RAISED
+  // deliberately in task 17: 30/1800, default 600. The pin moved with it, on
+  // purpose and with a reason — 270 s was measured and found too small (a real
+  // project lost a Review B to two attempts that both died on this tool's own
+  // clock at 270 s), so the old `max: 270` pin was a pin on the defect. The
+  // previous rationale here — the host's ~600 s ceiling on total duration —
+  // is retracted: the measured mechanism is a per-stream IDLE watchdog, which
+  // bounds silence rather than duration, so the range is no longer dimensioned
+  // against any ceiling on how long a call may run.
   // `min`/`max` are compared as strings because this harness reads the React
   // element's props — the numbers the card passes — while a browser sees the
-  // attribute form; String() makes the check mean the same thing in both.
+  // attribute form; String() makes the check mean the same thing in both, and
+  // the real DOM attributes are read by probe-task17-card.mjs in a browser.
   check('the timeout control advertises the tool\'s clamped range',
     inputBounds(tree, 0) !== undefined
     && String(inputBounds(tree, 0).min) === '30'
-    && String(inputBounds(tree, 0).max) === '270',
+    && String(inputBounds(tree, 0).max) === '1800',
     inputBounds(tree, 0))
 
   // 13. Editing it writes exactly that one field, and the write is judged by

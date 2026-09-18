@@ -24,23 +24,41 @@ The plugin also registers the Host settings namespace `charter-kit-review` and
 the `charter_review` tool. The namespace keys a card in the DSH
 plugin-configuration page where Review A and Review B each pick a configured
 model, an unset pick follows the session model, and a numeric field sets the
-per-review timeout in seconds (default 240, clamped by the tool to 30–270 s).
-That range is dimensioned against the whole call, not one attempt: a configured
-attempt plus a session-model rerun is at most 2 × 270 + 30 = 570 s, still below
-the Host's ~600 s external ceiling, so the tool returns its own result before
-that ceiling instead of being preempted by it. The tool runs one context-free
+per-review timeout in seconds (default 600, clamped by the tool to 30–1800 s).
+That value is the budget for ONE ATTEMPT, not for the whole call: a review makes
+at most two attempts — the configured route, then the session model — and an
+attempt that outruns its budget is aborted. A genuinely silent provider stream is
+cut by the Host's own PER-STREAM IDLE watchdog, which bounds silence rather than
+duration; this value neither replaces that mechanism nor is sized against it, and
+what it does bound is our own patience. At the 1800 s maximum, two attempts can
+hold the reviewer seat for about an hour, so that setting should be deliberate.
+All three bounds are provisional: 270 s was measured and found too small (a real
+project's Review B lost two attempts to this tool's own clock, with one seat
+needing 130 s for a compact brief and the other spending 85 s and 5 702 reasoning
+tokens on a single completion), so the replacement errs high on purpose, and the
+calibration in `docs/superpowers/calibration/` is what replaces these numbers.
+The declared `timeoutMs` is derived in code from those constants — two attempts
+at the maximum, plus the margin — so raising the maximum without re-deriving it
+fails a test rather than shipping a deadline the Host can preempt. The tool runs
+one context-free
 review with the configured
 model and reports the route it used, or `inherited` when it followed the session
 model. Every way the configured route fails to produce a review — a failed
 child, an empty result, or that timeout, which makes the tool abort the child —
-is handled the same way: the same brief is rerun on the session model in a
+is handled the same way: the SAME brief is rerun on the session model in a
 fresh, context-free child, the result is `outcome: "fallback"`, and
 `routeFallbackReason` names the route, what happened, and how long it took. That
 fallback still produces a review on the session model, so a configured route that
-cannot deliver does not cost the leaf its review. The call never waits past its
-budget: dispatch, the child's result, and teardown are each raced against it, so
-a provider that never publishes a run or never releases one cannot hold the call
-open. An empty `review` is never returned as a success shape — it comes back only
+cannot deliver does not cost the leaf its review. Hence the brief has to be
+SELF-CONTAINED — a self-contained brief carrying the candidate diff — because a
+review is a MULTI-TURN agent
+run — the child reads files, runs `git diff`, then writes — so turns multiplied by
+tokens is the whole cost, and a child that must discover the diff itself pays for
+that discovery in turns. For the same reason a slow seat belongs on a narrow,
+risk-triggered review rather than on every leaf. Dispatch, the child's result,
+and teardown are each raced against the attempt's deadline, so a provider that
+never publishes a run or never releases one cannot hold the call open. An empty
+`review` is never returned as a success shape — it comes back only
 as an explicit `outcome: "unavailable"` carrying a reason. That is what happens
 when no reviewer could be started at all (no calling agent, or no unambiguous
 subagent provider), when the session-model attempt itself failed, or when the
