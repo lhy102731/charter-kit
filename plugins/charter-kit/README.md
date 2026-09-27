@@ -31,6 +31,8 @@ Charter Kit 是一个轻量、项目本地、可移植的开发工作流。它�
 
 Reuse Check 只使用三个门状态：`PENDING`、`COMPLETE`、`BLOCKED`。叶任务只有在门为 `COMPLETE`，或有针对该叶、明确单独批准并记录范围/限制/批准人/复查条件的有界 waiver 时，才能进入 `READY`；waiver 不是第四种状态，也不改变项目级门状态或其他叶的授权。记录会把 Coverage（`SEARCHED` / `NOT_SEARCHED` / `NOT_AUTHORIZED` / `BLOCKED_TOOLING`）、Result（`MATCH` / `NO_MATCH` / `UNKNOWN`）和最终路线（`ADOPT` / `ADAPT` / `REFERENCE_ONLY` / `BUILD_NEW` / `REUSE_SPIKE` / `NEEDS_DECISION`）分开；`NO_MATCH` 必须有真实查询和证据。
 
+叶契约带 `Contract version`（当前 `0.2`）：0.2 新增 Rulings 协议（停止清单之外的分歧当场裁决并记录 `Ruling: 决定 — 为什么 — 代价`）、Review focus（spec 隐含但验收未覆盖的输入，逐条配钉住检查）与 Suite verification（全项目套件验证，未报告的红测试视同虚假记录）三个字段，并把 j-space SV1 控制器加入 ledger 模式枚举（旧 `jspace.py` 模式继续合法）；`0.1` 契约按 `portable/references/contract-migrations.md` 迁移或继续有效，已关闭的契约永不迁移。
+
 ### 使用方式
 
 1. 在空目录或已有项目中运行 `charter-workflow`，或让宿主加载对应的 Bootstrap Prompt。
@@ -97,21 +99,13 @@ ZCode 插件发行包位于 `plugins/zcode-charter-kit/`。在 ZCode 的 **Setti
 
 ### 安装到 DSH
 
-DSH 插件发行包位于 `plugins/dsh-charter-kit/`，可通过 DSH 插件工具链安装：
+DSH 插件发行包位于 `plugins/dsh-charter-kit/`。主路径是 **bundle 层装配**（重启保留）：把发行包目录以 link 依赖 + `dsh.profile.bundles` 条目接入 profile——包内自带的 `cordis.patch.yml` 已声明插件行，profile 的 `node_modules` 需要有指向发行包的链接；经由 market 安装同样有效。运行时注入（`dev_inject_plugin`）保留为免重启的开发路径。
 
-```text
-dev_inject_plugin <repo>/plugins/dsh-charter-kit
-# 或正式装配到 profile（重启后保留）
-dev_install_package <repo>/plugins/dsh-charter-kit
-```
-
-该插件还注册宿主设置命名空间 `charter-kit-review` 与 `charter_review` 工具。该命名空间是「插件配置」页上那张卡片的 key：Review A 与 Review B 各自选择一个本部署已配置的模型，留空则跟随当前会话模型；卡片上还有一个「单次评审超时（秒）」数字输入，默认 600，工具会把它限制在 30–1800 秒之间。这个值是**一次尝试**的预算，不是整次调用的预算：一次评审最多两次尝试——先配置的路由，再会话模型；任何一次尝试超过该预算时，工具中止那个子代理。真正不出字的流由宿主自己的**每流空闲**看门狗切断，与这个值无关，它也不替代那个机制；这个值限制的是我们自己的耐心，而不是沉默。选最大值 1800 秒意味着两次尝试最多可占用评审席位约一小时，请有意为之。工具用配置的模型执行一次无上下文评审，并报告它实际使用的路由，跟随会话模型时则为 `inherited`。配置的路由只要没产出评审——子代理失败、空结果，或上述超时——处理方式都相同：用**同一份简报**在一个新的无上下文子代理里改用会话模型重跑，返回 `outcome: "fallback"`，并在 `routeFallbackReason` 中写明是哪条路由、发生了什么、花了多久；这次回退本身仍然在会话模型上产出一份评审，所以配置的路由交付不了并不会让该叶失去评审。所以**简报必须自包含**：一份评审是一个**多轮** agent 运行，子代理要读文件、跑 `git diff`、再动笔，因此子代理自己去发现候选 diff 的成本要用轮次来付——请把叶契约、规格与候选 diff 一并放进简报；也正因如此，慢席位应当只用在**窄范围、风险触发**的评审上，而不是每一个叶。派发、子代理结果与子代理释放各自都与该次尝试的截止时间竞速，因此一个永远不发布 run、或永远不释放 run 的 provider 也无法把调用拖住。空评审不会作为成功形态返回：它只会以显式的 `outcome: "unavailable"` 返回，并带上原因——完全起不了评审者时（没有调用方 agent，或没有唯一明确的子代理 provider）、会话模型这次尝试本身失败时，或配置的路由失败且重跑也失败时，这三种情况下确实没有评审可报。可选参数 `route: "session"` 直接跳过配置的路由、在会话模型上执行，供同一会话内某个 `(kind, route)` 已经失败后的后续评审避免重付超时；在卡片里改模型就是换了一条路由，会重新尝试。缺少 `charter_review` 工具、或某条路由没被用上，都不等于失去评审独立性：评审独立性与模型路由是两条分开记录的轴。这三个上限都是**临时**的：旧的 270 秒上限已被测出不够（一个真实项目的 Review B 两次尝试都死在我们自己的时钟上，一次紧凑简报就要 130 秒，另一席位单次补全花了 85 秒、5 702 个推理 token），而真正的机制是适配器的每流空闲看门狗（`DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000`，其 `TIMEOUT` 可重试）——它限制的是沉默、不是时长，所以 270 秒什么也没保护住，只是提前杀掉了还在工作的评审。这些数值是故意过头的：偏低正是这次要修的缺陷，`docs/superpowers/calibration/` 里的校准会用测得的数字替换它们。
-
-卡片上还有一个「思考强度」区域：两个模型选择行下面，Review A 与 Review B 各有**一块单选面板**，八格两列，档位顺序与参考实现一致（左列 off / low / high / max，右列 minimal / medium / xhigh，末行右侧留空）。每行的取值列是**只读文本**，显示我们抄来的知识库（`targets/dsh/client/effort-knowledge.js`，来自 MIT 许可的 dsh-better-reasoning-effort 0.3.9，条目连同其官方出处 `note` 原样保留）为这个模型解析出的取值；「自动适配」按知识库填入各档取值、并在模型声明该档时选中知识库的默认档。可选的档位**以模型自己的声明为准**（模型目录里的 `reasoning.efforts`）——工具发送的就是该档位的 id，而 LLM 层对未声明的档位会直接以 `UNSUPPORTED_REASONING_EFFORT` 拒绝，因此未声明的档位在卡片上灰显且写明原因；知识库与模型声明不一致时，卡片会把两者都列出来并说明以模型声明为准。语义是**单选**：最多一个档位表示本次评审使用它，发送的值就是该档位 id（`agentOptions.reasoningEffort`）；一个都不选 = 跟随路由默认且**不发送**该字段，这条路径与本次改动之前完全一致。工具结果在 `model` 旁边回报 `effort`：发送了就是该档位 id，没发送就是 `"default"`（表示走提供方默认、宿主无从得知），宿主拿不到 `llm` 服务时则完全不报——它无法核对路由，就不编造档位。
+插件注册 `charter-workflow` skill 与 `charter_review` 工具，并导出 `Config` schema：宿主把它投影为设置命名空间（key 是本插件的 loader entry id，卡片从宿主的 settings describe 应答中动态发现），评审模型卡片在侧边栏 **插件 → 官方** 分组和设置导航里各有一个入口，两处共用同一份配置。Review A 与 Review B 各自选择模型，留空跟随当前会话模型；「单次评审超时（秒）」默认 600，工具钳制在 30–1800 秒。这个值是**一次尝试**的预算，不是整次调用的预算：一次评审最多两次尝试——先配置的路由，再会话模型；超时的尝试会被中止。真正不出字的流由宿主自己的**每流空闲**看门狗切断，与这个值无关。选最大值 1800 秒意味着两次尝试最多可占用评审席位约一小时，请有意为之。工具用配置的模型执行一次无上下文评审并报告实际路由，跟随会话模型时为 `inherited`。配置的路由只要没产出评审——子代理失败、空结果或超时——都用**同一份简报**在会话模型的新子代理里重跑，返回 `outcome: "fallback"` 并在 `routeFallbackReason` 写明细节；所以**简报必须自包含**：评审是多轮运行，请把叶契约、规格与候选 diff 一并放进简报。派发、结果与释放各自与尝试截止时间竞速。空评审只会以 `outcome: "unavailable"` 带原因返回。可选参数 `route: "session"` 跳过配置的路由。卡片上的「思考强度」区域为两个座位各提供一块单选面板：可选档位以模型自己的声明为准（模型目录 `reasoning.efforts`），未声明档位灰显并写明原因；发送的是档位 id（`agentOptions.reasoningEffort`），不选则不发送；知识库（来自 MIT 许可的 dsh-better-reasoning-effort 0.3.9）提供目录未声明时的参考档位与自动适配，模型声明与知识库冲突时以声明为准。
 
 ### 目标状态
 
-Claude Code 和 Codex 是当前仓库经过安装与启动 smoke test 验证的目标。DSH 和其他 Harness 目录在完成真实宿主验证前仍标记为 `experimental` / `unverified`，本仓库不会为未验证目标提供正式安装承诺。
+Claude Code、Codex 与 DSH 是经过真实宿主验证的目标：DSH 已在 dsh 0.1.7-rc.2 上完成端到端部署验证（bundle 层装配、`charter-workflow` skill、`charter_review` 工具与评审模型卡片均实测可用）。其余 Harness 目录仍为 `experimental` / `unverified`。
 
 ### 可选依赖安装（显式）
 
@@ -170,6 +164,8 @@ User input
 New requirements, discovered facts, defects, and risks all enter `Change Triage`; a new requirement must not silently expand the current Leaf. Reuse checks escalate only as needed from project and history to installed capabilities and authorized external sources. Discovery, adoption, installation, copying, and execution are separate authorized actions. A high-value `UNKNOWN` or `DEFER` remains unresolved until it is decided, and selected reuse must cite an immutable commit/tag/package version.
 
 Reuse Check has only three gate states: `PENDING`, `COMPLETE`, and `BLOCKED`. A Leaf may enter `READY` only when the gate is `COMPLETE`, or when that specific Leaf has an explicit, separately approved bounded waiver recording its scope, limitation, approver, and expiry/recheck. A waiver is not a fourth state, does not change the project-wide gate projection, and does not authorize another Leaf. Its record keeps Coverage (`SEARCHED` / `NOT_SEARCHED` / `NOT_AUTHORIZED` / `BLOCKED_TOOLING`), Result (`MATCH` / `NO_MATCH` / `UNKNOWN`), and the final route (`ADOPT` / `ADAPT` / `REFERENCE_ONLY` / `BUILD_NEW` / `REUSE_SPIKE` / `NEEDS_DECISION`) separate. `NO_MATCH` requires an actual query and evidence; a waiver must explicitly address any high-value `UNKNOWN`/`DEFER`.
+
+A leaf contract carries a `Contract version` (currently `0.2`): 0.2 adds the Rulings protocol (disagreements outside the stop list are decided on the spot and recorded as `Ruling: <decision> — <why> — <cost if wrong>`), Review focus (spec-implied inputs no acceptance check covers, each with a pinning check), and Suite verification (the project's own full test command; an unreported red test falsifies the record), and adds the j-space SV1 controller to the ledger-mode enum (the legacy `jspace.py` mode stays valid); a `0.1` contract migrates through `portable/references/contract-migrations.md` or remains valid as written, and closed contracts are never migrated.
 
 ### Use it
 
@@ -237,21 +233,50 @@ Without the marketplace, copy manually: `skills/charter-workflow` → `~/.agents
 
 ### Install in DSH
 
-The DSH plugin distribution lives in `plugins/dsh-charter-kit/`. Use the DSH plugin toolchain:
+The DSH plugin distribution lives at `plugins/dsh-charter-kit/`. The primary
+path is a **bundle-layer mount** (survives restart): wire the distribution
+directory into the profile as a link dependency plus a `dsh.profile.bundles`
+entry — the package's own `cordis.patch.yml` declares the plugin row, and the
+profile's `node_modules` needs a link to the distribution. Installing through
+the market works too. Runtime injection (`dev_inject_plugin`) remains the
+no-restart development path.
 
-```text
-dev_inject_plugin <repo>/plugins/dsh-charter-kit
-# Or install permanently into the profile (survives restart)
-dev_install_package <repo>/plugins/dsh-charter-kit
-```
-
-The plugin also registers the host settings namespace `charter-kit-review` and the `charter_review` tool. That namespace is the key of the card on the plugin-configuration page: Review A and Review B each pick one of the models this deployment has configured, an unset pick follows the current session model, and a numeric field sets the per-review timeout in seconds — default 600, clamped by the tool to 30–1800 s. That value is the budget for ONE ATTEMPT, not for the whole call: a review makes at most two attempts — the configured route, then the session model — and the tool aborts that child when an attempt outruns the budget. A genuinely silent provider stream is cut by the host's own PER-STREAM IDLE watchdog, which this value neither replaces nor is sized against; what this value bounds is our own patience, not silence. At the 1800 s maximum, two attempts can hold the reviewer seat for about an hour, so choose it deliberately. The tool runs one context-free review with the configured model and reports the route it used, or `inherited` when it followed the session model. Every way the configured route fails to produce a review — a failed child, an empty result, or that timeout — gets the same treatment: rerun the SAME brief on the session model in a fresh, context-free child and return `outcome: "fallback"`, with `routeFallbackReason` naming the route, what happened, and how long it took. That fallback still produces a review on the session model, so a configured route that cannot deliver does not cost the leaf its review. This is why the brief must be SELF-CONTAINED: a review is a MULTI-TURN agent run — the child reads files, runs `git diff`, then writes — so a child that has to discover the candidate diff itself pays for that discovery in turns. Pass the leaf contract, the spec, and the candidate diff; and for the same reason a slow seat belongs on a narrow, risk-triggered review rather than on every leaf. Dispatch, the child's result, and teardown are each raced against that attempt's deadline, so a provider that never publishes a run or never releases one cannot hold the call open. An empty `review` is never returned as a success shape — it comes back only as an explicit `outcome: "unavailable"` carrying a reason. That is what happens when no reviewer could be started at all (no calling agent, or no unambiguous subagent provider), when the session-model attempt itself failed, or when the configured route failed and the rerun failed too; there is genuinely no review to report in each of those cases. An optional `route: "session"` argument skips the configured route entirely and runs the session model, so later reviews of a `(kind, route)` that already failed in this session do not re-pay the timeout; changing the model in the card makes it a different route, which is tried again. A missing `charter_review` tool, or a route that went unused, is not a loss of review independence: independence and model routing are recorded on two separate axes. All three bounds are PROVISIONAL: the old 270 s limit was measured and found too small (a real project's Review B lost two attempts to our own clock, one seat needing 130 s for a compact brief and the other spending 85 s and 5 702 reasoning tokens on a single completion), while the real mechanism is the adapter's per-stream idle watchdog (`DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000`, whose `TIMEOUT` is retryable) — it bounds silence, not duration, so 270 s protected nothing and only killed working reviews. The replacement values are a deliberate over-correction, because erring low is the defect being fixed; the calibration in `docs/superpowers/calibration/` will replace them with measured ones.
-
-The card also carries a reasoning-effort area: below the two model rows, Review A and Review B each get a **single-choice panel** with eight cells in two columns, in the reference implementation's order (off / low / high / max down the left, minimal / medium / xhigh down the right, the last row's right cell empty). Each row's value column is **read-only text** showing what the copied knowledge base (`targets/dsh/client/effort-knowledge.js`, taken from MIT-licensed dsh-better-reasoning-effort 0.3.9 with every entry's official-source `note` preserved verbatim) resolves for that model; 自动适配 (auto-adapt) fills those values from the table and selects the table's default level when the model declares it. Which levels are selectable follows **the model's own declaration** (the model catalog's `reasoning.efforts`): the value sent is that level's id, the LLM layer answers an undeclared level with `UNSUPPORTED_REASONING_EFFORT`, and so an undeclared level is greyed out with the reason shown. Where the table and the model disagree, the panel prints both and says which one it trusted. The semantics are **single choice**: at most one level means "this review uses it", and the string sent is that level's id (`agentOptions.reasoningEffort`); selecting none means the route default applies and the field is **not sent**, which is exactly the call this card made before the feature existed. The tool result reports `effort` beside `model`: the level id when one was sent, `"default"` when none was (the provider default, which this host cannot know), and no level at all when the `llm` service is unavailable — a host that cannot check a route does not invent a level for it.
+The plugin registers the `charter-workflow` skill and the `charter_review`
+tool, and exports a `Config` schema: the Host projects it into a settings
+namespace keyed by the plugin's loader entry id (the card discovers it from
+the Host's settings describe answer), and the review-model card renders in
+two surfaces — the Plugins page's Official group and its own Settings
+navigation entry — sharing one configuration. Review A and Review B each pick
+a configured model, an unset pick follows the session model; the per-review
+timeout defaults to 600 and the tool clamps it to 30–1800 seconds. That value
+is the budget for ONE ATTEMPT, not for the whole call: a review makes at most
+two attempts — the configured route, then the session model — and an attempt
+that outruns its budget is aborted. A genuinely silent provider stream is cut
+by the Host's own PER-STREAM IDLE watchdog, which this value neither replaces
+nor is sized against. At the 1800 s maximum, two attempts can hold the
+reviewer seat for about an hour, so that setting should be deliberate. The
+tool runs one context-free review with the configured model and reports the
+route it used, or `inherited` when it followed the session model. Every way
+the configured route fails to produce a review — a failed child, an empty
+result, or that timeout — reruns the SAME brief on the session model in a
+fresh child, returns `outcome: "fallback"`, and names the details in
+`routeFallbackReason`; hence the brief has to be SELF-CONTAINED — a review is
+a MULTI-TURN agent run, so include the leaf contract, the spec, and the
+candidate diff. Dispatch, the child's result, and teardown are each raced
+against the attempt's deadline. An empty `review` comes back only as an
+explicit `outcome: "unavailable"` carrying a reason. The optional
+`route: "session"` argument skips the configured route. The card's
+reasoning-effort area gives each seat a single-choice panel: selectable
+levels follow the model's own declaration (the model catalog's
+`reasoning.efforts`), undeclared levels are greyed out with the reason, the
+value sent is the level id (`agentOptions.reasoningEffort`), and selecting
+none sends nothing; the knowledge base (from MIT-licensed
+dsh-better-reasoning-effort 0.3.9) supplies reference levels and auto-adapt
+when the catalog declares none, and the model declaration wins disagreements.
 
 ### Target status
 
-Claude Code and Codex are the targets in this repository with verified installation and startup smoke-test evidence. DSH and any future Gemini or other Harness adapter remain `experimental` / `unverified` until tested in the real host; this repository makes no supported-install claim for an unverified target.
+Claude Code, Codex, and DSH are verified targets: DSH is deployed and exercised end to end on dsh 0.1.7-rc.2 (bundle-layer mount, the `charter-workflow` skill, the `charter_review` tool, and the review-model card are all live-tested). Any other Harness adapter remains `experimental` / `unverified`.
 
 ### Optional dependency installation (explicit)
 

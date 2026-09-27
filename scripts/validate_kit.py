@@ -499,55 +499,11 @@ LEDGER_BEFORE_TRANSITION_RE = re.compile(
     r"Before moving `DRAFT` to `APPROVED`[^.]*?declare the session ledger mode"
 )
 
-# DSH is retained as an experimental adapter shell.  Its presence is useful
-# for structural checks, but it is not a verified installation target.  Keep
-# the claim detector narrow enough to allow ordinary words such as "build"
-# and the root README's Codex installation instructions while rejecting an
-# explicit DSH install command or a statement that DSH itself is supported.
-DSH_INSTALL_COMMAND_RE = re.compile(r"(?i)\bdev_(?:inject_plugin|install_package)\b")
-DSH_SUPPORTED_CLAIM_RE = re.compile(
-    r"(?i)\b(?:supported|official(?:ly)?|verified|production(?:[- ]ready)?)\b|"
-    r"正式(?:支持|安装)|官方(?:支持|安装)|已验证(?:支持|安装)|可安装"
-)
-
-
-def _contains_dsh_supported_claim(text: str) -> bool:
-    """Return whether a line positively claims verified DSH support.
-
-    The repository's shared README deliberately says that DSH is
-    experimental/unverified and makes *no* supported-install claim.  A broad
-    regex would flag that disclaimer itself, so inspect each DSH-containing
-    line and ignore explicit negative/disclaimer wording.
-    """
-
-    # Inspect short clauses rather than whole paragraphs.  A README commonly
-    # says that Codex is verified and then mentions DSH as experimental on the
-    # same line; treating that whole line as one claim would be a false
-    # positive.  Conversely, "experimental but supported" must still be
-    # rejected because the positive claim is in the DSH clause itself.
-    for line in text.splitlines():
-        for clause in re.split(r"[.!?;；。！？]+", line):
-            low = clause.lower().strip()
-            if "dsh" not in low and "@dsh-external" not in low:
-                continue
-            match = DSH_SUPPORTED_CLAIM_RE.search(clause)
-            if match is None:
-                continue
-            before = clause[: match.start()].lower()
-            after = clause[match.end() :].lower()
-            negative = re.search(
-                r"(?:not|no|never|cannot|can't|does\s+not|do\s+not|"
-                r"without|unverified|unsupported)\b[^\n]{0,50}$",
-                before,
-            )
-            negative = negative or re.search(
-                r"^\s*(?:installation\s+is\s+)?(?:not|never|unsupported|"
-                r"unverified)\b|\b(?:not|never|unsupported|unverified)\b",
-                after,
-            )
-            if negative is None:
-                return True
-    return False
+# DSH is a verified installation target as of dsh 0.1.7-rc.2: the
+# distribution is deployed and exercised end to end in the real host. The
+# README must state that verified deployment and the host version floor it
+# was verified against, so the claim cannot silently regress to the old
+# "experimental / unverified" stance (or to a floor nobody tested).
 
 
 def _is_junction(path: Path) -> bool:
@@ -1308,6 +1264,10 @@ class Checker:
 
         self._check_tree_safety(DSH_TARGET_ROOT_RELATIVE, required=True)
         distribution_root = self._check_tree_safety(DSH_DISTRIBUTION_ROOT_RELATIVE, required=True)
+        dsh_readme = self.read(DSH_TARGET_README_RELATIVE)
+        if dsh_readme is not None:
+            for phrase in ("verified against dsh 0.1.7-rc.2", "bundle-layer mount"):
+                self.require(dsh_readme, phrase, DSH_TARGET_README_RELATIVE)
 
         target_pkg = self._load_json_object(
             DSH_TARGET_PACKAGE_JSON_RELATIVE,
@@ -3002,6 +2962,7 @@ class Checker:
         if not text:
             return
         for phrase in (
+            "0.1.7-rc.2",
             "host-neutral",
             "empty directory",
             "grill-me",

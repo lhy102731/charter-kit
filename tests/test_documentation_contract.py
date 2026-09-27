@@ -43,9 +43,12 @@ class DocumentationContractTests(unittest.TestCase):
             "Change Triage",
             "Reuse Assessment / Reuse Check",
             "new requirement must not silently expand the current Leaf",
-            "Claude Code and Codex are the targets",
+            # DSH crossed from experimental to verified when the 0.4.0
+            # distribution was deployed and exercised end to end on
+            # dsh 0.1.7-rc.2; the boundary moved with it.
+            "Claude Code, Codex, and DSH are verified targets",
+            "0.1.7-rc.2",
             "experimental",
-            "unverified",
             "不会自动安装",
             "Nothing automatically installs a Skill",
             "https://github.com/lhy102731/charter-kit",
@@ -55,7 +58,9 @@ class DocumentationContractTests(unittest.TestCase):
                 self.assertIn(phrase, text)
 
         self.assertIn("dev_inject_plugin", text)
-        self.assertIn("dev_install_package", text)
+        # The persistent install path is the bundle-layer mount; runtime
+        # injection is the development path.
+        self.assertIn("dsh.profile.bundles", text)
 
     def test_codex_target_readme_is_an_adapter_not_a_harness_installer(self) -> None:
         text = read("targets/codex/README.md")

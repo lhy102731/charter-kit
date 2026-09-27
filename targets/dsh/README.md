@@ -7,6 +7,11 @@ the distribution, and the `./client` export names the `client/client.js` the
 builder places there — the pattern `main` already followed — so load the built
 plugin, not this directory.
 
+This target is **verified against dsh 0.1.7-rc.2**: the distribution is
+deployed and exercised end to end in the real host (bundle-layer mount,
+`charter-workflow` skill, the `charter_review` tool, and the review-model card
+on both configuration surfaces).
+
 Build the DSH distribution from the repository root:
 
 ```text
@@ -20,11 +25,16 @@ ordinary user message — the model loads the skill and starts, resumes, or
 runs change triage exactly like the Codex target. It does not install or
 download superpowers / j-space / grill-me.
 
-The plugin also registers the Host settings namespace `charter-kit-review` and
-the `charter_review` tool. The namespace keys a card in the DSH
-plugin-configuration page where Review A and Review B each pick a configured
-model, an unset pick follows the session model, and a numeric field sets the
-per-review timeout in seconds (default 600, clamped by the tool to 30–1800 s).
+The plugin also registers the `charter_review` tool and exports a `Config`
+schema that the Host projects into a settings namespace keyed by the plugin's
+loader entry id. The review-model card binds that namespace through
+`ctx.configForms` — discovered from the Host's settings describe answer by the
+marker fields only this plugin's Config declares — and renders in two
+surfaces: the Plugins page's Official group (`plugins.item`) and its own
+Settings navigation entry (`settings.section`). Review A and Review B each
+pick a configured model, an unset pick follows the session model, and a
+numeric field sets the per-review timeout in seconds (default 600, clamped by
+the tool to 30–1800 s).
 That value is the budget for ONE ATTEMPT, not for the whole call: a review makes
 at most two attempts — the configured route, then the session model — and an
 attempt that outruns its budget is aborted. A genuinely silent provider stream is
