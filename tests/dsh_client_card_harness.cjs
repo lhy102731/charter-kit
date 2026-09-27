@@ -229,22 +229,28 @@ const dictionaries = {}
 const mutations = []
 const conflicts = []
 const listeners = new Set()
+const documentUpdatedHandlers = []
 let registration = null
-let registered = null
-let boundSpec = null
+const registeredSlots = {}
+const registered = (name) => registeredSlots[name] ?? null
+let unregistered = 0
+let queriedNamespace = null
 let snapshot = null
 let catalog = { ok: true, value: { groups: [] } }
 let writeOutcome = 'accept'
 let pendingRevision
 let writeQueue = Promise.resolve()
 
+// Models ConfigForm over one discovered namespace: the same getSnapshot /
+// subscribe / mutate face the card has always bound, now reached through
+// `ctx.configForms.get(entryId)`.
 const scope = {
   getSnapshot: () => snapshot,
   subscribe: (listener) => {
     listeners.add(listener)
     return () => { listeners.delete(listener) }
   },
-  // Models SettingsScopeController.mutate. Writes are serialized, each one
+  // Models ConfigFormController.mutate. Writes are serialized, each one
   // resolves its own revision as `expectedRevision ?? pendingRevision ??
   // snapshot.revision` AT THE MOMENT IT RUNS, and a Host refusal resolves the
   // returned promise after the controller recovers its mirror — which is why
@@ -280,6 +286,43 @@ const scope = {
   },
 }
 
+/**
+ * The Host settings describe answer. Since DSH 0.1.7 the namespace id is the
+ * plugin's loader ENTRY ID, so the fake uses the market-assigned id — a name
+ * the bundle cannot know in advance, which is what makes the discovery
+ * behaviours below meaningful. A decoy namespace rides along: a schema that
+ * mentions the timeout field alone must never be adopted as ours.
+ */
+const OWN_NAMESPACE = 'mkt-dsh-charter-kit'
+let describeAnswer = {
+  ok: true,
+  value: {
+    namespaces: [
+      {
+        autoGenerate: true,
+        ns: 'other-plugin',
+        schema: { type: 'object', properties: { reviewTimeout: { type: 'number' } } },
+        value: {},
+      },
+      {
+        autoGenerate: true,
+        ns: OWN_NAMESPACE,
+        schema: {
+          type: 'object',
+          properties: {
+            reviewAProvider: { type: 'string' },
+            reviewAModel: { type: 'string' },
+            reviewTimeoutSeconds: { type: 'number' },
+            reviewAEffort: { type: 'string' },
+            reviewBEffort: { type: 'string' },
+          },
+        },
+        value: {},
+      },
+    ],
+  },
+}
+
 const ctx = {
   effect: (run) => run(),
   locale: {
@@ -290,12 +333,22 @@ const ctx = {
       return Object.prototype.hasOwnProperty.call(table, key) ? table[key] : (dicts.zh || {})[key] || key
     },
   },
-  settingsScope: { bind: (spec) => { boundSpec = spec; return scope } },
+  configForms: { get: (ns) => { queriedNamespace = ns; return scope } },
   slots: {
-    inject: (_name, contribute) => { contribute() },
-    register: (options, component) => { registered = { options, component }; return () => {} },
+    inject: (name, contribute) => {
+      contribute()
+      return () => { unregistered += 1; delete registeredSlots[name] }
+    },
+    register: (options, component) => { registeredSlots[options.name] = { options, component }; return () => {} },
   },
-  remote: { session: { modelCatalog: () => Promise.resolve(catalog) } },
+  remote: {
+    session: { modelCatalog: () => Promise.resolve(catalog) },
+    settings: { describe: () => Promise.resolve(describeAnswer) },
+    $on: (_event, handler) => {
+      documentUpdatedHandlers.push(handler)
+      return () => {}
+    },
+  },
 }
 
 const styleTags = []
@@ -320,62 +373,51 @@ const bundle = registration.factory((specifier) => {
 
 // What this check can and cannot prove about `inject`.
 //
-// It proves the exported face carries the four platform services the card
-// reaches for — `ctx.slots`, `ctx.settingsScope`, `ctx.remote.session` and
-// `ctx.locale` — and that every dotted property path listed there also declares
-// its root as a service. `remote` must therefore be spelled as a bare service
-// name and not only as the property path `remote.session`: inject names are
-// service names, and a list that names no `remote` service makes the shell wait
-// for nothing, so the card never mounts.
+// It proves the exported face carries the platform services the card reaches
+// for — `ctx.slots`, `ctx.configForms`, `ctx.remote.settings`,
+// `ctx.remote.session` and `ctx.locale` — and that every dotted property path
+// listed there also declares its root as a service. `remote` must therefore be
+// spelled as a bare service name and not only as the property paths: inject
+// names are service names, and a list that names no `remote` service makes the
+// shell wait for nothing, so the card never mounts.
 //
 // It CANNOT prove the card mounts. The shell's inject machinery is what turns
 // this list into a wait, and the harness never runs it: it hands `apply` a
 // hand-written `ctx` whose `remote` member is present unconditionally, so
 // deleting `remote` from the list would not change a single call below. Only
-// driving a live shell proves the mount. Live evidence lives under
-// .superpowers/sdd/2026-09-12-review-model-config/: probe-card4.json captured
-// ['slots', 'settingsScope', 'remote.session', 'locale'] at this line and found
-// no card after driving 设置 → 插件 → 插件配置 in headless Chromium
-// (ckCardPresent: false, no selects), while probe-card5 recorded the corrected
-// line and reported cardPresent: true with two selects, both read back and
-// saved. This check pins the value live testing identified as required; it is
-// not evidence that the card appears.
+// driving a live shell proves the mount. The settingsScope-era probes are
+// recorded under .superpowers/sdd/2026-09-12-review-model-config/
+// (probe-card4/5): they pin the mechanics, not this list's current spelling.
 //
 // The label is deliberately left as it was: the behaviour test beside this
 // harness asserts that exact label, and inventing a new one would silently
 // oblige that test to list it.
-const REQUIRED_SERVICES = ['slots', 'settingsScope', 'remote', 'locale']
+const REQUIRED_SERVICES = ['slots', 'locale', 'remote', 'configForms']
 const injectList = Array.isArray(bundle.inject) ? bundle.inject : []
 check('exports carry apply and inject',
   typeof bundle.apply === 'function'
   && Array.isArray(bundle.inject)
   && REQUIRED_SERVICES.every((service) => injectList.includes(service))
-  // `remote.session` is the path the card reads, so it must stay declared too.
+  // `remote.session` and `remote.settings` are the paths the card reads, so
+  // both must stay declared too.
   && injectList.includes('remote.session')
+  && injectList.includes('remote.settings')
   // A dotted entry needs the root service declared beside it, or the value it
   // walks is not there when the shell finally runs `apply`.
   && injectList.filter((name) => name.includes('.')).every((path) => injectList.includes(path.split('.')[0])),
   { apply: typeof bundle.apply, inject: bundle.inject, required: REQUIRED_SERVICES })
 
-bundle.apply(ctx)
-
-check('card registers into settings.plugin.item',
-  registered !== null && registered.options.name === 'settings.plugin.item',
-  registered === null ? 'no card' : registered.options.name)
-check('card key and locale are the namespace',
-  registered.options.key === 'charter-kit-review' && registered.options.locale === 'charter-kit-review',
-  { key: registered.options.key, locale: registered.options.locale })
-check('the scope is bound to the host namespace',
-  boundSpec !== null && boundSpec.namespace === 'charter-kit-review',
-  boundSpec)
-
-const face = registered.options.inject()
-const component = registered.component
+// `apply` registers ASYNCHRONOUSLY since the configForms migration: the card
+// discovers its namespace from the Host's settings describe answer before it
+// has anything to bind. Mounting, face, and the registration checks therefore
+// live in main(), after the describe round-trip has been flushed.
+let face = null
+let component = null
 
 // --------------------------------------------------------------- render cycle
 function renderOnce() {
   hooks.beginPass()
-  const tree = component(face)
+  const tree = component({ ...face, view: 'page' })
   return { tree, ran: hooks.runPending() }
 }
 
@@ -535,6 +577,36 @@ const CATALOG = {
 const asSet = (...ops) => JSON.stringify(ops.map(([path, value]) => ({ op: 'set', path: [path], value })))
 
 async function main() {
+  // 0. Registration: `apply` discovers its namespace from the Host describe
+  //    answer before it can bind a form, so registration is asynchronous and
+  //    the id it binds is the one the answer carried, never a hardcoded one.
+  bundle.apply(ctx)
+  await flush()
+  check('card registers into the Plugins page',
+    registered('plugins.item') !== null,
+    registered('plugins.item') === null ? 'no card' : registered('plugins.item').options.name)
+  check('the card is a settings section like the other plugins',
+    registered('settings.section') !== null
+      && registered('settings.section').options.id === 'charter-kit'
+      && registered('settings.section').options.locale === 'charter-kit-review',
+    registered('settings.section') === null
+      ? 'no settings section'
+      : { id: registered('settings.section').options.id, locale: registered('settings.section').options.locale })
+  check('card locale is the review namespace',
+    registered('plugins.item').options.locale === 'charter-kit-review',
+    { locale: registered('plugins.item').options.locale })
+  check('the form is bound to the discovered host namespace',
+    queriedNamespace === OWN_NAMESPACE,
+    { queried: queriedNamespace, own: OWN_NAMESPACE })
+  check('a foreign namespace is never adopted',
+    // The describe answer carried a decoy whose schema mentions the timeout
+    // field alone; the bound namespace must still be the own one.
+    queriedNamespace === OWN_NAMESPACE && registered('plugins.item').options.id === 'charter-kit',
+    { id: registered('plugins.item').options.id, queried: queriedNamespace })
+
+  face = registered('plugins.item').options.inject()
+  component = registered('plugins.item').component
+
   // 1. An unavailable namespace renders no trace at all.
   snapshot = { status: 'unavailable', value: {}, user: {}, writable: false, revision: 1, mode: 'memory' }
   check('an unavailable namespace renders nothing', await mount() === null)
@@ -554,6 +626,16 @@ async function main() {
       'GPT-5 — tt',
     ]),
     selects(tree).map(optionTexts))
+
+  // 2b. The Plugins page also asks the closed card for its one-liner; that
+  //     view is static copy rendered beside the hooks, before readiness.
+  hooks.beginPass()
+  const summaryTree = component({ ...face, view: 'summary' })
+  hooks.runPending()
+  check('the summary view renders the description line',
+    typeof summaryTree === 'string' && summaryTree.length > 0
+      && summaryTree.includes('Review A'),
+    summaryTree)
 
   // 3. A selection in review A's select writes A's pair, and only A's pair. The
   //    revision is the scope's business, not the card's: a card that pins the
@@ -1035,6 +1117,17 @@ async function main() {
     && bundle.effortKnowledge.upstream.version === '0.3.9'
     && bundle.effortKnowledge.upstream.license === 'MIT',
     bundle.effortKnowledge.entries.filter((entry) => typeof entry.note !== 'string').map((entry) => entry.id))
+
+  // 30. A namespace that stops being served drops the card: the registration
+  //     follows the Host, so a plugin the user switched off leaves no card
+  //     editing a namespace nothing serves.
+  describeAnswer = { ok: true, value: { namespaces: [] } }
+  for (const handler of documentUpdatedHandlers) handler()
+  await flush()
+  check('a vanished namespace drops the card',
+    registered('plugins.item') === null && registered('settings.section') === null
+      && unregistered === 2,
+    { unregistered })
 
   console.log(failures === 0 ? 'HARNESS: ALL PASS' : `HARNESS: ${failures} FAILURE(S)`)
   process.exitCode = failures === 0 ? 0 : 1

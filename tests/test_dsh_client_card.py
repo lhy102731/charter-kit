@@ -22,13 +22,34 @@ class DshClientCardTest(unittest.TestCase):
             self.assertIn(f"require('{specifier}')", self.text)
         self.assertNotIn("require('@deepseek-ai/dsh-client-ui-settings", self.text)
 
-    def test_registers_the_plugin_card_by_namespace_key(self):
-        self.assertIn("settings.plugin.item", self.text)
+    def test_registers_into_the_plugins_page_slot(self):
+        # DSH 0.1.7 removed the settings-page item slot; configuration pages
+        # now register into the Plugins page's `plugins.item`.
+        self.assertIn("plugins.item", self.text)
+        self.assertNotIn("settings.plugin.item", self.text)
         self.assertIn("charter-kit-review", self.text)
 
-    def test_binds_the_settings_scope_and_model_catalog(self):
-        self.assertIn("settingsScope", self.text)
+    def test_registers_a_settings_section_of_its_own(self):
+        # The card joins the Settings navigation through `settings.section`,
+        # the surface third-party plugins (Better Display, Watcher) use for
+        # their own pages, so it stays reachable from Settings itself.
+        self.assertIn("settings.section", self.text)
+        self.assertIn("charter-kit-review", self.text)
+
+    def test_binds_config_forms_and_the_model_catalog(self):
+        # DSH 0.1.7 removed the `settingsScope` service; the card binds
+        # `ctx.configForms` to the namespace it discovers instead.
+        self.assertIn("configForms", self.text)
+        self.assertNotIn("settingsScope", self.text)
         self.assertIn("modelCatalog", self.text)
+
+    def test_discovers_its_namespace_from_the_describe_answer(self):
+        # The 0.1.7 namespace is the loader entry id, unknowable at build time
+        # for a runtime-injected plugin. The card finds its own namespace by
+        # the marker fields only its Host Config declares.
+        self.assertIn("remote.settings.describe", self.text)
+        self.assertIn("reviewTimeoutSeconds", self.text)
+        self.assertIn("reviewAProvider", self.text)
 
     def test_declares_exported_face(self):
         self.assertIn("exports.apply", self.text)
@@ -37,7 +58,8 @@ class DshClientCardTest(unittest.TestCase):
     def test_inject_list_declares_the_remote_service(self):
         """Pin the inject value live testing identified as required.
 
-        The card reaches the model catalogue through ``ctx.remote.session``, so
+        The card reaches the model catalogue through ``ctx.remote.session``
+        and the settings describe answer through ``ctx.remote.settings``, so
         the module must declare the literal service name ``remote``. Inject
         names are service names, not property paths: only ``remote`` makes the
         shell wait for that service before it materializes this client at all,
@@ -70,7 +92,7 @@ class DshClientCardTest(unittest.TestCase):
         # service, an added one, a reordering -- is a deliberate act that has
         # to come back through this assertion. A presence check would let a
         # differently-wrong list through.
-        self.assertEqual(declared, ['slots', 'settingsScope', 'remote', 'remote.session', 'locale'], line)
+        self.assertEqual(declared, ['slots', 'locale', 'remote', 'remote.settings', 'remote.session', 'configForms'], line)
 
 
 if __name__ == "__main__":

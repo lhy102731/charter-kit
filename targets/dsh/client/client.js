@@ -9,8 +9,13 @@
  * @deepseek-ai/dsh-client-store, @deepseek-ai/dsh-client-ui-slots,
  * @deepseek-ai/dsh-client-ui-primitives, @deepseek-ai/dsh-client-ui-dockkit.
  *
- * The card is keyed by the settings namespace the Host half registers, which
- * is what lets a plugin distributed outside the harness contribute a card.
+ * The card edits the Host half's `Config` namespace. Since DSH 0.1.7 that
+ * namespace is keyed by the plugin's loader entry id, which the bundle cannot
+ * know in advance (it differs between install paths), so `apply` discovers it
+ * from the Host's settings describe answer by the marker fields only this
+ * plugin's Config declares, binds `ctx.configForms` to it, and registers into
+ * the Plugins page's `plugins.item` slot — the surface that replaced the
+ * settings-page item slot and the removed namespace-scope service.
  *
  * The two `CK-EFFORT-…` sentinel regions below are extracted data, not
  * hand-written: `.superpowers/sdd/2026-09-12-review-model-config/
@@ -1686,6 +1691,13 @@ function matchKnowledgeBase(modelId, displayName) {
         return () => { live = false }
       }, [loadCatalog])
 
+      // The Plugins page asks an official item for its one-liner (`summary`)
+      // while the card is closed and for the card body itself once opened
+      // (`page`). The summary renders before readiness: it is static copy, and
+      // gating it on the namespace would blank the card in the list until
+      // discovery lands.
+      if (props.view === 'summary') return t('description')
+
       // A card renders nothing while its namespace is unavailable, matching
       // the shell's own cards: no trace beats a card nobody can act on.
       if (snapshot.status !== 'ready') return null
@@ -2017,7 +2029,17 @@ function matchKnowledgeBase(modelId, displayName) {
       '.ck-link:disabled{cursor:default;color:var(--dsw-alias-label-secondary,#999)}',
     ].join('')
 
-    exports.inject = ['slots', 'settingsScope', 'remote', 'remote.session', 'locale']
+    // DSH 0.1.7 removed the namespace-scope service this card used to bind
+    // through, and moved configuration onto the Plugins page (`plugins.item`)
+    // over `ctx.configForms`. One consequence drives everything below: a
+    // plugin's settings namespace is now keyed by its LOADER ENTRY ID, a name
+    // this bundle cannot know in advance because it differs between install
+    // paths (a market install and a runtime injection assign different ids).
+    // The Host's settings describe answer lists every served namespace WITH
+    // its serialized Config schema, so the card finds its own namespace by the
+    // marker fields only this plugin's Config declares, binds `configForms` to
+    // it, and stays registered only while that namespace is served.
+    exports.inject = ['slots', 'locale', 'remote', 'remote.settings', 'remote.session', 'configForms']
 
     exports.apply = function apply(ctx) {
       ctx.effect(
@@ -2025,7 +2047,6 @@ function matchKnowledgeBase(modelId, displayName) {
         'charter-kit: review card dictionaries',
       )
       const t = ctx.locale.bind(NS)
-      const scope = ctx.settingsScope.bind({ namespace: NS })
       const styleId = `charter-kit-review-card`
       if (document.querySelector(`style[data-plugin-css="${styleId}"]`) === null) {
         const tag = document.createElement('style')
@@ -2034,19 +2055,112 @@ function matchKnowledgeBase(modelId, displayName) {
         tag.textContent = STYLE
         document.head.appendChild(tag)
       }
-      ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-        name: 'settings.plugin.item',
-        key: NS,
-        locale: NS,
-        inject: () => ({
-          scope,
-          loadCatalog: () => ctx.remote.session.modelCatalog().then((response) => {
-            if (!response.ok) throw new Error('model catalog unavailable')
-            return response.value.groups
-          }),
-          t,
-        }),
-      }, ReviewModelCard))
+
+      let registration
+      let disposed = false
+      let syncing = false
+      let pollTimer = null
+      let pollsLeft = 0
+
+      /** Whether one describe row is this plugin's own settings namespace. */
+      const isOwnNamespace = (row) => {
+        if (row === null || typeof row !== 'object') return false
+        const text = JSON.stringify([row.schema ?? null, row.value ?? null])
+        // Two marker fields, both of them Config-only names: a namespace that
+        // declares neither is somebody else's, and matching on one alone
+        // would let a foreign `reviewTimeout*` field adopt this card.
+        return text.includes('reviewTimeoutSeconds') && text.includes('reviewAProvider')
+      }
+
+      const loadCatalog = () => ctx.remote.session.modelCatalog().then((response) => {
+        if (!response.ok) throw new Error('model catalog unavailable')
+        return response.value.groups
+      })
+
+      const stopPolling = () => {
+        if (pollTimer !== null) {
+          clearInterval(pollTimer)
+          pollTimer = null
+        }
+      }
+
+      /** Re-read the describe answer and add or drop the card to match it. */
+      const sync = async () => {
+        if (disposed || syncing) return
+        syncing = true
+        try {
+          const response = await ctx.remote.settings.describe()
+          const rows = response && response.ok && response.value ? response.value.namespaces : undefined
+          const found = Array.isArray(rows) ? rows.find(isOwnNamespace) : undefined
+          if (found !== undefined && registration === undefined) {
+            stopPolling()
+            const form = ctx.configForms.get(found.ns)
+            // One bound form, two surfaces. The Plugins page is where the
+            // 0.1.7 shell keeps plugin configuration; the `settings.section`
+            // slot gives the card its own entry in the Settings navigation,
+            // the same surface third-party plugins like Better Display and
+            // Watcher use for their pages.
+            const face = () => ({
+              scope: form,
+              loadCatalog,
+              t,
+            })
+            const registrations = [
+              ctx.slots.inject('plugins.item', () => ctx.slots.register({
+                name: 'plugins.item',
+                id: 'charter-kit',
+                order: 40,
+                label: () => t('title'),
+                locale: NS,
+                inject: face,
+              }, ReviewModelCard)),
+              ctx.slots.inject('settings.section', () => ctx.slots.register({
+                name: 'settings.section',
+                id: 'charter-kit',
+                order: 45,
+                label: () => t('title'),
+                locale: NS,
+                inject: face,
+              }, ReviewModelCard)),
+            ]
+            registration = () => { for (const off of registrations) off() }
+          } else if (found === undefined && registration !== undefined) {
+            registration()
+            registration = undefined
+          }
+        } catch {
+          // A describe that fails while the connection is still coming up is
+          // retried by the poller and by every pushed document update; a
+          // describe that fails for any other reason leaves the card
+          // unregistered, which is the safe direction.
+        } finally {
+          syncing = false
+        }
+      }
+
+      const offDocumentUpdated = ctx.remote.$on('settings/document-updated', () => { void sync() })
+      ctx.effect(
+        () => () => {
+          disposed = true
+          offDocumentUpdated()
+          stopPolling()
+          if (registration !== undefined) registration()
+        },
+        'charter-kit: review card lifecycle',
+      )
+      void sync()
+      // The first describe can race the client's own connection setup, so
+      // discovery also retries on a short bounded timer until it succeeds;
+      // pushed `settings/document-updated` events keep it fresh after that.
+      pollsLeft = 15
+      pollTimer = setInterval(() => {
+        if (disposed || registration !== undefined || pollsLeft <= 0) {
+          stopPolling()
+          return
+        }
+        pollsLeft -= 1
+        void sync()
+      }, 2000)
     }
 
     // Exported for the harness only: the table and the matcher are the data this

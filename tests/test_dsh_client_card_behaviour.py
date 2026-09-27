@@ -24,9 +24,13 @@ HARNESS = ROOT / "tests/dsh_client_card_harness.cjs"
 REQUIRED_BEHAVIOURS = (
     "module id is the package name",
     "exports carry apply and inject",
-    "card registers into settings.plugin.item",
-    "card key and locale are the namespace",
+    "card registers into the Plugins page",
+    "the card is a settings section like the other plugins",
+    "card locale is the review namespace",
+    "the form is bound to the discovered host namespace",
+    "a foreign namespace is never adopted",
     "options come from the model catalog",
+    "the summary view renders the description line",
     "an unserved stored route stays selectable for its own review",
     "review A selection writes only review A's field pair",
     "review B selection writes only review B's field pair",
@@ -98,6 +102,9 @@ REQUIRED_BEHAVIOURS = (
     "a selected level is stored as its id, never as the table's wire string",
     "the embedded table resolves the live routes",
     "the copied entries keep their upstream notes",
+    # The registration follows the Host: a namespace that stops being served
+    # must not leave a card editing a namespace nothing serves.
+    "a vanished namespace drops the card",
 )
 
 
