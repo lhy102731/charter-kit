@@ -41,6 +41,10 @@ For each round, cover the clusters below that still have open branches. Close ev
 - What outcome means stop-and-decide rather than repair?
 - What is the repair budget, and which findings would exhaust it?
 
+## Approval scope
+
+An approval covers the artifact presented, and only that artifact. The resolved tree authorizes drafting the charter; the charter's approval authorizes reuse discovery and the first leaf's contract; a leaf contract's approval authorizes that leaf's implementation. A yes to an earlier stage is not permission to skip a later one, and a stage reached with new information returns to the interview rather than inheriting the old approval. Record which artifact each approval answered.
+
 ## Record
 
 For a new project, write the resolved tree into the project charter's `Intent interview evidence` field and retain the provider/mode, round summaries, user confirmations, recommendations accepted or overridden, facts discovered, and branches explicitly closed. For a leaf, also link the same decision tree from that leaf's design note. An unresolved branch at implementation start is a stop condition, not a footnote.

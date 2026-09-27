@@ -16,7 +16,7 @@
 - Mode: `MANUAL | AUTO_DEV`
 - Status: `DRAFT`
 - Leaf approval / preauthorization reference: `NOT_GRANTED`
-- Contract version: `0.1` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
+- Contract version: `0.2` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
 
 ## 2. Result contract
 
@@ -89,6 +89,18 @@
 - [ ] `<invalid input or forbidden effect is rejected or remains unchanged>`
 - [ ] `<failure path is recorded>`
 
+### Suite verification
+
+- [ ] Whole-suite verification: `<the project's own test command, run in full — a green run of this leaf's files alone is not a green suite>` — unrelated failures that run shows are reported by name in the Evidence index; a red test watched and not reported falsifies the record by omission.
+
+### Review focus
+
+The spec implies inputs and failure modes that no acceptance check above exercises. Name the ones most likely to bite a user of this leaf, most likely first, each with the check that pins it — add that check to Positive or Negative behavior, or record here why it cannot run:
+
+- `<input or condition — expected behavior — pinning check, or why none can run>`
+
+If none are identified, state `none identified` in one line; the declared absence is the field's value, not an omission.
+
 ### Evidence to attach
 
 - Command or operation:
@@ -107,6 +119,14 @@ Stop and write a decision record when:
 - the same class of failure repeats after `<number>` repair attempts;
 - the next fix would touch a forbidden path or effect;
 - existing user changes could be overwritten.
+
+### Rulings protocol
+
+Everything the stop list above does not name is decided, not stalled. When the contract, the spec, and what the work actually found disagree on a point no stop condition covers, record one line in the Events table —
+
+- `Ruling: <what was decided> — <why> — <what it costs if wrong>` —
+
+and keep going. Deviating without a recorded Ruling is a decision made in secret; a Ruling the closure review disagrees with is one line to overturn, not a hidden fork.
 
 - Maximum repair iterations: `<number>`
 - WIP limit: `1`
@@ -127,7 +147,7 @@ Stop and write a decision record when:
 - Design note: `<path or short description>`
 - Design interview record: `<path or summary; the design tree lives in section 10 and must be fully resolved before implementation>`
 - Reuse discovery evidence reviewed: `<discovery ID, coverage/result, candidate revision, targeted recheck, NO_MATERIAL_TARGET sanity check, or BUILD_NEW rationale>`
-- Long-task ledger: `<session ledger mode: jspace.py controller (seam/resume at state transitions, continuing across leaf boundaries), or manual five-line ledger with FALLBACK, or NOT_ENABLED waiver with reason recorded in Events>; .charter/ stays the governance source of truth>`
+- Long-task ledger: `<session ledger mode: control.py controller (j-space SV1 — init at session start, pulse at tool boundaries, check at state transitions, route/failure/handoff/resume/compact at their events; state lives in .jspace/control.json), or jspace.py controller (legacy ledger: seam/resume at state transitions, continuing across leaf boundaries), or manual five-line ledger with FALLBACK, or NOT_ENABLED waiver with reason recorded in Events>; .charter/ stays the governance source of truth>`
 - First failing check (RED): `<test or inspection>`
 - Minimal implementation plan:
   1.

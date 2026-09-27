@@ -39,6 +39,11 @@ own Change Triage route and its own decision.
 | Ledger reconciliation at closure | `## 9. Review and closure` | `Ledger reconciliation` |
 | Readiness record | `## 9. Review and closure` | `Readiness record` |
 | Review B id citation | `## 9. Review and closure` | `Review B / fresh behavior check` — add the `RVB` ids to the existing line |
+| Suite verification | `## 5. Acceptance` | `Whole-suite verification` |
+| Review focus | `## 5. Acceptance` | `Review focus` — `none identified` is a declared value, not an omission |
+| Rulings protocol | `## 6. Stop conditions and repair budget` | `Rulings protocol` |
+
+The last three rows ship with the `0.2` template; a `0.1` contract carries none of them and migrates all three at once. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
 
 The two ledger rows are one change and are applied together. The first declares the
 ledger mode for the session; the second is what closure actually checks. A
