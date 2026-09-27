@@ -164,3 +164,59 @@ pnpm 与网络访问只在经由 market 安装器安装包本身时需要，不�
 
 Node（驱动两个行为 harness：`dsh_review_tool_harness.cjs`、
 `dsh_client_card_harness.cjs`）与 Python 3.9+（测试套件与三个构建器/校验器）。
+
+## 9. 可选 provider 全量清单（所有 harness 需要下载的内容）
+
+安装清单 `dependencies.install.json` 有 **9 个条目、8 个上游仓库**，全部以不可变
+commit 固定。installer 默认装入 `{home}/.agents/skills`；能读共享 agents home 的
+harness（dsh 的 user-agents 根、zcode）从这里拾取，Codex 与 Claude 需要各自的副本
+目录。升级 pin 只改清单；把新版本真正下载进某个 harness 永远是显式的用户动作。
+
+### 条目级清单
+
+| # | 条目（id） | 上游仓库 @ pin | 发布版本 | 交付内容 | kit 内消费点 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `superpowers` | `obra/superpowers` @ `8ca22dba` | v6.4.2（2026-09-25） | **15 个技能**（见下表），copyChildren 全量安装 | 设计、计划、执行、评审、验证全流程 |
+| 2 | `j-space` | `Tiger3807861189/J-Space-Cognition-Suite-V3.7` @ `b2023124` | SV1（2026-09-14） | 1 个技能：SKILL.md + 9 个旧模块 + 4 个新模块（cyber/epistemics/orchestration/repository）+ controller/host_bridge 脚本 | 会话 ledger（`control.py` 或 legacy `jspace.py` 模式） |
+| 3 | `grill-me` | `mattpocock/skills` @ `6654f6b6` | — | 1 个技能 | 章程与叶设计访谈（首选 provider） |
+| 4 | `grilling` | `mattpocock/skills` @ `6654f6b6` | — | 1 个技能 | 同上（备选 provider） |
+| 5 | `reuse-first` | `dhruvinrsoni/agentskills-garden` @ `c94cf3f3` | — | 1 个技能 | 复用发现门：项目内 helper/utility/mapper 搜索 |
+| 6 | `framework-first-coding` | `Leeaoyin/dr-agent-skills` @ `a45efe5c` | — | 1 个技能 | 复用发现门：framework/SDK/依赖搜索 |
+| 7 | `reduce-reinvention` | `JUNERDD/skills` @ `f76dec9e` | v0.2.17（2026-09-22） | 1 个技能 | 复用发现门：Build-vs-Reuse 权衡 |
+| 8 | `find-skills` | `vercel-labs/skills` @ `435076e7` | — | 1 个技能 | 已安装/公开 Agent Skill 的发现（只发现不安装） |
+| 9 | `repo-to-skill` | `zhangguiping-xydt/repo-to-skill` @ `e261af59` | — | 1 个技能 | 仓库转技能的后续评估（需单独授权） |
+
+### superpowers v6.4.2 交付的 15 个技能与消费阶段
+
+| 技能 | kit 内消费阶段 |
+| --- | --- |
+| `brainstorming` | 章程前的设计澄清（分阶段批准门） |
+| `writing-plans` | 叶计划撰写（决策集模型 + Review Focus） |
+| `executing-plans` | 内联执行（Rulings 协议的出处） |
+| `subagent-driven-development` | 逐任务 subagent 执行（Review A 的派发形态） |
+| `test-driven-development` | 每任务 RED/GREEN 门（全套件条款的出处） |
+| `systematic-debugging` | 修复轮 |
+| `requesting-code-review` / `receiving-code-review` | Review A / 处置循环 |
+| `verification-before-completion` | 关闭前验证（Suite verification 的出处） |
+| `using-git-worktrees` | 隔离工作区 |
+| `dispatching-parallel-agents` | 并行派发 |
+| `finishing-a-development-branch` | 集成收尾 |
+| `using-superpowers` | 元技能（技能路由） |
+| `writing-skills` | 技能创作（本 kit 的模板与教训沉淀） |
+| `diagnosing-superpowers`（v6.4.1 新增） | 流程自诊断 |
+
+### 各 harness 的拾取路径
+
+| harness | 拾取位置 | 说明 |
+| --- | --- | --- |
+| dsh | `{home}/.dsh/skills` 与 `{home}/.agents/skills`（user-agents 根） | 两处任一即可；装在 `.agents` 的副本对所有项目生效 |
+| Codex | `{home}/.codex/skills` 或项目 `.codex/skills` | 需要自己的副本 |
+| Claude | `{home}/.claude/skills` 或项目 `.claude/skills` | 需要自己的副本；superpowers 也可经其插件系统安装 |
+| ZCode | `{home}/.agents/skills` | superpowers 另经 ZCode 插件缓存（版本化路径，依赖探测不覆盖），其余 provider 读共享 agents home |
+
+安装与刷新（显式用户动作）：
+
+```text
+python scripts/install_dependencies.py --list
+python scripts/install_dependencies.py --only <id...> --force
+```
