@@ -112,3 +112,9 @@ cannot know which level that is. No level is ever guessed, and when the Host has
 no `llm` service to check a route against — that service waits in its own
 optional scope precisely so its absence degrades the report instead of taking
 the tool down — the result carries no `effort` field at all.
+
+## When charter_review times out
+
+If `charter_review` times out repeatedly on the same `(kind, route)`, suspect the brief
+size before the model: compress it, split it, or move the review to a subagent carrying
+a self-contained brief file, and record the degradation in the leaf's Events table.

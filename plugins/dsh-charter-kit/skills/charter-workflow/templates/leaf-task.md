@@ -109,6 +109,34 @@ If none are identified, state `none identified` in one line; the declared absenc
 - Raw output reference:
 - Coverage limitation:
 
+A receipt asserts checkable facts: the recorded command is re-run before the receipt is
+committed; a statement of fact is checkable in the same commit, or marked aspirational;
+the receipt names the commit a proof describes (a guard added after the write describes
+the re-run, not the write); a result boolean is named after the assertion it makes; and a
+self-verification recomputes each asserted value from the originals — a check that
+re-reads the field it certifies proves at most that the file was not edited, and a
+tampered copy must fail it. When the measuring criteria change, the before/after
+comparison runs under one ruler, with a per-item delta.
+
+### Check discipline
+
+A check this leaf delivers — acceptance script, gate, self-verification — answers three
+questions before its result is trusted: **it reads the object under test** (a check whose
+inputs come from the artifact it certifies can pass a mutated copy); **every instance is
+covered** (an existence-shaped assertion is survived by the second occurrence — uncovered
+instances fail the check, they are not printed); **it moves the exit code** (a printed
+violation that cannot fail the run is a log line, not a gate, and a crash-caused non-zero
+exit is not a verdict — the liveness test asserts the failure reason).
+
+Delivery includes a liveness test: an injected violation goes red, and a real input shows
+a non-zero match count. A check over a set of inputs also validates the set against its
+baseline (a shrunken input list is indistinguishable from a real decline); "not scanned"
+is registered with the reason; a claim about an external source is worded as "not found
+this pass", never as "does not exist". Failures are classified: present and wrong is a
+failure; not-yet-downloaded, pre-listing, or out-of-scope is pending — the exit code
+reflects only failures. After changing behavior, search for what still asserts the old
+one: reproduction scripts, docstrings, and summary prints.
+
 ## 6. Stop conditions and repair budget
 
 Stop and write a decision record when:
@@ -139,6 +167,15 @@ and keep going. Deviating without a recorded Ruling is a decision made in secret
 - Merge allowed: `yes | no`
 - Push / PR / deployment allowed: `yes | no` (default `no`)
 - Required post-integration verification:
+- Governance-record discipline: in the main worktree, stage explicit paths only — never a
+  directory, `-A`, or `.`; read `git diff --cached --name-only` before every commit and
+  confirm each path is one this leaf owns; a dirty or untracked count that moved without
+  this task touching it is an alarm. Governance records are committed before they are at
+  risk: the outgoing contract is archived to
+  `.charter/evidence/<date>-<leaf>-contract-archive.md` and committed in the same session
+  as its closure, before `current-task.md` is overwritten — with an incremental edit,
+  never a whole-file rewrite — and a record left uncommitted in a leaf worktree dies with
+  the worktree.
 
 ## 8. Execution record
 
@@ -179,6 +216,15 @@ and keep going. Deviating without a recorded Ruling is a decision made in secret
 - Unrelated failures and limitations:
 
 Required order: `Review → Verification → target-branch integration → post-integration verification`. Do not integrate directly from Review, and do not treat pre-integration Verification as post-integration proof.
+
+Closure status is written only after the last review or verification has returned, into
+every carrier at once — contract §9, the roadmap status column, the handoff active-leaf
+block — never one file ahead of the review; a claim corrected in one holder is corrected
+in all of them in the same commit (search the claim's wording for the remaining copies,
+and mark superseded lines that carry priority flags). Before a CAPABILITY/SLICE container
+row closes, the spec's planned leaves are reconciled against the roadmap's implemented
+rows; a leaf ID is checked against the full roadmap table when it is assigned — IDs are
+single-use, and "planned but never opened" is adjudicated explicitly, never left silent.
 
 ### Closure decision
 

@@ -55,6 +55,14 @@ No findings is a valid result only after every applicable check above has an obs
 
 Severity describes impact and urgency: `P0` blocks or risks immediate critical harm, `P1` is a major user or contract failure, `P2` is a bounded non-critical defect, and `P3` is a minor issue or polish. Change class describes the authorization needed for the proposed remedy. They are independent axes; any C-class remedy requires a decision regardless of severity, and a P0/P1 finding still receives urgent handling even when its remedy is A-class.
 
+Findings are field-tested before disposition: a scope or attribution verdict is
+recomputed with the implementer's own tool and against the baseline commit; an accepted
+proposal is reproduced on real input before it is implemented; a refuted finding is
+recorded with the refutation; and an evidence statement that describes code or sources
+carries the line numbers it rests on, with counter-evidence sought, not summarized from
+memory. Both directions fail in practice — the reviewer's verdict can be wrong, and so
+can the implementer's reading of it.
+
 ## Verdict
 
 Choose one:

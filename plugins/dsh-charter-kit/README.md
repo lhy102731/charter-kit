@@ -103,7 +103,7 @@ Reuse Check 只有三个门状态：
 
 #### 会话恢复文件（Resume files）
 
-核心恢复文件：
+核心恢复文件（core Resume files）：
 
 | 文件 | 读取时机 | 作用 |
 | --- | --- | --- |
@@ -125,7 +125,7 @@ Reuse Check 只有三个门状态：
 - 它是建议性知识，不是门状态。
 - 教训要进入套件本体必须经用户显式确认，规则见 `portable/references/lessons.md`。
 
-辅助收据（仅在被当前记录引用时读取，不构成第二套状态源）：
+辅助收据（auxiliary receipts；仅在被当前记录引用时读取，不构成第二套状态源）：
 
 - `decision.md`、`review.md`、`evidence-receipt.md`
 - `evidence/`（证据容器）
@@ -590,7 +590,7 @@ The command installs into `~/.agents/skills` from the GitHub repositories record
 <details>
 <summary>Maintainers: build and release commands (source checkout only)</summary>
 
-These commands run only in a source repository checkout; they are not expected inside an installed plugin package:
+In a source repository checkout, update the hand-edited sources below and run these checks; they are not expected inside an installed plugin package:
 
 - **What to edit**:
   - Core changes → edit `portable/` and `DEVELOPMENT_CHARTER.md` first;

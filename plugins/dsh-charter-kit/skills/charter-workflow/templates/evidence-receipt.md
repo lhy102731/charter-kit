@@ -39,6 +39,11 @@
 - Actual result:
 - Exit class: `PASS | FAIL | ERROR | SKIPPED | NOT_RUN`
 - Raw output reference: `<path, log, screenshot, or other artifact>`
+- Receipt discipline: the recorded command is re-run before this receipt is committed; a
+  statement of fact is checkable in the same commit or marked aspirational; this receipt
+  names the commit its proof describes; and a self-verification recomputes asserted
+  values from the originals — a check that re-reads the field it certifies is not a gate,
+  and a tampered copy must fail it.
 
 For `DISCOVERY`, `NO_MATCH` is valid only when the exact operation actually ran and this raw output reference is present; an omitted or unauthorized tier must use `NOT_SEARCHED`/`NOT_AUTHORIZED` instead. Keep coverage and result separate; `UNKNOWN` is not permission to build a replacement.
 

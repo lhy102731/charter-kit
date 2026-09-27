@@ -1,6 +1,6 @@
 {
   "name": "@dsh-external/dsh-charter-kit",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "DSH plugin distribution for Charter Kit: portable charter workflow, the model-driven charter-workflow skill, and the Review A/B model card.",
   "private": true,
   "type": "module",

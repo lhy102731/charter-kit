@@ -46,9 +46,9 @@ class DshTargetTest(unittest.TestCase):
         self.assertEqual(client["platform"], "web")
         self.assertIsInstance(client["inject"], list)
 
-    def test_target_version_is_0_4_0(self):
+    def test_target_version_is_0_5_0(self):
         data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["version"], "0.4.0")
+        self.assertEqual(data["version"], "0.5.0")
 
     def test_peer_dependencies_are_the_two_runtime_packages(self):
         data = json.loads((ROOT / "targets/dsh/package.json").read_text(encoding="utf-8"))
