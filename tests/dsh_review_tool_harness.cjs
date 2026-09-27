@@ -43,11 +43,22 @@ function check(label, condition, detail) {
 
 const STUB_PACKAGES = {
   '@deepseek-ai/schemastery': `
-const field = (value) => ({ kind: 'field', default: value })
+// A builder stub: every chained method returns the node, and the recorded
+// default lands on the node's "defaultValue" property so a schema's own
+// default is inspectable from the shape.
+const node = () => {
+  const n = {}
+  n.step = () => n
+  n.min = (value) => { n.minValue = value; return n }
+  n.max = (value) => { n.maxValue = value; return n }
+  n.volatile = () => n
+  n.default = (value) => { n.defaultValue = value; return n }
+  return n
+}
 export default {
   object: (shape) => ({ kind: 'object', shape }),
-  string: () => ({ default: (value) => field(value) }),
-  number: () => ({ default: (value) => field(value) }),
+  string: () => node(),
+  number: () => node(),
 }
 `,
   '@deepseek-ai/dsh-tools': `
@@ -87,9 +98,20 @@ function stagePlugin(sourceEntry) {
  * the outer one for the tool half, and the inner `llm` one for the effort
  * reporting. `services.llm` can be deleted to model a host without an LLM
  * runtime, and that is a scenario below rather than an accident.
+ *
+ * Since DSH 0.1.7 the settings flow carries no registration call: `apply`
+ * receives the resolved Config, whose `.volatile()` fields are references. The
+ * harness hands `apply` exactly that shape — one stable reference per field,
+ * each reading the live `state.settingsValue` — so a scenario that edits
+ * `settingsValue` between calls models a card edit landing between calls.
  */
+const REVIEW_CONFIG_FIELDS = [
+  'reviewAProvider', 'reviewAModel', 'reviewBProvider', 'reviewBModel',
+  'reviewTimeoutSeconds', 'reviewAEffort', 'reviewBEffort',
+]
+
 function makeContext(services) {
-  const state = { dispatches: [], schema: null, defaults: null, namespace: null, settingsValue: {} }
+  const state = { dispatches: [], settingsValue: {} }
 
   const scopeFor = (names) => {
     if (!names.every((name) => services[name] !== undefined)) return null
@@ -112,14 +134,9 @@ function makeContext(services) {
     skills: services.skills,
   }
 
-  services.settings = {
-    installSection: (_ctx, namespace, schema, defaults, hooks) => {
-      state.namespace = namespace
-      state.schema = schema
-      state.defaults = defaults
-      hooks.setSource(() => state.settingsValue)
-      return () => {}
-    },
+  const config = {}
+  for (const field of REVIEW_CONFIG_FIELDS) {
+    config[field] = { get: () => state.settingsValue[field] }
   }
 
   services.tools = {
@@ -142,7 +159,7 @@ function makeContext(services) {
     },
   }
 
-  return { ctx, state }
+  return { ctx, state, config }
 }
 
 /** One completed child, or a failure the tool has to classify. */
@@ -163,7 +180,7 @@ async function main() {
       }),
     },
   }
-  const { ctx, state } = makeContext(services)
+  const { ctx, state, config } = makeContext(services)
 
   check('the entry exports the skill and the tool in the optional idiom',
     host.name === 'dsh-charter-kit'
@@ -171,21 +188,26 @@ async function main() {
     && typeof host.apply === 'function',
     { name: host.name, inject: host.inject })
 
-  host.apply(ctx)
+  host.apply(ctx, config)
 
-  check('the tool registers under the review namespace',
-    state.tool !== undefined && state.tool.name === 'charter_review' && state.namespace === 'charter-kit-review',
-    { tool: state.tool === undefined ? null : state.tool.name, namespace: state.namespace })
+  check('the tool registers beside the config the host resolved',
+    state.tool !== undefined && state.tool.name === 'charter_review',
+    { tool: state.tool === undefined ? null : state.tool.name })
 
-  // The two seat fields are part of the namespace's declared shape, with the
-  // empty string as the default: '' is what "no selection" is stored as, and a
-  // missing field would make the reader's fallback the only thing keeping the
-  // no-selection path working.
-  const shape = state.schema === null ? {} : state.schema.shape
-  check('the namespace declares one effort field per seat, defaulting to none',
+  // The two seat fields are part of the exported Config's declared shape, with
+  // the empty string as the schema default: '' is what "no selection" is stored
+  // as, and a missing field would make the reader's fallback the only thing
+  // keeping the no-selection path working.
+  const shape = host.Config === undefined ? undefined : host.Config.shape
+  check('the Config schema declares one effort field per seat, defaulting to none',
     shape !== undefined && 'reviewAEffort' in shape && 'reviewBEffort' in shape
-    && state.defaults.reviewAEffort === '' && state.defaults.reviewBEffort === '',
-    { shape: Object.keys(shape ?? {}), defaults: state.defaults })
+    && shape.reviewAEffort.defaultValue === '' && shape.reviewBEffort.defaultValue === '',
+    { shape: Object.keys(shape ?? {}), aDefault: shape?.reviewAEffort?.defaultValue })
+
+  check('the Config schema bounds the budget field like the tool clamps it',
+    shape?.reviewTimeoutSeconds !== undefined && shape.reviewTimeoutSeconds.defaultValue === 600
+      && shape.reviewTimeoutSeconds.minValue === 30 && shape.reviewTimeoutSeconds.maxValue === 1800,
+    { bounds: shape?.reviewTimeoutSeconds })
 
   check('the result schema reports the effort as an optional field beside the model',
     state.tool.output.schema.properties.effort !== undefined
@@ -221,6 +243,14 @@ async function main() {
   check('without a selection the result reports the provider default',
     result.outcome === 'reviewed' && result.model === 'tt/qwen3.8-flash' && result.effort === 'default',
     result)
+
+  // 1b. Every dispatched child carries a review label, so the session tree
+  //     shows which children are reviewer seats (the 0.1.7 `label` field).
+  check('every review child is dispatched with a review label',
+    state.dispatches.length > 0
+      && state.dispatches.every((request) => typeof request.label === 'string'
+        && request.label.startsWith('charter-review')),
+    state.dispatches.map((request) => request.label))
 
   // 2. A selection the route declares is attached, as the level ID the LLM
   //    layer accepts (not the table's wire string) ...
@@ -283,7 +313,7 @@ async function main() {
     skills: { register: () => () => {} },
   }
   const bareContext = makeContext(bare)
-  host.apply(bareContext.ctx)
+  host.apply(bareContext.ctx, bareContext.config)
   const bareState = bareContext.state
   bareState.settingsValue = {
     reviewAProvider: 'tt',
@@ -402,6 +432,23 @@ async function main() {
   await run({ kind: 'B', brief: 'BRIEF' })
   check('kind B reads the B seat\'s level',
     dispatchOptions().reasoningEffort === 'high', dispatchOptions())
+
+  // 13. A host that resolved no config at all — a loader path without schema
+  //     resolution — still registers the tool, and the tool still runs: the
+  //     schema defaults are what such a host reads, never a throw.
+  const bareConfig = {
+    skills: { register: () => () => {} },
+    llm: services.llm,
+  }
+  const noConfigContext = makeContext(bareConfig)
+  host.apply(noConfigContext.ctx)
+  check('a host that resolved no config still registers the tool',
+    noConfigContext.state.tool !== undefined && noConfigContext.state.tool.name === 'charter_review',
+    { tool: noConfigContext.state.tool === undefined ? null : noConfigContext.state.tool.name })
+  const noConfigResult = await noConfigContext.state.tool.execute({ kind: 'A', brief: 'BRIEF' }, EXEC())
+  check('a host that resolved no config runs on the schema defaults',
+    noConfigResult.outcome === 'unavailable' || noConfigResult.outcome === 'reviewed',
+    noConfigResult)
 
   console.log(failures === 0 ? 'HARNESS: ALL PASS' : `HARNESS: ${failures} FAILURE(S)`)
   process.exitCode = failures === 0 ? 0 : 1

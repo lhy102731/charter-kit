@@ -8,7 +8,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKILL_DIR = join(ROOT, 'skills', 'charter-workflow')
 const SKILL_FILE = join(SKILL_DIR, 'SKILL.md')
 
-/** Settings namespace keying the Review A/B model card. Its key IS the card key. */
+/**
+ * Dictionary namespace the review card registers its copy under. Since DSH
+ * 0.1.7 the settings namespace is keyed by the loader entry id (see `Config`),
+ * so this name now keys the card's locale dictionaries only — its value is
+ * unchanged so stored dictionaries and probes keep matching.
+ */
 export const REVIEW_SETTINGS_NAMESPACE = 'charter-kit-review'
 
 /** Settings field holding one review attempt's budget, in whole seconds. */
@@ -83,25 +88,35 @@ const REVIEW_TEARDOWN_GRACE_SECONDS = 10
  */
 const REVIEW_TOOL_TIMEOUT_MS = (MAX_REVIEW_TIMEOUT_SECONDS * 2 + REVIEW_TOOL_TIMEOUT_MARGIN_SECONDS) * 1000
 
-/** Empty provider or model means "inherit the calling session's model". */
-const REVIEW_SETTINGS_SCHEMA = z.object({
-  reviewAProvider: z.string().default(''),
-  reviewAModel: z.string().default(''),
-  reviewBProvider: z.string().default(''),
-  reviewBModel: z.string().default(''),
-  [REVIEW_TIMEOUT_FIELD]: z.number().default(DEFAULT_REVIEW_TIMEOUT_SECONDS),
-  reviewAEffort: z.string().default(''),
-  reviewBEffort: z.string().default(''),
+/**
+ * The plugin's own Config schema, in the cordis convention DSH 0.1.7 settings
+ * project from. DSH 0.1.7 removed `settings.installSection` — the namespace a
+ * plugin declares here IS its settings namespace (keyed by the loader entry
+ * id), the Plugins page can render it, and every field marked `.volatile()`
+ * arrives in `apply(ctx, config)` as a live reference whose `.get()` reads the
+ * value edited moments ago, with no remount and no second registration API.
+ * The old namespace key `charter-kit-review` remains the CLIENT dictionary
+ * namespace; the settings namespace itself is no longer this plugin's to pick.
+ *
+ * Empty provider or model means "inherit the calling session's model".
+ */
+export const Config = z.object({
+  reviewAProvider: z.string().default('').volatile(),
+  reviewAModel: z.string().default('').volatile(),
+  reviewBProvider: z.string().default('').volatile(),
+  reviewBModel: z.string().default('').volatile(),
+  [REVIEW_TIMEOUT_FIELD]: z.number()
+    .step(1)
+    .min(MIN_REVIEW_TIMEOUT_SECONDS)
+    .max(MAX_REVIEW_TIMEOUT_SECONDS)
+    .default(DEFAULT_REVIEW_TIMEOUT_SECONDS)
+    .volatile(),
+  reviewAEffort: z.string().default('').volatile(),
+  reviewBEffort: z.string().default('').volatile(),
 })
 
-/**
- * Composition entry for the review namespace: the base layer under the user's
- * stored overrides, and the value the settings provider restores should it
- * detach. It is deliberately not a reader fallback — `installSection` binds the
- * reader synchronously, so this object is only ever reached through the
- * provider that owns the namespace.
- */
-const REVIEW_SETTINGS_DEFAULTS = {
+/** The fields `Config` declares, with the defaults the schema itself resolves. */
+const CONFIG_FIELDS = {
   reviewAProvider: '',
   reviewAModel: '',
   reviewBProvider: '',
@@ -109,6 +124,28 @@ const REVIEW_SETTINGS_DEFAULTS = {
   [REVIEW_TIMEOUT_FIELD]: DEFAULT_REVIEW_TIMEOUT_SECONDS,
   reviewAEffort: '',
   reviewBEffort: '',
+}
+
+/**
+ * Read one config field out of the resolved config object.
+ *
+ * Under the 0.1.7 loader a volatile field is a reference with a `.get()`;
+ * under a host that resolved no schema (or a harness passing plain values) the
+ * field is the raw value itself. Both shapes must read, because the tool's
+ * correctness may never depend on how the entry was mounted — and a field the
+ * config object does not carry at all falls back to the schema default, which
+ * is what the schema would have resolved a missing field to anyway.
+ * @param config - the resolved config object, or undefined when none arrived.
+ * @param field - one field name of `CONFIG_FIELDS`.
+ * @returns the current value, or the schema default.
+ */
+function readConfigField(config, field) {
+  const ref = config === undefined || config === null ? undefined : config[field]
+  if (ref !== null && typeof ref === 'object' && typeof ref.get === 'function') {
+    const value = ref.get()
+    return value === undefined ? CONFIG_FIELDS[field] : value
+  }
+  return ref === undefined ? CONFIG_FIELDS[field] : ref
 }
 
 /**
@@ -236,6 +273,14 @@ function outputText(result) {
 const COMPLETED_STOP_REASON = 'completed'
 
 /**
+ * Prefix of the display label every review child carries, so a session tree
+ * shows which children are reviewer seats. The suffix names the attempt: the
+ * review kind, and `-session` when the child ran on the session model instead
+ * of the configured route.
+ */
+const REVIEW_CHILD_LABEL_PREFIX = 'charter-review'
+
+/**
  * Classify one settled child run as a review or a failure.
  *
  * The timeout case is NOT decided here: an expired budget races the settled run
@@ -294,7 +339,7 @@ export const name = 'dsh-charter-kit'
 // optional scope inside `apply` instead.
 export const inject = ['skills']
 
-export function apply(ctx) {
+export function apply(ctx, config) {
   const skill = parseFrontmatter(readFileSync(SKILL_FILE, 'utf8'))
 
   // No handler-style slash command is registered. A typed line such as
@@ -311,25 +356,23 @@ export function apply(ctx) {
     content: skill.body,
   }), 'charter-kit: skill')
 
-  // The settings namespace and the review tool need three further services.
-  // Registering them here, behind the platform's optional idiom, means a host
-  // that provides those services gets both exactly as before while a host that
-  // provides none of them still gets the Skill above.
-  ctx.inject(['tools', 'settings', 'subagents'], (scope) => {
-    // `installSection` calls `setSource` synchronously, so this reader is bound
-    // before the tool registered below can possibly execute.
-    let readReviewSettings
-    scope.settings.installSection(
-      ctx,
-      REVIEW_SETTINGS_NAMESPACE,
-      REVIEW_SETTINGS_SCHEMA,
-      REVIEW_SETTINGS_DEFAULTS,
-      {
-        setSource: (source) => { readReviewSettings = source },
-        validate: () => {},
-        onChange: () => {},
-      },
-    )
+  // The review tool needs two further services. Registering it here, behind
+  // the platform's optional idiom, means a host that provides those services
+  // gets the tool exactly as before while a host that provides none of them
+  // still gets the Skill above. The settings service is no longer among them:
+  // since DSH 0.1.7 the plugin's `Config` schema above IS its settings
+  // declaration, and the values arrive through `config` — no registration call
+  // and no namespace to install.
+  ctx.inject(['tools', 'subagents'], (scope) => {
+    // Bound before the tool registered below can possibly execute, matching
+    // the old `setSource` contract: the reader dereferences the volatile refs
+    // at CALL time, so a card edit applies to the very next call with no
+    // reload — the property the settings-provider round-trip used to deliver.
+    const readReviewSettings = () => {
+      const value = {}
+      for (const field of Object.keys(CONFIG_FIELDS)) value[field] = readConfigField(config, field)
+      return value
+    }
 
     /**
      * The LLM runtime, reached only to ask what one route declares.
@@ -560,9 +603,11 @@ export function apply(ctx) {
          * exceeds its budget, or cannot be released is an attempt this returns,
          * never a throw `execute` would leak as a raw tool rejection.
          * @param agentOptions - the child's route, or null to inherit.
+         * @param childLabel - display label persisted with the child's session,
+         *   so review children are identifiable in the session tree and UI.
          * @returns the classified attempt; `kind` is null when it reviewed.
          */
-        const runReview = async (agentOptions) => {
+        const runReview = async (agentOptions, childLabel) => {
           const startedAt = Date.now()
           const elapsedMs = () => Date.now() - startedAt
           // `exec.signal` carries the harness's own cancellation (a caller
@@ -623,6 +668,7 @@ export function apply(ctx) {
               prompt,
               parent,
               signal: controller.signal,
+              ...(childLabel === undefined ? {} : { label: childLabel }),
               ...(agentOptions === null ? {} : { agentOptions }),
             }).then(
               (value) => ({ run: value }),
@@ -688,11 +734,12 @@ export function apply(ctx) {
          * the failed attempt carried for the review the session model produced.
          * @param options - the child's agent options, or null to inherit.
          * @param applied - the level those options carry, or null for none.
+         * @param childLabel - the display label the child's session carries.
          * @returns the classified attempt.
          */
-        const runWithEffort = async (options, applied) => {
+        const runWithEffort = async (options, applied, childLabel) => {
           effortApplied = applied
-          return runReview(options)
+          return runReview(options, childLabel)
         }
 
         // A configured route that produced no review — a settled failure, an
@@ -701,7 +748,7 @@ export function apply(ctx) {
         // review to report, so the tool says `unavailable` instead of returning a
         // success shape with empty text.
         const fallback = async (reason) => {
-          const attempt = await runWithEffort(null, null)
+          const attempt = await runWithEffort(null, null, `${REVIEW_CHILD_LABEL_PREFIX}-${kind}-session`)
           if (attempt.kind !== null) {
             return withEffort({
               outcome: 'unavailable',
@@ -742,7 +789,7 @@ export function apply(ctx) {
         // — the no-route and the session-route path — byte-for-byte the call it
         // was before: no agent options are passed at all.
         if (configured === null || wantSessionRoute) {
-          const attempt = await runWithEffort(null, null)
+          const attempt = await runWithEffort(null, null, `${REVIEW_CHILD_LABEL_PREFIX}-${kind}-session`)
           if (attempt.kind !== null) {
             return withEffort({
               outcome: 'unavailable',
@@ -776,7 +823,7 @@ export function apply(ctx) {
         // The wrapper reports instead of throwing, so a rejected dispatch, an
         // expired budget, a rejected result, and a failed teardown all reach the
         // same fallback the configured path already had.
-        const attempt = await runWithEffort(childOptions, childEffort)
+        const attempt = await runWithEffort(childOptions, childEffort, `${REVIEW_CHILD_LABEL_PREFIX}-${kind}`)
         if (attempt.kind !== null) {
           return fallback(failureReason(label, attempt))
         }

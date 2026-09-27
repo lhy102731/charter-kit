@@ -22,8 +22,19 @@ class DshReviewToolTest(unittest.TestCase):
     def test_declares_review_settings_namespace(self):
         self.assertIn("charter-kit-review", self.text)
 
-    def test_registers_settings_section(self):
-        self.assertIn("installSection", self.text)
+    def test_exports_the_config_schema_the_0_1_7_settings_project_from(self):
+        # DSH 0.1.7 removed `settings.installSection`; a plugin's settings are
+        # now its exported cordis `Config` schema, with `.volatile()` fields
+        # read live in `apply(ctx, config)`.
+        self.assertIn("export const Config", self.text)
+        self.assertIn(".volatile()", self.text)
+        self.assertNotIn("scope.settings.installSection", self.text)
+
+    def test_the_config_clamps_the_budget_field_like_the_tool_does(self):
+        # The schema gives the Plugins page its bounds; the tool's own clamp
+        # stays the authority at execute time.
+        self.assertIn(".min(MIN_REVIEW_TIMEOUT_SECONDS)", self.text)
+        self.assertIn(".max(MAX_REVIEW_TIMEOUT_SECONDS)", self.text)
 
     def test_declares_the_settings_fields(self):
         for field in (
@@ -60,9 +71,11 @@ class DshReviewToolTest(unittest.TestCase):
         self.assertIn("export const inject = ['skills']", self.text)
 
     def test_waits_for_the_tool_half_services_in_the_optional_idiom(self):
-        # The namespace and the tool need these three. `ctx.inject` waits for
-        # them without holding the Skill registration behind them.
-        self.assertIn("ctx.inject(['tools', 'settings', 'subagents'], (scope) => {", self.text)
+        # The tool needs these two. `ctx.inject` waits for them without holding
+        # the Skill registration behind them. `settings` is deliberately NOT
+        # among them any more: the 0.1.7 settings model needs no registration
+        # call, so the plugin no longer waits on that service at all.
+        self.assertIn("ctx.inject(['tools', 'subagents'], (scope) => {", self.text)
 
     def test_declares_the_kind_enum_so_a_bad_kind_cannot_run_review_a(self):
         # Without the enum the tool read `kind: 'b'` as A, so a caller asking for
@@ -134,12 +147,12 @@ class DshReviewToolFailureReportingTest(unittest.TestCase):
         # carries before delegating, so the result can report the level of the
         # run that produced the review rather than of an earlier attempt. The
         # guarded wrapper is still the only place that dispatches.
-        self.assertIn("const runReview = async (agentOptions) => {", self.text)
+        self.assertIn("const runReview = async (agentOptions, childLabel) => {", self.text)
         # One dispatch, inside the wrapper: the only place `runReview` is called
         # is the wrapper's own `return runReview(options)`.
         self.assertEqual(self.text.count("runReview("), 1)
-        self.assertEqual(self.text.count("return runReview(options)"), 1)
-        self.assertIn("const runWithEffort = async (options, applied) => {", self.text)
+        self.assertEqual(self.text.count("return runReview(options, childLabel)"), 1)
+        self.assertIn("const runWithEffort = async (options, applied, childLabel) => {", self.text)
         self.assertEqual(self.text.count("await runWithEffort("), 3)
         self.assertNotIn("runOnce", self.text)
 
@@ -411,7 +424,7 @@ class DshReviewBriefGuardTest(unittest.TestCase):
         # spawns a reviewer.
         self.assertLess(
             self.text.index("if (brief.trim() === '') {"),
-            self.text.index("const runReview = async (agentOptions) => {"),
+            self.text.index("const runReview = async (agentOptions, childLabel) => {"),
         )
 
     def test_the_configured_route_is_skipped_only_by_an_explicit_session_route(self):
@@ -471,13 +484,16 @@ class DshReviewEffortTest(unittest.TestCase):
         )
         # The session-model paths pass no options, so they must not report the
         # level an earlier attempt carried.
-        self.assertIn("const runWithEffort = async (options, applied) => {", self.text)
+        self.assertIn("const runWithEffort = async (options, applied, childLabel) => {", self.text)
         self.assertIn("effortApplied = applied", self.text)
 
-    def test_the_tool_half_still_waits_only_for_its_three_services(self):
+    def test_the_tool_half_still_waits_only_for_its_two_services(self):
         # The effort feature must not have widened the outer optional scope.
-        self.assertIn("ctx.inject(['tools', 'settings', 'subagents'], (scope) => {", self.text)
-        self.assertNotIn("ctx.inject(['tools', 'settings', 'subagents', 'llm']", self.text)
+        # The 0.1.7 settings model also dropped `settings` from it entirely:
+        # the plugin's Config IS its settings declaration, so the tool half
+        # waits on one service fewer than it used to.
+        self.assertIn("ctx.inject(['tools', 'subagents'], (scope) => {", self.text)
+        self.assertNotIn("ctx.inject(['tools', 'subagents', 'llm']", self.text)
 
 
 if __name__ == "__main__":

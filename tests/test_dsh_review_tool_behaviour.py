@@ -29,12 +29,15 @@ HARNESS = ROOT / "tests/dsh_review_tool_harness.cjs"
 # smaller pass.
 REQUIRED_BEHAVIOURS = (
     "the entry exports the skill and the tool in the optional idiom",
-    "the tool registers under the review namespace",
-    "the namespace declares one effort field per seat, defaulting to none",
+    "the tool registers beside the config the host resolved",
+    "the Config schema declares one effort field per seat, defaulting to none",
+    "the Config schema bounds the budget field like the tool clamps it",
     "the result schema reports the effort as an optional field beside the model",
     # The no-selection contract: byte-for-byte the call this tool always made.
     "without a selection the child gets the route and nothing else",
     "without a selection the result reports the provider default",
+    # Every dispatched child is identifiable in the session tree (0.1.7 label).
+    "every review child is dispatched with a review label",
     # The selection contract, and the levels it must refuse.
     "a declared selection is attached as the level id",
     "the result reports the level it sent, beside the model",
@@ -55,6 +58,9 @@ REQUIRED_BEHAVIOURS = (
     "the session route passes no agent options and stays a fallback",
     "a failed configured route falls back to the session model",
     "the fallback result reports the provider default, not the failed attempt's level",
+    # A host that resolved no config degrades to the schema defaults.
+    "a host that resolved no config still registers the tool",
+    "a host that resolved no config runs on the schema defaults",
 )
 
 
