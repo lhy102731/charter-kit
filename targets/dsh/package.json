@@ -1,6 +1,6 @@
 {
   "name": "@dsh-external/dsh-charter-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "DSH plugin distribution for Charter Kit: portable charter workflow, the model-driven charter-workflow skill, and the Review A/B model card.",
   "private": true,
   "type": "module",
@@ -29,13 +29,18 @@
     "build": "bash scripts/build.sh"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/dsh-tools": ">=0.0.1-rc <2",
+    "@deepseek-ai/schemastery": ">=3.18.1 <4"
   },
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-ui-settings-plugins"
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
       ],
       "platform": "web"
     }

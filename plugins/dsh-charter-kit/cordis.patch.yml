@@ -1,0 +1,4 @@
+# Charter-kit bundle patch layer: mount the host plugin row.
+- insert:
+    - id: dsh-charter-kit
+      name: '@dsh-external/dsh-charter-kit'

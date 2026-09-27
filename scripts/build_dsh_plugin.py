@@ -47,6 +47,9 @@ DISTRIBUTION_ROOT_ITEMS = (
 )
 TARGET_FILES = (
     "package.json",
+    # The bundle-layer declaration the DSH plugin manager reads: without it the
+    # package shows as "no declared composition" and cannot mount as a bundle.
+    "cordis.patch.yml",
     Path("src") / "index.js",
     Path("scripts") / "build.sh",
 )
