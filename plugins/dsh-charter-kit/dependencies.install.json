@@ -6,7 +6,7 @@
     {
       "id": "superpowers",
       "repo": "https://github.com/obra/superpowers",
-      "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "ref": "8ca22dba9a94f28898bbce59f2537ff4d87c747d",
       "sourcePath": "skills",
       "destName": null,
       "mode": "copyChildren"
@@ -14,7 +14,7 @@
     {
       "id": "j-space",
       "repo": "https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.7",
-      "ref": "988d07b8b5e70cea72533699f0c0f620ebfa3bc6",
+      "ref": "b2023124a1fa08278e3ee82aefa8ed9faeade995",
       "sourcePath": "j-space",
       "destName": "j-space",
       "mode": "copyDir"
@@ -57,7 +57,7 @@
     {
       "id": "reduce-reinvention",
       "repo": "https://github.com/JUNERDD/skills",
-      "ref": "c33abdddbfe58366c80bfb39ba8ddac545a9ab0a",
+      "ref": "f76dec9eacbcea858e1d469710067020bd3fec6a",
       "sourcePath": "skills/reduce-reinvention",
       "destName": "reduce-reinvention",
       "mode": "copyDir"
@@ -79,5 +79,5 @@
       "mode": "copyDir"
     }
   ],
-  "pinned_at": "2026-09-03"
+  "pinned_at": "2026-09-27"
 }
