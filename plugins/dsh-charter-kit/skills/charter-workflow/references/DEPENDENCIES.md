@@ -107,3 +107,60 @@ python scripts/install_dependencies.py --only j-space grill-me
 ```
 
 安装源记录在 `dependencies.install.json`；默认安装到 `~/.agents/skills`。脚本需要 Git，会做浅克隆、复制对应 Skill 目录，并在安装前逐项确认（`--yes` 跳过确认，`--force` 覆盖已存在目录）。它不是插件加载钩子，不会在加载 Charter Kit 时自动安装任何东西。
+
+## 8. DSH 发行包的宿主运行时依赖（dsh-charter-kit 0.4.0+）
+
+便携核心之外，DSH 发行包是一个真正的宿主插件，它的依赖面由两个半端组成。
+这些依赖不进 `dependencies.json`（那是便携工作集的探测声明）：宿主服务的可用性
+无法用文件探测表达，运行时缺什么由 cordis 的注入语义决定——必需服务缺失时插件
+fiber 不运行，可选范围内的服务缺失时按下面的退化路径降级。
+
+### 宿主版本下限
+
+| 依赖 | 下限 | 原因 |
+| --- | --- | --- |
+| dsh 宿主 | `0.1.7-rc.2`（实测版本） | 0.2 契约依赖的 Config 投影（SettingsForms）、Plugins 页 `plugins.item` 槽位、Settings `settings.section` 槽位、subagent `label` 字段全部由 0.1.7 引入；更早宿主只保证 `charter-workflow` skill 注册，评审工具的配置面退化（volatile 值回落 schema 默认、卡片无处渲染） |
+
+### 宿主半端（`src/index.js`）
+
+| 依赖 | 种类 | 用途 | 缺失时 |
+| --- | --- | --- | --- |
+| `@deepseek-ai/dsh-tools` | peerDependency（`>=0.0.1-rc <2`） | `defineTool` 注册 `charter_review` | 插件无法加载 |
+| `@deepseek-ai/schemastery` | peerDependency（`>=3.18.1 <4`） | 导出 `Config` schema（volatile 字段） | 插件无法加载 |
+| `skills` 服务 | 必需注入 | 注册 `charter-workflow` skill | fiber 不运行 |
+| `tools` 服务 | 可选注入 | 注册 `charter_review` | 仅保留 skill |
+| `subagents` 服务 | 可选注入 | 评审子代理派发（`start`/`getProvider`/`list`） | 评审工具不注册 |
+| `subagents` capability `agentOptions` | 运行时能力 | 评审 effort 附加到子代理 | 配置路由降级为会话模型 |
+| `llm` 服务 | 可选注入（内层作用域） | `resolveModelInfo` 查询路由声明的 effort 档位 | 评审照跑，结果不报 `effort` |
+| `subagent` 请求字段 `label` | 0.1.7+ 字段 | 评审子会话在会话树中可辨认 | 旧宿主多传一个字段，无功能损失 |
+| 宿主 settings 服务（SettingsForms） | 宿主侧设施 | 把插件 `Config` 投影为设置命名空间，供卡片发现与编辑 | 卡片无命名空间可绑定，注册自行退出 |
+
+### 浏览器半端（`client/client.js`）
+
+| 依赖 | 种类 | 用途 | 缺失时 |
+| --- | --- | --- | --- |
+| `slots` / `locale` 服务 | 客户端注入 | 卡片注册与中英文案 | 卡片不挂载 |
+| `remote.settings` | 客户端注入 | `describe`（namespace 发现）与 `mutate`（保存） | 卡片不挂载（发现不了命名空间） |
+| `remote.session` | 客户端注入 | `modelCatalog` 供模型下拉 | 下拉只剩"跟随当前模型" |
+| `configForms` 服务 | 客户端注入 | 读写宿主配置镜像（`ui-settings` 提供） | 卡片不挂载 |
+| `@deepseek-ai/dsh-client-locale` | `dsh.client.inject` | 词典服务的声明方 | 图谱排序退化 |
+| `@deepseek-ai/dsh-client-ui-settings` | `dsh.client.inject` | `configForms` 与 `settings.section` 的声明方 | 配置卡与设置页消失 |
+| `@deepseek-ai/dsh-client-ui-plugin-manager` | `dsh.client.inject` | `plugins.item` 槽位的声明方 | 插件页卡片消失 |
+| `react` | 平台模块表 | 卡片渲染 | — |
+
+### Ledger 模式与语言运行时
+
+| Ledger 模式 | 语言运行时 |
+| --- | --- |
+| `control.py controller`（j-space SV1） | Python **3.10+**，且 j-space 技能已安装 |
+| `jspace.py controller`（legacy） | Python 3.9+（j-space 旧版） |
+| 手工五行 ledger / `NOT_ENABLED` 豁免 | 无要求 |
+
+kit 自带脚本（`check_dependencies.py`、`init_project.py`、`install_dependencies.py`）
+的下限是 Python 3.9，仅标准库；`install_dependencies.py` 另外需要 Git（浅克隆）。
+pnpm 与网络访问只在经由 market 安装器安装包本身时需要，不属于本包的运行时依赖。
+
+### 开发与测试（不随发行包交付）
+
+Node（驱动两个行为 harness：`dsh_review_tool_harness.cjs`、
+`dsh_client_card_harness.cjs`）与 Python 3.9+（测试套件与三个构建器/校验器）。
