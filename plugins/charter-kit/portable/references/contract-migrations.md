@@ -14,6 +14,18 @@ from a decision not to apply the rule at all.
 
 ## Steps
 
+Two things are decided before the numbered steps, because both change what the
+steps have to cover:
+
+- **What kind of member the change added.** A field usually arrives with either a
+  review check that now has to be answered or an enumeration member that did not
+  exist before. `## Check-level and enum-level additions` covers that
+  granularity; a migration that stops at the field leaves it half applied.
+- **Whether the migration is landing a default value.** A default-on rule that
+  arrives with the field is filled from the evidence already on disk rather than
+  shipped `UNDECIDED` into a project whose history has settled it. See
+  `default-on-policy.md`, which also names the hook that reads each default back.
+
 For each field below that the active contract does not carry:
 
 1. Add the listed line to the listed section of `.charter/current-task.md`, using
@@ -42,8 +54,10 @@ own Change Triage route and its own decision.
 | Suite verification | `## 5. Acceptance` | `Whole-suite verification` |
 | Review focus | `## 5. Acceptance` | `Review focus` — `none identified` is a declared value, not an omission |
 | Rulings protocol | `## 6. Stop conditions and repair budget` | `Rulings protocol` |
+| Closure checklist (`CLS1`-`CLS9`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
+| Acceptance items (`AC1`-`ACn`) | `## 5. Acceptance` | `### Acceptance items` - number the existing items, add the `check:` slot to each; ids are never renumbered |
 
-The last three rows ship with the `0.2` template; a `0.1` contract carries none of them and migrates all three at once. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
+The acceptance-item row ships with the `0.4` template; a `0.3` contract numbers its existing items in place, and an item whose check cannot run records `N/A` plus the reason rather than dropping the item. The closure checklist row ships with the `0.3` template; a `0.2` contract carries none of the nine rows and migrates all nine at once. The last three rows ship with the `0.2` template; a `0.1` contract carries none of them and migrates all three at once. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
 
 The two ledger rows are one change and are applied together. The first declares the
 ledger mode for the session; the second is what closure actually checks. A
@@ -61,12 +75,87 @@ it is never recorded `PASS` on the strength of the transition having happened.
 Reference items by their roadmap `RDY` number plus a short label, so the record
 stays a delta against the checklist instead of a second copy of it.
 
+## Check-level and enum-level additions
+
+A field holds a value; something else decides what that value is compared
+against. When a change adds a field it usually also adds a review check that now
+has to be answered, or a member of an enumeration that did not exist before.
+
+Neither is a contract migration in the field sense - a contract that lacks
+`CHK12` is not missing a field, and a contract declaring the older ledger member
+is not out of date. Both still need a recorded row, at member granularity,
+because the failure mode is identical to the field-level one: an unanswered check
+and a check nobody added read the same in a checklist, and an extended
+enumeration reads the same as a renamed one.
+
+Member granularity means one row per member. "The template was upgraded" is not a
+migration record; it does not tell a later reader which member arrived, in which
+order, or what the older members now mean.
+
+### Checks
+
+| Check id | Section | Applies from |
+| --- | --- | --- |
+| `CHK12` | `## Checks performed` | Reviews started after this template version. Review records written before it keep the checks they were written against. |
+| `CHK13` | `## Findings` | Reviews started after this template version. A review record written before it keeps the findings table it was written against. |
+
+A review record is a record of a review that happened, so it is never migrated
+forward: a check that did not exist when the review ran was not skipped, it did
+not apply. What carries the addition is the append-only rule in the template plus
+this row - the template says ids do not move, and the table says which id is new.
+
+### Enumeration members
+
+| Enumeration | Member added | Standing of the older members |
+| --- | --- | --- |
+| `Long-task ledger` (`## 8. Execution record`) | `control.py controller` | `jspace.py controller` stays valid for as long as the installed j-space is what provides the ledger |
+
+An extension is not a rewrite: a contract already declaring an older member keeps
+it, and the row exists so a later reader can tell an extended enumeration from a
+renamed one. Renaming or retiring a member is a different act - it changes what an
+archived record means - so a retired name stays in the table with its meaning and
+is never reused for something new.
+
+### Renamed members
+
+| Enumeration | Old name | New name | Standing of the old name |
+|---|---|---|---|
+| `decision.md` `Status` | `APPROVED` | `DECIDED` | an archived decision keeps meaning `DECIDED`; the old name is never reused for something new |
+
+A rename is recorded in both directions so an archived record stays readable: read
+the old name in an older record as the new one, and never write the old name on a
+new record. This rename exists because `project.md` section 10 already calls the
+settled state `DECIDED`; one state with two words is a drift an agent resolves
+silently, and section 10 is the authority for whether a question is still open.
+## Record-level migrations
+
+The three event records - evidence receipt, review, decision - carry an id that now states
+its scope, and each record is one file under `.charter/records/` instead of a shared file
+that is appended to or overwritten. Renaming an id an archived leaf already cites breaks
+the citation, so this migration has exactly two legal finishes: rename and update every
+citation in the same commit, or leave the historical record untouched and write the new
+shape from now on. What is not legal is a shared file that new records keep appending to:
+the next write destroys the previous record, and nothing in the repository then says it
+was ever there.
+
+| Record | Field | New shape |
+| --- | --- | --- |
+| `evidence-receipt.md` | `Evidence ID` | `E-<TASK-ID>-<nn>`, one file at `.charter/records/<Evidence ID>.md` |
+| `review.md` | `Review ID` | `REV-<TASK-ID>-<nn>`, one file at `.charter/records/<Review ID>.md` |
+| `decision.md` | `Decision ID` | `DEC-<YYYYMMDD>-<slug>`, one file at `.charter/records/<Decision ID>.md` |
+
+Evidence and review ids are scoped by the task that produced them, so a bare `E-01` from
+two leaves no longer collides. Decisions are project-scoped and dated instead: two leaves
+can open decisions in the same session, so a per-leaf sequence would mint one id twice.
+None of the three needs a central allocator, which is the point - no runtime exists to hand
+out numbers.
+
 ## Charter-level migrations
 
 Some required fields belong to `.charter/project.md` rather than to a leaf. The
 position rule is the same — before the first state transition of the session that
 noticed the gap — but the mechanics differ: a charter has no `Contract version` to
-bump, so the version lands in its section 12 change log, while the `CLARIFICATION`
+bump, so the version lands in `.charter/changelog.md`, while the `CLARIFICATION`
 entry still goes in the active leaf's Events table so one place holds the session's
 audit trail. A charter-level migration is records-only. A change to Goal,
 Non-goals, Invariants, authorization, or public meaning is a scope change with its
@@ -75,6 +164,7 @@ own Change Triage route and its own decision.
 | Field | Charter section | Line or block to add |
 | --- | --- | --- |
 | Review B policy (`RVB1`-`RVB5`, reviewer and freshness method) | `## 7. Capability map` | `### 7.1 Review B policy` |
+| Charter change log | `## 12. Change log` | move the table unchanged to `.charter/changelog.md`, then leave the pointer sentence |
 
 Add the block as `### 7.1`, never as a new numbered section. Charter sections are
 cited by number from the roadmap and from leaf contracts, so inserting one

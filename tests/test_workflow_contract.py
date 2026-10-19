@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import re
 import unittest
@@ -23,6 +24,31 @@ REUSE_PROBE_COMMAND = (
 def read(relative: str) -> str:
     path = PACKAGE_ROOT / relative
     return path.read_text(encoding="utf-8") if path.is_file() else ""
+
+
+WORD_NUMBERS = (
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+    "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+    "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
+)
+
+
+def working_set_names() -> list[str]:
+    """Read the initializer's file map instead of restating its size.
+
+    A hand-counted number in a document survived one working-set change and
+    kept the sentence wrong afterwards, so the size is derived from the source
+    that creates it.  A mismatch then fails here, naming the drift, instead of
+    passing on a stale sentence.
+    """
+
+    module = ast.parse((PACKAGE_ROOT / "scripts" / "init_project.py").read_text(encoding="utf-8"))
+    for node in module.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "FILES" for target in node.targets
+        ):
+            return list(node.value.keys)  # type: ignore[attr-defined]
+    raise AssertionError("init_project.py no longer defines FILES")
 
 
 class WorkflowContractTests(unittest.TestCase):
@@ -675,8 +701,9 @@ class WorkflowContractTests(unittest.TestCase):
                 self.assertIn("GENERALIZE", text)
 
         skill = read("targets/codex/skills/charter-workflow/SKILL.md")
-        self.assertIn("nine templates", skill)
-        self.assertIn("nine files", skill)
+        template_count = len(list((PACKAGE_ROOT / "portable" / "templates").glob("*.md")))
+        self.assertIn(f"{WORD_NUMBERS[template_count]} templates", skill)
+        self.assertIn(f"{WORD_NUMBERS[len(working_set_names())]} files", skill)
 
     def test_bootstrap_prompts_read_and_create_lessons(self) -> None:
         for relative in (

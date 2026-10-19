@@ -13,6 +13,9 @@ dist/
 *.zip
 targets/dsh/lib/
 
+# Throwaway review panels generated during an audit
+docs/.panel*
+
 # Local secrets and environment files
 .env
 .env.*

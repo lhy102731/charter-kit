@@ -4,7 +4,7 @@
 
 > **Write the delta, not the project.** A clause whose authoritative source is already in the required-start read set may be carried by an explicit reference plus this leaf's delta — for example `project.md section 5 baseline, plus: <leaf-specific item>` for forbidden effects, or `roadmap.md verification commands` for the standard checks. Anything that narrows, widens, or contradicts that baseline is written out here in full. Never replace a leaf-specific field with a reference: the result sentence, allowed paths, acceptance checks, repair budget, and any stop condition that differs from the standard list are always inline. A reference names its source file and section so the archived contract stays resolvable at the commit that recorded it.
 
-> **Bounded size.** Every resume re-reads this contract, so its length is paid by every later actor. Keep it under 36 KB. This template is about 10 KB and a long real project's contract lands near 35 KB while it stays a contract, so the ceiling is where absorbed material starts to show rather than a style preference. Past that, the growth is almost always material that belongs to a file already in the read set: move goal or scope prose to `project.md`, sequencing to `roadmap.md`, candidate evidence and pinned versions to `reuse-discovery.md`, and command output to `.charter/evidence/`, leaving the reference behind. Never buy the reduction by deleting acceptance checks, stop conditions, allowed paths, or effects: a contract that no longer states what the gate needs is a worse defect than a long one.
+> **Bounded size.** Keep this contract under 36 KB. Every resume re-reads it, so its length is paid by every later actor — but the bound is also a reading of the leaf, not a budget: a contract that needs more than this has almost always absorbed material that belongs to a file already in the read set, or it is more than one leaf. Move goal or scope prose to `project.md`, sequencing to `roadmap.md`, candidate evidence and pinned versions to `reuse-discovery.md`, and command output to `.charter/evidence/`; if nothing belongs elsewhere, the result sentence is what should be split. Past the bound, record a Ruling that says why this leaf needs it and what you gave up — raising the number is a deliberate change to every document that states it, never a silent edit. Never buy the reduction by deleting acceptance checks, stop conditions, allowed paths, or effects: a contract that no longer states what the gate needs is a worse defect than a long one.
 
 ## 1. Identity
 
@@ -16,7 +16,7 @@
 - Mode: `MANUAL | AUTO_DEV`
 - Status: `DRAFT`
 - Leaf approval / preauthorization reference: `NOT_GRANTED`
-- Contract version: `0.2` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
+- Contract version: `0.4` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
 
 ## 2. Result contract
 
@@ -79,15 +79,23 @@
 
 ## 5. Acceptance
 
+### Acceptance items
+
+Number every item `AC1`, `AC2`, ... in the order it must hold. An `AC` id is
+created once and is never renumbered, re-scoped, or reused; a withdrawn item keeps
+its id and is marked withdrawn with the reason. Each `AC` names the check that moves an
+exit code when the item is false, or records `N/A` plus why it cannot be checked; an
+item that does neither is a wish. Section 9 confirms each `AC` against its check.
+
 ### Positive behavior
 
-- [ ] `<observable check 1>`
-- [ ] `<observable check 2>`
+- [ ] `AC1` `<observable check 1>` - check: `<command, test id, or assertion>`
+- [ ] `AC2` `<observable check 2>` - check: `<...>`
 
 ### Negative behavior / boundaries
 
-- [ ] `<invalid input or forbidden effect is rejected or remains unchanged>`
-- [ ] `<failure path is recorded>`
+- [ ] `AC3` `<invalid input or forbidden effect is rejected or remains unchanged>` - check: `<...>`
+- [ ] `AC4` `<failure path is recorded>` - check: `<...>`
 
 ### Suite verification
 
@@ -201,7 +209,9 @@ and keep going. Deviating without a recorded Ruling is a decision made in secret
 
 | ID | Kind (`test / review / verification / integration`) | Candidate | Producer | Result | Raw reference |
 |---|---|---|---|---|---|
-| E-01 | `<kind>` | `<revision>` | `<agent/host>` | `<PASS/FAIL/ERROR/SKIPPED>` | `<path>` |
+| `E-<TASK-ID>-01` | `<kind>` | `<revision>` | `<agent/host>` | `<PASS/FAIL/ERROR/SKIPPED>` | `<path>` |
+
+Ids are scoped by this contract's Task ID: a bare `E-01` collides across leaves. Each receipt is its own file at `.charter/records/<ID>.md`, never appended to a shared file and never overwritten; this table indexes them.
 
 ## 9. Review and closure
 
@@ -225,6 +235,24 @@ and mark superseded lines that carry priority flags). Before a CAPABILITY/SLICE 
 row closes, the spec's planned leaves are reconciled against the roadmap's implemented
 rows; a leaf ID is checked against the full roadmap table when it is assigned — IDs are
 single-use, and "planned but never opened" is adjudicated explicitly, never left silent.
+
+### Closure checklist
+
+Every row below carries an answer before closure is written; a row that does not apply is answered `N/A` with its reason, and no row is deleted or left blank - a blank row reads the same as a satisfied check. `CLS` ids are kit-owned and append-only: a new item appends at the end, an id never moves to different text, and an id never disappears.
+
+| CLS id | Question | Answer | Evidence reference |
+|---|---|---|---|
+| `CLS1` | Goal re-read: the charter's Goal-level claims still hold | `<answer>` | `<raw ref>` |
+| `CLS2` | All four evidence layers present, none substituted for another | `<answer>` | `<raw ref>` |
+| `CLS3` | Every finding resolved, limited, or waived, and none left only in a review | `<answer>` | `<raw ref>` |
+| `CLS4` | Execution ledger reconciled, or `NOT_ENABLED` waived in Events | `<answer>` | `<raw ref>` |
+| `CLS5` | Integration and post-integration verification on the integrated candidate | `<answer>` | `<raw ref>` |
+| `CLS6` | Handoff promotion sweep done for every rule still binding | `<answer>` | `<raw ref>` |
+| `CLS7` | Lessons layer assessed, each qualifying event distilled or explicitly judged not worth an entry | `<answer>` | `<raw ref>` |
+| `CLS8` | Contract, roadmap, and handoff agree on this leaf's state in one commit | `<answer>` | `<raw ref>` |
+| `CLS9` | Closure decision chosen from the five options, with its reason | `<answer>` | `<raw ref>` |
+
+`CLS3` is not an absence of findings: one recorded as `ACCEPTED_WITH_LIMITATION` or `DECIDED_BACKLOG` closes only when the same commit puts it where the next session meets it without the review. `CLS9` is answered last; a blank row above it makes the closure decision premature, not optional.
 
 ### Closure decision
 

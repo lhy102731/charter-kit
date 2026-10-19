@@ -31,6 +31,28 @@ A default-on policy has four parts. One missing part makes it a suggestion inste
    run a review. If holding the default on is expensive for the ordinary case, it
    will be narrowed for the wrong reason.
 
+## Hooks
+
+Four parts make a default; a hook is what reads the default back. A policy file
+that no step consults is a document, not a rule, and it fails in the mode this
+file opens with: every part is written down and nothing notices that none of
+them is ever read. That is what happened here - the four parts above shipped
+before any loop read them back.
+
+Each hook carries a `DOP` id. The list is append-only and an id never moves to
+different text: a record citing `DOP2` has to mean the same hook a year later.
+
+| Id | Hook | Fires at | What it enforces |
+| --- | --- | --- | --- |
+| `DOP1` | Drafting read | `DEVELOPMENT_CHARTER.md` section 2.8, charter self-review | Every default the charter relies on is visible in a file the next session reads; every narrowed default names its exclusion, its approver, its date, and the file that owns the policy. |
+| `DOP2` | Migration precondition | `contract-migrations.md`, `## Steps` | A migration that lands a default value fills it from the evidence already on disk instead of shipping `UNDECIDED` into a project whose history has settled the matter. |
+| `DOP3` | Review check | `templates/review.md`, `CHK12` | Every default-on rule the reviewed leaf touched is visible in a file the next session reads, and any narrowing names what it excludes. |
+
+Three hooks and not one, because each covers a different moment: a default has
+to be visible while a charter is written, again while an older project is
+migrated, and once more while a leaf is reviewed. The failure this section
+prevents is not a weak rule. It is a correct rule that no step ever reads.
+
 ## Why the cost lands where the knowledge is
 
 A default-on policy defers nothing to setup time by accident. A new project cannot

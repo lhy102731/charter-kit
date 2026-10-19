@@ -2,9 +2,11 @@
 
 > Use one receipt per meaningful test, inspection, review, or integration check. Record what was observed, not only what the Agent concluded.
 
+Each receipt is its own file at `.charter/records/<Evidence ID>.md`: never appended into a shared file, never overwritten. Ids are scoped by the task that produced them, so a receipt resolves to exactly one leaf without a central allocator.
+
 ## Identity
 
-- Evidence ID: `<E-ID>`
+- Evidence ID: `E-<TASK-ID>-<nn>`
 - Project / task: `<project> / <TASK-ID>`
 - Kind: `TEST | REVIEW | VERIFICATION | INTEGRATION | DECISION | AUDIT | DISCOVERY`
 - Producer: `<agent/person>`

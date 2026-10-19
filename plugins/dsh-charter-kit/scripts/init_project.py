@@ -8,6 +8,10 @@ existing files; --add-missing only fills absent working-set files, while
 projects use the canonical runtime filenames, and existing projects keep any
 legacy ``*-template.md`` files that are already present.
 
+It also creates ``records/``, the directory the one-file-per-record ids write into: a
+record written into a shared file either overwrites the previous one or grows a file
+nothing reads.
+
 The one file it touches outside ``.charter/`` is ``.gitignore``: a single
 ``.jspace/`` entry is appended when no existing line already decides that
 directory, so the session ledger stays out of version control by rule instead of
@@ -38,6 +42,7 @@ FILES = {
     "review.md": "review.md",
     "evidence-receipt.md": "evidence-receipt.md",
     "lessons.md": "lessons.md",
+    "changelog.md": "changelog.md",
 }
 
 
@@ -251,6 +256,11 @@ def validate_destinations(target_dir: Path) -> None:
         raise OSError(f"refusing to use linked evidence directory: {evidence_dir}")
     if evidence_dir.exists() and not evidence_dir.is_dir():
         raise OSError(f"refusing to use non-directory evidence path: {evidence_dir}")
+    records_dir = target_dir / "records"
+    if is_link(records_dir):
+        raise OSError(f"refusing to use linked records directory: {records_dir}")
+    if records_dir.exists() and not records_dir.is_dir():
+        raise OSError(f"refusing to use non-directory records path: {records_dir}")
     for target_name in FILES.values():
         destination = target_dir / target_name
         if is_link(destination):
@@ -294,6 +304,8 @@ def init_project(
     target_dir.mkdir(parents=True, exist_ok=True)
     evidence_dir = target_dir / "evidence"
     evidence_dir.mkdir(exist_ok=True)
+    records_dir = target_dir / "records"
+    records_dir.mkdir(exist_ok=True)
     created: list[Path] = []
     for source_name, target_name in FILES.items():
         destination = target_dir / target_name

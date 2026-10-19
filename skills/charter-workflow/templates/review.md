@@ -2,7 +2,7 @@
 
 ## Review identity
 
-- Review ID: `<REV-ID>`
+- Review ID: `REV-<TASK-ID>-<nn>`
 - Task ID: `<TASK-ID>`
 - Candidate revision: `<branch/commit/provider revision>`
 - Reviewer: `<agent/person>`
@@ -14,6 +14,8 @@
 - Trigger or bounded omission reason: `<the RVB id(s) hit for `B_FRESH_BEHAVIOR`, or the RVB ids considered and why an independent review is not required>`
 - Started: `<timestamp>`
 - Finished: `<timestamp>`
+
+The id is scoped by the task under review, so two leaves reviewed in the same session never mint the same id. Each review is its own file at `.charter/records/<Review ID>.md`: a second review of the same leaf is a new file, never an overwrite of the earlier one.
 
 ## Independence declaration
 
@@ -27,17 +29,27 @@ Review A is required for every Leaf. `CHARTER_INDEPENDENT` and `B_FRESH_BEHAVIOR
 
 ## Checks performed
 
-- [ ] Goal and task contract match.
-- [ ] Design interview record exists and its branches are resolved or explicitly deferred.
-- [ ] Allowed paths and effects respected.
-- [ ] Positive acceptance checks pass.
-- [ ] Negative and boundary checks pass.
-- [ ] Tests assert behavior rather than implementation details.
-- [ ] Candidate reference is the version actually reviewed.
-- [ ] Applicable reuse discovery record is current, its candidates have explicit decisions, and selected revisions/licenses are pinned.
-- [ ] Any `UNKNOWN` result, `DEFER` candidate, `NO_MATCH` claim, or missing search tier has a recorded limitation, `REUSE_SPIKE`, waiver, or blocking decision.
-- [ ] Existing user changes and unrelated failures are separated.
-- [ ] Integration and post-merge requirements are understood.
+Checks are cited by their `CHK` id - never by position, never by restating the
+text. The list is append-only: a new check appends at the end, existing text is
+reworded only where the wording was wrong, and an id never moves to different
+text and never disappears. Review records already written cite these ids, so a
+renumbering would silently change what an archived record means. A check that
+does not apply to this leaf is answered `N/A` with the reason; it is never
+deleted.
+
+- [ ] `CHK1` Goal and task contract match.
+- [ ] `CHK2` Design interview record exists and its branches are resolved or explicitly deferred.
+- [ ] `CHK3` Allowed paths and effects respected.
+- [ ] `CHK4` Positive acceptance checks pass.
+- [ ] `CHK5` Negative and boundary checks pass.
+- [ ] `CHK6` Tests assert behavior rather than implementation details.
+- [ ] `CHK7` Candidate reference is the version actually reviewed.
+- [ ] `CHK8` Applicable reuse discovery record is current, its candidates have explicit decisions, and selected revisions/licenses are pinned.
+- [ ] `CHK9` Any `UNKNOWN` result, `DEFER` candidate, `NO_MATCH` claim, or missing search tier has a recorded limitation, `REUSE_SPIKE`, waiver, or blocking decision.
+- [ ] `CHK10` Existing user changes and unrelated failures are separated.
+- [ ] `CHK11` Integration and post-merge requirements are understood.
+- [ ] `CHK12` Every default-on rule this leaf touched is visible in a file the next session reads; any narrowing names what it excludes, its approver, its date, and the file that owns the policy. This is hook `DOP3` of `portable/references/default-on-policy.md` (`references/default-on-policy.md` in the self-contained Skill).
+- [ ] `CHK13` Every finding carries a `Disposition`, and every finding that is not `CLOSED` names its limitation, expiry or recheck trigger, and the section-10 or decision entry that carries it.
 
 ## Change Triage
 
@@ -47,9 +59,19 @@ Review A is required for every Leaf. `CHARTER_INDEPENDENT` and `B_FRESH_BEHAVIOR
 
 ## Findings
 
-| ID | Finding severity (`P0 / P1 / P2 / P3`) | Remediation change class (`A / B / C`) | Finding | Evidence reference | Required action |
-|---|---|---|---|---|---|
-| F-01 | `<severity>` | `<change class>` | `<specific observed issue>` | `<raw ref>` | `<fix / decision / backlog>` |
+| ID | Finding severity (`P0 / P1 / P2 / P3`) | Remediation change class (`A / B / C`) | Finding | Evidence reference | Required action | Disposition |
+|---|---|---|---|---|---|---|
+| F-01 | `<severity>` | `<change class>` | `<specific observed issue>` | `<raw ref>` | `<fix / decision / backlog>` | `<CLOSED / ACCEPTED_WITH_LIMITATION / DECIDED_BACKLOG / OPEN>` |
+
+Every finding carries a `Disposition`; a blank cell is not one. `OPEN` is valid
+only alongside a verdict of `REQUEST_CHANGES`, `BLOCKED_TOOLING`, or
+`NEEDS_DECISION`. `ACCEPTED_WITH_LIMITATION` and `DECIDED_BACKLOG` each name the
+limitation, its expiry or recheck trigger, and the entry that carries it, and in
+the same commit the finding is written into `.charter/project.md` section 10 or a
+`.charter/decision.md` record - so the next session meets it without re-reading
+this review. Outside this record a finding is cited as its `<REV-ID>` plus its row
+id, `<REV-ID>/F-NN`: the pair is unique because neither half is ever reused, and
+it needs no central allocator to hand out.
 
 No findings is a valid result only after every applicable check above has an observation.
 

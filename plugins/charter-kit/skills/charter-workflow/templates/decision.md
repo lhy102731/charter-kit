@@ -2,12 +2,17 @@
 
 ## Decision identity
 
-- Decision ID: `<DEC-ID>`
+- Decision ID: `DEC-<YYYYMMDD>-<slug>`
 - Project / task: `<project> / <TASK-ID>`
 - Requested by: `<agent/person>`
 - Requested at: `<timestamp>`
 - Required authority: `OWNER | PRODUCT | SECURITY | PRODUCTION_OPERATOR`
-- Status: `OPEN | APPROVED | REJECTED | EXPIRED`
+- Status: `OPEN | DECIDED | REJECTED | EXPIRED`
+  A `DEFERRED` question lives in `project.md` section 10 and has not become a decision
+  record yet. `DECIDED` is the same word section 10 uses for a settled row; a record written
+  before this wording may say `APPROVED` - read it as `DECIDED` and do not write it again.
+
+A decision is project-scoped, not leaf-scoped: two leaves can open decisions in the same session, so a per-leaf sequence would mint one id twice. A date plus a slug needs no central allocator to stay unique, and each decision is its own file at `.charter/records/<Decision ID>.md` - a later decision is a new file, not an edit.
 
 ## Question that cannot be solved inside the current contract
 

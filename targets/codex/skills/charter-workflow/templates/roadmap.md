@@ -2,6 +2,8 @@
 
 > Copy this file to `.charter/roadmap.md`. It is the task projection, not a second product specification. Keep the approved goal in `project.md` and link to it here.
 
+> **Growth.** One row per live node, never one row per event. When this file passes 60 entity rows, or a single parent carries more than 12, split it into an index plus per-`EPIC` branch files and read only the active branch - the read set is the index plus that branch, whatever the project's total size. See section 7 of `DEVELOPMENT_CHARTER.md` in the kit.
+
 ## Goal reference
 
 - Project: `<name>`

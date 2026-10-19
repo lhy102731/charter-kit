@@ -191,10 +191,39 @@ Automatic continuation never includes a change to the Goal, Non-goals, Invariant
 
 ## 10. Risks and open decisions
 
+This table is the single authority for a question the project has not settled: it
+is where a `NEEDS_DECISION` block is discharged. `.charter/decision.md` holds the
+full record of a decision that needed one, and the roadmap's "Decisions affecting
+the route" table is a projection of the rows that changed a route. Neither of
+those two decides whether a question is still open - read it here.
+
 | ID | Question / risk | What would settle it | Owner | State |
 |---|---|---|---|---|
 | D-01 | `<question>` | `<test, decision, or evidence>` | `<owner>` | `OPEN` |
 | | | | | |
+
+`State` takes one of these five values and no others:
+
+| State | Means | The row must also carry |
+|---|---|---|
+| `OPEN` | unsettled | who can settle it, and what evidence would |
+| `DECIDED` | settled and current | the decision reference, any limitation accepted, and its expiry or recheck trigger |
+| `DEFERRED` | settled as "not now" | the recheck trigger that brings it back |
+| `REJECTED` | considered and refused | the reason, so it is not proposed again |
+| `EXPIRED` | no longer answerable as written | what superseded it |
+
+A `DECIDED`, `REJECTED`, or `EXPIRED` row that carries its field is what discharges
+a `NEEDS_DECISION` block; a state with no carrying field reads as `OPEN` whatever the
+cell says. Two review outcomes land here by name: a finding recorded
+`ACCEPTED_WITH_LIMITATION` becomes `DECIDED` carrying its limitation and expiry, and
+a finding recorded `DECIDED_BACKLOG` becomes `DEFERRED` carrying its recheck trigger.
+
+`OPEN`, `DEFERRED`, and `REJECTED` are live rows and stay: a refusal an agent cannot
+see is a refusal it will propose again. A `DECIDED` row leaves only after a decision
+record carries the decision in full, and it leaves as a move, never as a deletion -
+keep one line with the id, the one-line outcome, and the reference to the record.
+This table is one of the read set's growth points, so its size follows the
+live-entity rule in section 7 of the kit charter rather than a byte ceiling.
 
 ## 11. Approval record
 
@@ -212,6 +241,8 @@ Before setting `Current status` to `APPROVED`, the self-review field must contai
 
 ## 12. Change log
 
-| Version | Date | Change | Reason | Approved by |
-|---|---|---|---|---|
-| 0.1 | `<date>` | Initial charter | `<reason>` | `<person>` |
+The charter's version history lives in `.charter/changelog.md` and is not repeated here.
+Only the current version is readable in this file: `Charter version` in section 1. A
+resume reads the charter's current state, never its earlier states, so a table
+holding both is how a superseded value gets read as the current one. Record every
+version there, one row per approval, and keep this section a pointer.

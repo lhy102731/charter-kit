@@ -50,6 +50,11 @@ PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
         "## 11. Approval record",
         "## 12. Change log",
     ),
+    "portable/templates/changelog.md": (
+        "# Charter Change Log",
+        "## Rules",
+        "## Migration from section 12",
+    ),
     "portable/templates/leaf-task.md": (
         "## 1. Identity",
         "## 2. Result contract",
@@ -121,7 +126,7 @@ PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
 # The leaf contract is in the required-start read set, so every resume pays for
 # its length.  The ceiling is calibrated against real files rather than taste: a
 # long project's contract measured about 35 KB while it was still a contract, and
-# the template it starts from is about 10 KB.  It is a number in shipped
+# the template it starts from must stay under half the ceiling.  It is a number in shipped
 # documents, so it lives here once and is required verbatim wherever it is
 # stated, and the template is held to half of it -- a template that grows toward
 # the bound spends the budget the project needs before the project starts.
@@ -1756,6 +1761,8 @@ class Checker:
             "Remediation change class",
             "independent axes",
             "fresh context",
+            "`REV-<TASK-ID>-<nn>`",
+            "`.charter/records/<Review ID>.md`",
         ):
             self.require(review, phrase, "review.md")
 
@@ -1765,6 +1772,8 @@ class Checker:
             "Discovery result (when `DISCOVERY`): `MATCH | NO_MATCH | UNKNOWN`",
             "immutable Git commit/tag or package version",
             "NO_MATCH` is valid only",
+            "`E-<TASK-ID>-<nn>`",
+            "`.charter/records/<Evidence ID>.md`",
         ):
             self.require(evidence, phrase, "evidence-receipt.md")
 
@@ -1772,8 +1781,21 @@ class Checker:
         for phrase in ("Goal reference", "Evidence", "Exact next action", "Do not do", "Capability notes"):
             self.require(handoff, phrase, "handoff.md")
         decision = self.read("portable/templates/decision.md")
-        for phrase in ("Question that cannot be solved inside the current contract", "Recommendation", "Approval"):
+        for phrase in (
+            "Question that cannot be solved inside the current contract",
+            "Recommendation",
+            "Approval",
+            "`DEC-<YYYYMMDD>-<slug>`",
+            "`.charter/records/<Decision ID>.md`",
+        ):
             self.require(decision, phrase, "decision.md")
+
+        # One file per record under a directory is the rule that keeps a second
+        # receipt, review, or decision from overwriting the first.  A bootstrap
+        # path that never creates the directory leaves the rule with nowhere to
+        # land, so the working-set sentence has to name it.
+        for relative in ("portable/commands/charter-workflow.md", *HOST_PROMPTS):
+            self.require(self.read(relative), "`records/`", relative)
 
     # ------------------------------------------------------------------
     # Entry points and bootstrap semantics
