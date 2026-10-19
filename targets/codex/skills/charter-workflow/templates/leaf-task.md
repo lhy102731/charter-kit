@@ -82,10 +82,10 @@
 ### Acceptance items
 
 Number every item `AC1`, `AC2`, ... in the order it must hold. An `AC` id is
-created once and is never renumbered, re-scoped, or reused; a withdrawn item keeps
+created once and never renumbered, re-scoped, or reused; a withdrawn item keeps
 its id and is marked withdrawn with the reason. Each `AC` names the check that moves an
 exit code when the item is false, or records `N/A` plus why it cannot be checked; an
-item that does neither is a wish. Section 9 confirms each `AC` against its check.
+item that does neither is a wish. `CLS9` confirms each `AC` against its check.
 
 ### Positive behavior
 
@@ -211,7 +211,7 @@ and keep going. Deviating without a recorded Ruling is a decision made in secret
 |---|---|---|---|---|---|
 | `E-<TASK-ID>-01` | `<kind>` | `<revision>` | `<agent/host>` | `<PASS/FAIL/ERROR/SKIPPED>` | `<path>` |
 
-Ids are scoped by this contract's Task ID: a bare `E-01` collides across leaves. Each receipt is its own file at `.charter/records/<ID>.md`, never appended to a shared file and never overwritten; this table indexes them.
+Ids are scoped by this Task ID: a bare `E-01` collides across leaves. Each receipt is its own file at `.charter/records/<ID>.md`, never appended to a shared file, never overwritten; this table indexes them.
 
 ## 9. Review and closure
 
@@ -227,30 +227,30 @@ Ids are scoped by this contract's Task ID: a bare `E-01` collides across leaves.
 
 Required order: `Review → Verification → target-branch integration → post-integration verification`. Do not integrate directly from Review, and do not treat pre-integration Verification as post-integration proof.
 
-Closure status is written only after the last review or verification has returned, into
+Closure status is written only after the last review or verification returns, into
 every carrier at once — contract §9, the roadmap status column, the handoff active-leaf
 block — never one file ahead of the review; a claim corrected in one holder is corrected
-in all of them in the same commit (search the claim's wording for the remaining copies,
-and mark superseded lines that carry priority flags). Before a CAPABILITY/SLICE container
-row closes, the spec's planned leaves are reconciled against the roadmap's implemented
-rows; a leaf ID is checked against the full roadmap table when it is assigned — IDs are
+in all of them in the same commit (mark superseded lines that carry priority flags). Before a CAPABILITY/SLICE container
+row closes, its planned leaves are reconciled against the roadmap's implemented
+rows; a leaf ID is checked against the full roadmap table when assigned — IDs are
 single-use, and "planned but never opened" is adjudicated explicitly, never left silent.
 
 ### Closure checklist
 
-Every row below carries an answer before closure is written; a row that does not apply is answered `N/A` with its reason, and no row is deleted or left blank - a blank row reads the same as a satisfied check. `CLS` ids are kit-owned and append-only: a new item appends at the end, an id never moves to different text, and an id never disappears.
+Every row carries an answer before closure is written; a row that does not apply is answered `N/A` with its reason, and no row is deleted or left blank - a blank row reads as satisfied. `CLS` ids are kit-owned and append-only: a new item appends at the end, an id never moves to different text and never disappears.
 
 | CLS id | Question | Answer | Evidence reference |
 |---|---|---|---|
 | `CLS1` | Goal re-read: the charter's Goal-level claims still hold | `<answer>` | `<raw ref>` |
-| `CLS2` | All four evidence layers present, none substituted for another | `<answer>` | `<raw ref>` |
+| `CLS2` | All four evidence layers of charter 6.1 present, none substituted | `<answer>` | `<raw ref>` |
 | `CLS3` | Every finding resolved, limited, or waived, and none left only in a review | `<answer>` | `<raw ref>` |
 | `CLS4` | Execution ledger reconciled, or `NOT_ENABLED` waived in Events | `<answer>` | `<raw ref>` |
 | `CLS5` | Integration and post-integration verification on the integrated candidate | `<answer>` | `<raw ref>` |
 | `CLS6` | Handoff promotion sweep done for every rule still binding | `<answer>` | `<raw ref>` |
 | `CLS7` | Lessons layer assessed, each qualifying event distilled or explicitly judged not worth an entry | `<answer>` | `<raw ref>` |
 | `CLS8` | Contract, roadmap, and handoff agree on this leaf's state in one commit | `<answer>` | `<raw ref>` |
-| `CLS9` | Closure decision chosen from the five options, with its reason | `<answer>` | `<raw ref>` |
+| `CLS9` | Closure decision chosen from the five options with its reason, and every `AC` confirmed against its check | `<answer>` | `<raw ref>` |
+| `CLS10` | No boundary left unchecked: check it, or carry it in `project.md` section 10 with a recheck trigger | `<answer>` | `<raw ref>` |
 
 `CLS3` is not an absence of findings: one recorded as `ACCEPTED_WITH_LIMITATION` or `DECIDED_BACKLOG` closes only when the same commit puts it where the next session meets it without the review. `CLS9` is answered last; a blank row above it makes the closure decision premature, not optional.
 
@@ -271,7 +271,7 @@ Choose exactly one:
 
 ## 10. Design tree
 
-Resolve before implementation; this tree is drafted during the section 8 design phase and each adjudication is mirrored into the Events table. The current **frontier** lists questions whose prerequisites are already settled — ask only what is answerable now, with the agent's recommended answer attached.
+Resolve before implementation; draft it in the section 8 design phase and mirror each adjudication into Events. The current **frontier** lists questions whose prerequisites are settled — ask only what is answerable now, with your recommended answer attached.
 
 Format per question:
 
@@ -279,6 +279,6 @@ Format per question:
    - Recommended: `<answer with a concrete example — type signature, field list, or code sketch>`
    - Reason: `<why this answer; the facts already verified that support it>`
    - Alternative: `<the rejected option and its cost>`
-   - Disclosed cost: `<side effects the user should see, e.g. workspace baseline changes>`
+   - Disclosed cost: `<side effects the user should see>`
 
 A round closes when every question is settled or explicitly carried forward (named owner and leaf), and an empty frontier is stated in one line. **Provider line:** record which interview method ran (`grill-me` / `grilling` / the bundled design-interview) and whether it was verified `AVAILABLE`.

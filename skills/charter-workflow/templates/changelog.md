@@ -23,7 +23,9 @@
 
 ## When a row is required
 
-A row is required by these changes, and nothing else:
+The list that decides whether a row exists also lives in `project.md` section 12, which
+is read on resume and this file is not. A row is required by these changes, and nothing
+else:
 
 - any narrowing of `RVB1`-`RVB5` or of another risk trigger, because the next session
   reads the narrow trigger as the whole rule;

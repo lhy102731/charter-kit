@@ -153,7 +153,7 @@ Review B triggers are kit-owned and cited by ID. The set is append-only: a retir
 - Reviewer and freshness method: `<UNDECIDED, or the reviewer class per layer and what makes it fresh>`
 - Decided on / by: `<date and approver, or UNDECIDED with the reason it can wait>`
 
-A `YES` row ships enabled and says the trigger is in force, not that it has been hit. Narrowing a row to `NO`, or to a bounded `YES`, is a user decision recorded in the section 12 change log, and the narrowed value must state what it excludes; a narrowed row with no stated exclusion reads the same as an unfilled one. Leaving a row at `YES` costs a low-risk leaf nothing: that leaf records Review B `NOT_REQUIRED` and names the RVB ids it considered.
+A `YES` row ships enabled and says the trigger is in force, not that it has been hit. Narrowing a row to `NO`, or to a bounded `YES`, is a user decision recorded in `.charter/changelog.md`, and the narrowed value must state what it excludes; a narrowed row with no stated exclusion reads the same as an unfilled one. Leaving a row at `YES` costs a low-risk leaf nothing: that leaf records Review B `NOT_REQUIRED` and names the RVB ids it considered.
 
 If `Reviewer and freshness method` is still `UNDECIDED` when a leaf first records Review B `REQUIRED`, stop and ask the user before implementing that leaf. The method is decided once, where the knowledge is, and then cited. A project that already holds independent-review evidence fills this line from that evidence instead of leaving it `UNDECIDED`.
 
@@ -192,8 +192,9 @@ Automatic continuation never includes a change to the Goal, Non-goals, Invariant
 ## 10. Risks and open decisions
 
 This table is the single authority for a question the project has not settled: it
-is where a `NEEDS_DECISION` block is discharged. `.charter/decision.md` holds the
-full record of a decision that needed one, and the roadmap's "Decisions affecting
+is where a `NEEDS_DECISION` block is discharged. A decision that needed a full record
+lives at `.charter/records/<Decision ID>.md` - the format is `decision.md`, and each
+decision is its own file, never an appended ledger - and the roadmap's "Decisions affecting
 the route" table is a projection of the rows that changed a route. Neither of
 those two decides whether a question is still open - read it here.
 
@@ -222,8 +223,6 @@ a finding recorded `DECIDED_BACKLOG` becomes `DEFERRED` carrying its recheck tri
 see is a refusal it will propose again. A `DECIDED` row leaves only after a decision
 record carries the decision in full, and it leaves as a move, never as a deletion -
 keep one line with the id, the one-line outcome, and the reference to the record.
-This table is one of the read set's growth points, so its size follows the
-live-entity rule in section 7 of the kit charter rather than a byte ceiling.
 
 ## 11. Approval record
 
@@ -244,5 +243,12 @@ Before setting `Current status` to `APPROVED`, the self-review field must contai
 The charter's version history lives in `.charter/changelog.md` and is not repeated here.
 Only the current version is readable in this file: `Charter version` in section 1. A
 resume reads the charter's current state, never its earlier states, so a table
-holding both is how a superseded value gets read as the current one. Record every
-version there, one row per approval, and keep this section a pointer.
+holding both is how a superseded value gets read as the current one. Keep this section
+a pointer.
+
+A row is required by these changes, and nothing else: any narrowing of `RVB1`-`RVB5`
+or of another risk trigger; any new mandatory contract field or checklist item; any
+charter-level or record-level migration; any change to the Goal, Non-goals,
+`Invariants`, effect boundary, or release boundary. `.charter/changelog.md` carries the
+full rule and the row format; the list above is the part that decides whether a row
+exists, and it lives here because this file is read on resume and that one is not.

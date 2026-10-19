@@ -31,7 +31,9 @@ For each field below that the active contract does not carry:
 1. Add the listed line to the listed section of `.charter/current-task.md`, using
    the wording from `templates/leaf-task.md` so the field reads exactly as it
    does in a contract created today.
-2. Bump `Contract version` in section 1.
+2. Bump `Contract version` in section 1 to the template's current version (`0.4`).
+   The number records the approval that carried the migration, not the number of steps
+   taken: a `0.1` contract lands on `0.4` in one pass.
 3. Record a `CLARIFICATION` Change Triage entry naming the field added and the
    version before and after. Use the bundled Change Triage reference:
    `portable/references/change-triage.md` in the full kit or
@@ -57,7 +59,12 @@ own Change Triage route and its own decision.
 | Closure checklist (`CLS1`-`CLS9`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
 | Acceptance items (`AC1`-`ACn`) | `## 5. Acceptance` | `### Acceptance items` - number the existing items, add the `check:` slot to each; ids are never renumbered |
 
-The acceptance-item row ships with the `0.4` template; a `0.3` contract numbers its existing items in place, and an item whose check cannot run records `N/A` plus the reason rather than dropping the item. The closure checklist row ships with the `0.3` template; a `0.2` contract carries none of the nine rows and migrates all nine at once. The last three rows ship with the `0.2` template; a `0.1` contract carries none of them and migrates all three at once. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
+Which template ships which row: the seven rows above `Closure checklist` are present in
+the `0.2` template, and `Closure checklist` plus `Acceptance items` arrive with the
+current `0.4` template. No `0.3` template was ever released - the version number
+records an approval, and these two additions were approved together - so a `0.2`
+contract adds both rows and bumps straight to `0.4`. A `0.1` contract carries none of
+the nine rows and numbers no items, so it migrates every row in one pass. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
 
 The two ledger rows are one change and are applied together. The first declares the
 ledger mode for the session; the second is what closure actually checks. A
@@ -98,6 +105,9 @@ order, or what the older members now mean.
 | --- | --- | --- |
 | `CHK12` | `## Checks performed` | Reviews started after this template version. Review records written before it keep the checks they were written against. |
 | `CHK13` | `## Findings` | Reviews started after this template version. A review record written before it keeps the findings table it was written against. |
+| `CHK14` | `## Checks performed` | Reviews started after this template version. A review record written before it keeps the checks it was written against. |
+
+`CHK14` was reworded once, inside the same round that introduced it, because its third clause named no artifact that had to produce the answer. The id did not move and no archived record cites it; the rewording is recorded here rather than appended as a second check.
 
 A review record is a record of a review that happened, so it is never migrated
 forward: a check that did not exist when the review ran was not skipped, it did
@@ -127,6 +137,7 @@ the old name in an older record as the new one, and never write the old name on 
 new record. This rename exists because `project.md` section 10 already calls the
 settled state `DECIDED`; one state with two words is a drift an agent resolves
 silently, and section 10 is the authority for whether a question is still open.
+
 ## Record-level migrations
 
 The three event records - evidence receipt, review, decision - carry an id that now states
@@ -149,6 +160,25 @@ two leaves no longer collides. Decisions are project-scoped and dated instead: t
 can open decisions in the same session, so a per-leaf sequence would mint one id twice.
 None of the three needs a central allocator, which is the point - no runtime exists to hand
 out numbers.
+
+### Steps
+
+1. Create `.charter/records/` if it does not exist. It holds record files and nothing
+   else: no index, no notes, no scratch.
+2. Split every record already written into a shared file into one file per record. Keep
+   the original text and the original date; name the file after the new id and take
+   `<nn>` from `01` in the order the records were written, oldest first.
+3. A record whose id cannot be reconstructed from the shared file takes the migration
+   date with a slug from its title, and says so in one line. An invented date is worse
+   than a declared one, but a record left behind in the shared file is worse than both.
+4. Leave the shared file as a format rather than a ledger: keep its field schema, remove
+   the migrated bodies, and add one line per migrated record naming its id and its file.
+   Delete the file only when its format is reachable another way.
+5. In the same commit, update every live citation of a migrated record - an archived
+   leaf, a review, the roadmap's route table, a `project.md` section 10 pointer - to the
+   new id and path. A renamed id with live citations reads as a missing record.
+6. Then record the migration itself in `.charter/changelog.md`: an id shape that
+   archived leaves cite is a change to what a later session reads.
 
 ## Charter-level migrations
 

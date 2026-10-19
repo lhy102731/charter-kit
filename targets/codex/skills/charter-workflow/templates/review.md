@@ -37,6 +37,8 @@ renumbering would silently change what an archived record means. A check that
 does not apply to this leaf is answered `N/A` with the reason; it is never
 deleted.
 
+This section is required in every review record: a record that omits it is not a record - mark the record `INVALID` rather than leaving the section out. Records written before a check existed keep the checks they were written against and are never retro-fitted; the id list below is what the reviewer of that version can be held to.
+
 - [ ] `CHK1` Goal and task contract match.
 - [ ] `CHK2` Design interview record exists and its branches are resolved or explicitly deferred.
 - [ ] `CHK3` Allowed paths and effects respected.
@@ -50,6 +52,7 @@ deleted.
 - [ ] `CHK11` Integration and post-merge requirements are understood.
 - [ ] `CHK12` Every default-on rule this leaf touched is visible in a file the next session reads; any narrowing names what it excludes, its approver, its date, and the file that owns the policy. This is hook `DOP3` of `portable/references/default-on-policy.md` (`references/default-on-policy.md` in the self-contained Skill).
 - [ ] `CHK13` Every finding carries a `Disposition`, and every finding that is not `CLOSED` names its limitation, expiry or recheck trigger, and the section-10 or decision entry that carries it.
+- [ ] `CHK14` Every measurement the read set states points to its single authority instead of copying the value; every changing state appears only in the projection that the charter declares for it, and that declaration names every place that carries the value; and every exception this review claims is written here as `item | clause | basis`, with `Exceptions claimed: none` when there is none.
 
 ## Change Triage
 
@@ -68,10 +71,10 @@ only alongside a verdict of `REQUEST_CHANGES`, `BLOCKED_TOOLING`, or
 `NEEDS_DECISION`. `ACCEPTED_WITH_LIMITATION` and `DECIDED_BACKLOG` each name the
 limitation, its expiry or recheck trigger, and the entry that carries it, and in
 the same commit the finding is written into `.charter/project.md` section 10 or a
-`.charter/decision.md` record - so the next session meets it without re-reading
-this review. Outside this record a finding is cited as its `<REV-ID>` plus its row
-id, `<REV-ID>/F-NN`: the pair is unique because neither half is ever reused, and
-it needs no central allocator to hand out.
+decision record at `.charter/records/<Decision ID>.md` - so the next session meets it
+without re-reading this review. Outside this record a finding is cited as the review id
+plus its row id, `REV-<TASK-ID>-<nn>/F-NN`: the pair is unique because neither half
+is ever reused, and it needs no central allocator to hand out.
 
 No findings is a valid result only after every applicable check above has an observation.
 
