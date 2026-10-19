@@ -182,7 +182,7 @@ and keep going. Deviating without a recorded Ruling is a decision made in secret
 
 ## 7. Integration policy
 
-- Candidate revision reference: `main` @ `d6eff20` + 本叶三个本地提交（`0bb410f` 套件侧、`5e1e6c3` 治理工作集、第三个把两条验收项改写成不变量形式并补记 §6 的 Ruling）
+- Candidate revision reference: `main` @ `d6eff20` + 本叶的三个内容提交（`0bb410f` 套件侧、`5e1e6c3` 治理工作集、`a2e876e` 把两条验收项改写成不变量形式并补记 §6 的 Ruling）；其后的提交只追加记录与证据，不改变本叶内容
 - Target branch or destination: `main`
 - Merge allowed: `no`（只是在 `main` 上追加本地提交，没有分支合并；`local_merge` 已勾选，语义按 §4 的注：本地提交算 `local_merge`，分支合并与 push 仍禁止）
 - Push / PR / deployment allowed: `no`

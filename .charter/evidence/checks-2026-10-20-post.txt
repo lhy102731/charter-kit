@@ -1,0 +1,24 @@
+# 第三个提交（a2e876e）之后复跑（未跟踪文件：写进本文件的运行只能由下一个提交带走）
+
+$ python .charter/checks.py
+ok   AC1  missing=[] status='APPROVED' rows=1
+ok   AC2  whitelist=7E/5P dirty_bad=[] dirty=1 diff=e3b0c44298fc committed=120 committed_bad=[]
+ok   AC3  gate=COMPLETE leaf=['ADOPT'] bad=[]
+ok   AC4  rc=0 bad=[]
+ok   AC5  head=a2e876e42471 start=d6eff20240ad commits_since_start=3
+ok   AC6  header=5 rows=10 bad=[]
+ok   AC7  records=2 bad=[]
+ok   AC8  blocks=9 bad=[]
+ok   AC9  bad=[]
+RESULT PASS
+rc=0
+
+$ python scripts/validate_kit.py .
+Charter Kit validation: PASS (246 files checked)
+- portable core present
+- zero-start and resume entry points present
+rc=0
+
+$ python -m pytest tests -q
+.....................                                                [100%]
+298 passed, 519 subtests passed in 143.63s (0:02:23)
