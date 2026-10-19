@@ -1,0 +1,16 @@
+# validate at 2026-10-19T16:10:05Z (final state after the P1-3 rollback; .charter/ review chain sealed, see D-09)
+
+Charter Kit validation: PASS (246 files checked)
+- portable core present
+- zero-start and resume entry points present
+- dependency manifest and diagnostics present
+- self-contained Skill mirrors are byte-identical
+- host prompts share the generic canonical entry
+- plugin manifest and LICENSE valid
+- marketplace, Codex target, and generated distribution valid
+- DSH target and generated distribution valid
+- ZCode target and generated distribution valid
+- target/distribution and legacy mirrors are byte-identical
+- no install side effect is declared
+
+validate exit=0

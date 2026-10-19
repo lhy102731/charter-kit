@@ -1,0 +1,452 @@
+# AC liveness evidence for leaf R1.1-S1-L1 (regenerated after REV-CHARTER-04)
+# Each check below is copied verbatim from .charter/current-task.md; every mutation is applied to the working tree, run, then restored byte for byte.
+
+## AC1 (check text from the leaf contract)
+
+```text
+python -c "import re,sys,os
+n=['project.md','roadmap.md','reuse-discovery.md','current-task.md','handoff.md','lessons.md']
+ok=all(os.path.getsize('.charter/'+x)>0 for x in n)
+t=open('.charter/current-task.md',encoding='utf-8').read()
+r=open('.charter/roadmap.md',encoding='utf-8').read()
+sn=[m.group(1) for m in re.finditer(r'^- Status: (.+)$',t,re.M)]
+st=sn[0].strip().strip(chr(96)) if sn else None
+rows=[x for x in r.splitlines() if x.strip().startswith('|')]
+cells=[[c.strip().strip(chr(96)) for c in x.split('|')] for x in rows]
+hdr=cells[0]
+ci=hdr.index('Status') if 'Status' in hdr else None
+hit=[c for c in cells[1:] if len(c)>2 and c[2]=='R1.1-S1-L1']
+v=len(sn)==1 and len(hit)==1 and ci is not None and len(hit[0])>ci and hit[0][ci]==st
+sys.exit(0 if ok and v else 1)"
+```
+
+## AC3 (check text from the leaf contract)
+
+```text
+python -c "import re,sys
+fs=['.charter/project.md','.charter/roadmap.md','.charter/reuse-discovery.md']
+def val(f,pat):
+ m=re.search(pat,open(f,encoding='utf-8').read(),re.M)
+ return m.group(1).strip().strip(chr(96)) if m else None
+def first(x):
+ return x.split(chr(65288))[0].strip().strip(chr(96)) if x else x
+g=[first(val(fs[0],r'Reuse discovery gate: (.+)$')),first(val(fs[1],r'Reuse discovery gate: (.+)$')),first(val(fs[2],r'Gate status: (.+)$'))]
+fr=[first(val(fs[0],r'Reuse discovery freshness: (.+)$')),first(val(fs[1],r'Discovery freshness: (.+)$')),first(val(fs[2],r'Gate freshness for this leaf: (.+)$'))]
+rd=[val(fs[0],r'Reuse discovery ID.*: (.+)$'),val(fs[1],r'Reuse discovery ID: (.+)$'),val(fs[2],r'Discovery ID: (.+)$')]
+ok=len(set(g))==1 and g[0] and len(set(fr))==1 and fr[0] and len(set(rd))==1 and bool(rd[0]) and rd[0].startswith('RD-')
+sys.exit(0 if ok else 1)"
+```
+
+## AC4 (check text from the leaf contract)
+
+```text
+python scripts/validate_kit.py .
+```
+
+## AC2 (check text from the leaf contract)
+
+```text
+python -c "import subprocess,sys,hashlib
+bl=open('.charter/evidence/baseline-2026-10-19.txt',encoding='utf-8').read().splitlines()
+exp=[l.split(': ',1)[1].strip().split()[0] for l in bl if l.startswith('# diff-sha256: ')]
+rows=[l for l in bl if l.strip() and not l.startswith('#')]
+def parse(ls):
+ out=set()
+ for l in ls:
+  if len(l)>3:
+   st=l[:2]
+   p=l[3:].strip()
+   if p: out.add((st,p))
+ return out
+okp=lambda p: p.startswith('.charter/') or p=='docs/SELF-AUDIT.md'
+cur=parse(subprocess.run(['git','status','--porcelain'],capture_output=True,text=True).stdout.splitlines())
+bad=[x for x in (parse(rows) ^ cur) if not okp(x[1])]
+dg=hashlib.sha256(subprocess.run(['git','diff','--','.',':(exclude).charter',':(exclude)docs/SELF-AUDIT.md'],capture_output=True).stdout).hexdigest()
+sys.exit(0 if not bad and exp and exp[0]==dg else 1)"
+```
+
+## AC5 (check text from the leaf contract)
+
+```text
+python -c "import subprocess,sys;h=subprocess.run(['git','rev-parse','HEAD'],capture_output=True,text=True).stdout.strip();sys.exit(0 if h=='d6eff20240adbcce327ca7cffe27053a6df6bd02' else 1)"
+```
+
+## Baseline (no mutation)
+
+AC1 -> exit 0
+AC2 -> exit 0
+AC3 -> exit 0
+AC4 -> exit 0
+AC5 -> exit 0
+
+## Mutations (each applied to the working tree, except the AC5 rows which mutate the check text itself, as their wording says; every one restored byte for byte)
+
+| AC | Mutation | exit |
+|---|---|---|
+| AC1 | leaf Status `DRAFT` -> PASS_CLOSED | 1 |
+| AC1 | leaf Status `DRAFT` -> LEAF (a value that already exists as a Level cell) | 1 |
+| AC1 | a second Status line appended to the leaf (the leaf must carry exactly one) | 1 |
+| AC1 | roadmap Status cell -> READY on the real row | 1 |
+| AC1 | decoy row carrying the same leaf id inserted above the real row | 1 |
+| AC1 | table header Status -> State | 1 |
+| AC3 | roadmap gate PENDING -> COMPLETE | 1 |
+| AC3 | reuse record leaf-freshness -> stale | 1 |
+| AC3 | project.md RD value -> -99 | 1 |
+| AC3 | project.md RD value -> -99 while the old id is still quoted in a comment line | 1 |
+| AC2 | new file added under portable/ | 1 |
+| AC2 | new file added under docs/ (outside the allowed paths) | 1 |
+| AC2 | control: new file added under .charter/ (allowed, must stay green) | 0 |
+| AC2 | control: appending to the allowed docs/SELF-AUDIT.md (must stay green) | 0 |
+| AC2 | deletion of a file the baseline lists (portable/commands/charter-workflow.md) | 1 |
+| AC2 | one further edit to an already dirty file outside the allowed paths (line appended to DEVELOPMENT_CHARTER.md) | 1 |
+| AC2 | control: rename inside the allowed paths (.charter/changelog.md) | 0 |
+| AC2 | rename a tracked file outside the allowed paths (portable/templates/review.md) | 1 |
+| AC2 | baseline header diff-sha256 zeroed | 1 |
+| AC5 | expected commit mutated to deadbeef inside the check | 1 |
+| AC5 | expected commit shortened to the 7-char d6eff20 inside the check (a prefix match must no longer pass) | 1 |
+| AC4 | mirror corrupted (trailing newline appended to portable/templates/review.md) | 1 |
+
+## Clean re-run after every mutation was restored
+
+AC1 -> exit 0
+AC2 -> exit 0
+AC3 -> exit 0
+AC4 -> exit 0
+AC5 -> exit 0
+
+## Repository state
+
+git status --porcelain | wc -l -> 79
+git rev-parse --short HEAD -> d6eff20
+
+## Re-run after REV-CHARTER-05 dispositions (no mutation)
+
+AC1 -> exit 0
+AC2 -> exit 0
+AC3 -> exit 0
+AC4 -> exit 0
+AC5 -> exit 0
+
+The table above was produced before the REV-CHARTER-05 dispositions. Those edits touched only `.charter/handoff.md`, `.charter/project.md`, `.charter/records/*.md` and the section heading of this file; no AC reads any of them as an object under test, and the five checks above are re-run against the current tree.
+
+## Re-run after REV-CHARTER-07 dispositions (2026-10-19)
+
+AC1 exit 0
+AC2 exit 0
+AC3 exit 0
+AC4 exit 0
+AC5 exit 0
+
+## Re-run after REV-CHARTER-08 dispositions (2026-10-19)
+
+AC1 exit 0
+AC2 exit 0
+AC3 exit 0
+AC4 exit 0
+AC5 exit 0
+
+## Re-run after REV-CHARTER-09 dispositions (2026-10-19)
+
+AC1 exit 0
+AC2 exit 0
+AC3 exit 0
+AC4 exit 0
+AC5 exit 0
+
+
+Note: this section was appended twice, once per run of the extraction script; the two runs were independent and their output was identical line for line. Merged into one copy here, and the fact that two runs agreed is recorded rather than deleted.
+
+## Re-run after REV-CHARTER-10 dispositions (2026-10-19)
+
+Extraction rule made explicit this round, because AC4 now carries a second backticked span (an evidence pointer) after the command:
+
+1. An acceptance item is the block starting at a line matching the AC item marker and ending before the next AC item or the next level-two or level-three heading.
+2. That block must contain exactly one occurrence of the check label (asserted at extraction time).
+3. The payload is the FIRST backticked span after that label, not the last.
+
+Run with that rule, cwd = repository root:
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC2 | 0 |
+| AC5 | 0 |
+
+Zero-change anchor recipe (run both, record both; the same pair means the tree did not change, and the porcelain hash covers the untracked .charter/ too):
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816
+
+
+## Re-run after REV-CHARTER-11 dispositions (2026-10-19)
+
+Same documented extraction rule (first backticked span after the check label). Run after the pointer-addressing change, so this is a fresh observation, not a copy of the section above:
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC2 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816
+
+
+## Re-run after REV-CHARTER-12 dispositions (2026-10-19T14:26:46Z)
+
+Same documented extraction rule (first backticked span after the check label). Run after the pointer and measurement-landing fixes:
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC2 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816
+
+
+## Re-run after REV-CHARTER-13 dispositions (2026-10-19T14:32:49Z)
+
+Same documented extraction rule (first backticked span after the check label). Run after the inventory-evidence change:
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC2 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816
+
+
+## Re-run after REV-CHARTER-14 dispositions (2026-10-19T14:41:08Z)
+
+Same documented extraction rule. Run after the count-class cleanup and the invariant rewrite:
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC2 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816
+
+> 两次独立运行（2026-10-19T14:41:08Z 与 2026-10-19T14:41:44Z）追加过同一段正文；两次都发生过，除时间戳外输出逐行相同，故合并为上面这一份。
+
+## Re-run after REV-CHARTER-15 dispositions (2026-10-19T14:51:11Z)
+
+Same documented extraction rule (check: payload = the first backtick span after `check: `).
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC2 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816 (lines 79)
+
+## Final run after REV-CHARTER-15 dispositions (2026-10-19T14:51:31Z)
+
+Same documented extraction rule (payload = the first backtick span after `check: `).
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC2 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816 (lines 79)
+- HEAD d6eff20240adbcce327ca7cffe27053a6df6bd02
+
+## Final run after REV-CHARTER-16 dispositions (2026-10-19T14:58:53Z)
+
+Same documented extraction rule (payload = the first backtick span after `check: `).
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC2 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816 (lines 79)
+- HEAD d6eff20240adbcce327ca7cffe27053a6df6bd02
+
+## Anchor convention (`REV-CHARTER-17` 的 `NF-44`)
+
+锚点只记成对的 `git ls-files -s` 与 `git status --porcelain` 的 sha256 与字节数。**不记文件数**——文件数随缓存目录（例如 `.pytest_cache`）增删而变，写进锚点就会与别轮不符，制造假差异。
+
+## Final run after REV-CHARTER-17 dispositions (2026-10-19T15:06:52Z)
+
+Same documented extraction rule (payload = the first backtick span after the check label).
+
+| AC | exit |
+|---|---|
+| AC1 | 0 |
+| AC2 | 0 |
+| AC3 | 0 |
+| AC4 | 0 |
+| AC5 | 0 |
+
+- `git ls-files -s` | sha256 d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc | bytes 34241
+- `git status --porcelain` | sha256 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 | bytes 4816 (lines 79)
+- HEAD d6eff20240adbcce327ca7cffe27053a6df6bd02
+
+## Final run after REV-CHARTER-18 dispositions (2026-10-19T15:23:05Z)
+
+Execution method (part of the rule): a multi-line `python -c "..."` payload must be run through stdin (`python -` with the code as stdin). Handing it to the shell on Windows drops it silently and returns 0 - a false green.
+
+| acceptance item | exit code | payload bytes |
+|---|---|---|
+| `AC1` | 0 | 778 |
+| `AC2` | 0 | 1245 |
+| `AC3` | 0 | 885 |
+| `AC4` | 0 | 32 |
+| `AC5` | 0 | 191 |
+| `AC6` | 0 | 522 |
+
+anchors (sha256 of the two commands named in the Anchor convention, recorded as a pair):
+
+- `git ls-files -s | sha256sum` -> d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc
+- `git status --porcelain | sha256sum` -> 483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12
+- porcelain line count: 79
+- HEAD: d6eff20240adbcce327ca7cffe27053a6df6bd02
+
+Note: the six checks were re-run after the record files were written; the `.charter/` writes are inside the allowed paths, so `AC2` stays green. The mutation matrix for this round (seven mutations, six red / one control) is in `.charter/records/REV-CHARTER-18.md`.
+
+## Re-run after REV-CHARTER-19 dispositions (2026-10-19T15:39:25Z)
+
+抽取与执行规则同 `handoff.md` 的 Acceptance extraction rule（载荷取 `check: ` 后第一个反引号串；多行 python -c 载荷走 stdin，不走 shell）。
+
+| 项 | 结论 |
+|---|---|
+| `AC1` | exit 0 |
+| `AC2` | exit 0 |
+| `AC3` | exit 0（四点 gate = `PENDING`、三处 freshness = `current`、三处 RD = `RD-20261019-01`） |
+| `AC4` | exit 0（`PASS (246 files checked)`） |
+| `AC5` | exit 0 |
+| `AC6` | exit 0（表头 5 格，`D-01` 到 `D-08` 全 5 格） |
+| `AC7` | exit 0（本记录含 `## Checks performed` 且段内点名 `CHK14`） |
+
+| 突变（每次施加后按字节还原，还原后全 0） | 期望 | 实测 |
+|---|---|---|
+| M1 只把 `project.md` 第 6.1 节 gate 改 `COMPLETE`（第 1 节与 `roadmap` 不动） | 只有 `AC3` 红 | `AC3`=1，其余 0 |
+| M2 把 `D-03` 的 Owner 写成合法转义（渲染仍 5 格） | 全 0（假红已修） | 全 0 |
+| M3 给 `D-01` 多加一格 | 只有 `AC6` 红 | `AC6`=1，其余 0 |
+| M4 删掉 `REV-CHARTER-19.md` 的 `## Checks performed` 整段 | 只有 `AC7` 红 | `AC7`=1，其余 0 |
+
+## Anchors after REV-CHARTER-19 dispositions (three-part, reproducible)
+
+- `git ls-files -s | sha256sum` = `d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc`
+- `git status --porcelain | sha256sum` = `483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12`（79 行）
+- `cd .charter && find . -type f -name '*.md' -print0 | sort -z | xargs -0 sha256sum | sha256sum` = `aef34ca1ebcbddd2c30b3f7290930acf3646e49228da3d6e34ff2ab6334f4419`（哈希覆盖面是 .charter 下全部 *.md；证据文件是 *.txt，不在内，所以本段自己的追加不会改变它）
+- 活性：M4 施加时 ③ 变为另一值而 ①② 一字未变；还原后 ③ 回到上面这个值。①② 对未跟踪的 `.charter/` 全盲，这正是 ③ 存在的理由（`REV-CHARTER-19` 的 NF-57）。
+
+## Final run after REV-CHARTER-20 dispositions (2026-10-19T15:58:27Z)
+
+Every acceptance item is one line: `python .charter/checks.py --only <id>`. There is exactly one implementation of every machine-checkable rule, and it is that file; the contract holds no inline implementation (`AC9`), and the extraction rule is itself checked (`AC8`: one check label per item, payload free of a bare pipe).
+
+```text
+ok   AC1  missing=[] status='DRAFT' rows=1
+ok   AC2  bad=[] diff=3483dd379a60 expected=3483dd379a60
+ok   AC3  gate=PENDING leaf=['ADOPT'] bad=[]
+ok   AC4  rc=0 bad=[]
+ok   AC5  head=d6eff20240adbcce327ca7cffe27053a6df6bd02
+ok   AC6  header=5 rows=9 bad=[]
+ok   AC7  records=2 bad=[]
+ok   AC8  blocks=9 bad=[]
+ok   AC9  bad=[]
+RESULT PASS
+```
+
+### Object-side mutations (each applied to the working tree, then restored byte for byte; the whole-tree content hash is identical before and after the matrix)
+
+| case | what changed | only | observed |
+|---|---|---|---|
+| M1 | leaf `Status` -> `PASS_CLOSED` | `AC1` | exit 1 |
+| M2 | one gate point -> `COMPLETE` | `AC3` | exit 1 |
+| M3 | one search-log `Result` cell -> `NO_MATCH` | `AC3` | exit 1 |
+| M4 | a section 10 decision row gains a cell | `AC6` | exit 1 |
+| M5 | the `CHK14` line deleted from `records/REV-CHARTER-19.md` | `AC7` | exit 1 |
+| M6 | a second `check:` label added to `AC2` | `AC8` | exit 1 |
+| M7 | the `AC5` payload replaced by an inline `python -c` | `AC9` | exit 1 |
+| M8 | a file created outside the allowlist (`docs/zzz-probe.md`) | `AC2` | exit 1 |
+| C1 | a file created inside the allowlist (`.charter/zzz-probe.md`) — control | all | exit 0 |
+
+### Anchors (paired, per the convention above)
+
+```text
+1 git-ls-files    d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc
+2 git-status      483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 lines 79
+3 charter-content 72cef24b2d9c7318b303743184c8b922454859ef9fa8b602a89ae4bc3de00d35 files 41
+```
+
+③ cannot equal its own post-write value: the block you are reading is itself one of the files it hashes. The number above is the state **before this block was written**; what a reviewer verifies is the property, not the equality — delete or edit any file under `.charter` and ③ must change while ① and ② stay byte-identical. To re-derive a value for a handoff, run `python .charter/checks.py --anchor` on the tree you have.
+
+## Final run after the P1-3 rollback (2026-10-19T16:07:45Z)
+
+Nine checks, one implementation each; the contract holds no inline copy.
+
+```text
+ok   AC1  missing=[] status='DRAFT' rows=1
+ok   AC2  bad=[] diff=512cb8ca75bb expected=512cb8ca75bb
+ok   AC3  gate=PENDING leaf=['ADOPT'] bad=[]
+ok   AC4  rc=0 bad=[]
+ok   AC5  head=d6eff20240adbcce327ca7cffe27053a6df6bd02
+ok   AC6  header=5 rows=9 bad=[]
+ok   AC7  records=2 bad=[]
+ok   AC8  blocks=9 bad=[]
+ok   AC9  bad=[]
+RESULT PASS
+```
+
+Anchors (see the note above: 3 cannot equal its own post-write value; the property is what is verifiable).
+
+```text
+1 git-ls-files    d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc
+2 git-status      483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 lines 79
+3 charter-content ea276ec6ffde004dc7b3870150c673072611a76a18b593f1837bfc7a52fc8e97 files 41
+```
+
+## Final state after the P1-3 rollback and D-10 (2026-10-19T16:10:26Z)
+
+The rollback removed a rule; a removed gap with no decision row is a gap the next actor proposes again, so the rollback added `D-10` (the read set has three files with no growth trigger).
+
+```text
+ok   AC1  missing=[] status='DRAFT' rows=1
+ok   AC2  bad=[] diff=512cb8ca75bb expected=512cb8ca75bb
+ok   AC3  gate=PENDING leaf=['ADOPT'] bad=[]
+ok   AC4  rc=0 bad=[]
+ok   AC5  head=d6eff20240adbcce327ca7cffe27053a6df6bd02
+ok   AC6  header=5 rows=10 bad=[]
+ok   AC7  records=2 bad=[]
+ok   AC8  blocks=9 bad=[]
+ok   AC9  bad=[]
+RESULT PASS
+```
+
+```text
+1 git-ls-files    d534ad515ce454d12816adea750f920be2ae076b80f5e4568585af7488b2e4cc
+2 git-status      483cea696dfdb171c3af1bdaf8fa814c6a429589213e17d9cb40005fb9584d12 lines 79
+3 charter-content 400c702ccd5dfe2df23c00c8eab44138bbba3ff56b6bedac037442f1fd50e40b files 41
+```

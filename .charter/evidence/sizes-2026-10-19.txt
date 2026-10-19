@@ -1,0 +1,6 @@
+# File sizes measured at 2026-10-19T14:35Z (single landing point for these numbers)
+# measured by: python os.path.getsize
+file: DEVELOPMENT_CHARTER.md
+bytes: 36731
+# update rule: this file is the only place this number is written; every other file points here
+# note: leaf-task.md template numbers live in template-budget-2026-10-19.txt, not here (one number, one landing point)

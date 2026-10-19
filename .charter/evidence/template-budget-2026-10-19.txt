@@ -1,0 +1,7 @@
+# Template budget measurement at 2026-10-19 (single landing point for these numbers)
+# measured by: python -c import-os-getsize on portable/templates/leaf-task.md
+file: portable/templates/leaf-task.md
+bytes: 18349
+ceiling: 18432 (validate_kit.py LEAF_CONTRACT_CEILING_KB = 36; the template must be at or under half)
+margin: 83
+# update rule: this file is the only place these numbers are written; every other file points here

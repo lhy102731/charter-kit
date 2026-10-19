@@ -1,0 +1,9 @@
+# Repository inventory measured at 2026-10-19T14:52Z (single landing point for these counts)
+# count basis: each line counts the files matching the glob written on that line, non-recursive, hidden files excluded. It is deliberately NOT "the working set": that phrase had no definition and made the number uncheckable (NF-29).
+portable/templates/*.md: 10
+portable/references/*.md: 5
+scripts/*.py: 7
+.charter/*.md: 10
+# not a count of everything init_project.py creates: it also creates .charter/evidence/ and .charter/records/ and an evidence log, which no glob above matches.
+# update rule: these numbers are written only here; every other file points here and does not restate them.
+# why: a count before an enumeration looks self-proving, but the enumeration can change while the count silently does not.

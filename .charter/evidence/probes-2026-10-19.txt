@@ -1,0 +1,8 @@
+# probes for D-07 / D-08 — the gates cannot see an evidence file go stale
+# E1: add one hand-written row to the `## Mutations` table of ac-liveness-2026-10-19.txt
+# E4: create `.charter/lessons-archive.md` so that `.charter/*.md` goes from 10 to 11 while inventory-2026-10-19.txt still says 10
+replay 1: `REV-CHARTER-17` (recorded in .charter/records/REV-CHARTER-17.md)
+replay 2: `REV-CHARTER-18` (recorded in .charter/records/REV-CHARTER-18.md; run in a copy outside the repository)
+result: both probes leave `python scripts/validate_kit.py .` at exit 0 / PASS (246 files checked) and leave every acceptance check at exit 0
+reading: the gate suite cannot observe that an evidence file has gone stale; only a downstream validator (D-05) could, and none exists today
+status: not re-run in this round beyond the two replays named above; this file records what was replayed, not what was expected
