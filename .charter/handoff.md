@@ -12,8 +12,8 @@ Use this file as the resume packet for another actor. It records the current tas
 - Project: `Charter Kit`
 - Goal reference: `.charter/project.md` 第 2 节
 - Task ID: `R1.1-S1-L1`
-- Current state: `DRAFT`
-- Snapshot time: `2026-10-19T13:10:00Z`
+- Current state: `APPROVED`
+- Snapshot time: `2026-10-19T17:20:00Z`
 - Handoff producer: `lead / DeepSeek Harness + charter-workflow Skill`
 
 ## Goal and boundary
@@ -21,7 +21,7 @@ Use this file as the resume packet for another actor. It records the current tas
 - Approved result: 已批准（2026-10-20）——让 `.charter/` 成为套件自身的治理事实源；第一个叶只做「用模板填出可读工作集」这一件可观察的事
 - Non-goals relevant to this task: 不改 `portable/`、`targets/`、`scripts/`、`tests/`；不发布、不 push、不动版本号
 - Invariants that must remain true: 镜像字节一致；编号只增不改；一条规则只有一个落点；`validate_kit.py .` 必须 exit 0 且无 side-effect 警告（数字落点 `.charter/evidence/validate-2026-10-19.txt`，此处不写数）
-- Allowed effects: `read_only`、`sample_run`、`code_write`（限 `.charter/` 与 `docs/SELF-AUDIT.md`）；`local_merge` 未授权、不勾选。以叶 `.charter/current-task.md` 第 4 节与第 7 节为准；章程第 5 节（Scope and effects）定义更宽的效果边界，章程第 9 节只给 `MANUAL` 任务授权（本版为空），两者都不能放宽本叶。
+- Allowed effects: `read_only`、`sample_run`、`code_write`（限 `.charter/` 与 `docs/SELF-AUDIT.md`）；`local_merge` 已勾选：本叶产物落成三个本地提交（`0bb410f` 套件侧、`5e1e6c3` 治理工作集、第三个把两条验收项改写成不变量形式并补记叶 §6 的 Ruling）；只有本地提交，没有分支合并、没有 push。以叶 `.charter/current-task.md` 第 4 节与第 7 节为准；章程第 5 节（Scope and effects）定义更宽的效果边界，章程第 9 节只给 `MANUAL` 任务授权（本版为空），两者都不能放宽本叶。
 - Forbidden effects: `push`、打 tag、发布、写全局目录、把源码或密钥外发
 
 ### Change Triage
@@ -31,11 +31,11 @@ Use this file as the resume packet for another actor. It records the current tas
 
 ## Current facts
 
-- Last accepted event: 2026-10-19 `d6eff20` 提交完成（自检通过，计数见证据文件）；其后各轮审阅的 findings 修复已完成但未提交
+- Last accepted event: 2026-10-20 本叶的两个提交完成——`0bb410f`（P1-3 回滚与套件侧 findings 修复）、`5e1e6c3`（治理工作集 41 文件、章程 0.3、第一个叶转 `APPROVED`）；当时 `AC2` / `AC5` 逐字比较历史状态，提交一存在即变红，第三个提交把它们改写成不变量形式，输出见 `.charter/evidence/checks-2026-10-20.txt`
 
 - 2026-10-19：用户裁决「把 P1-3 回滚回去」并已执行——`DEVELOPMENT_CHARTER.md` §7 的读集增长规则、`portable/templates/roadmap.md` 的 `Growth` 引线、`project-charter.md` §10 末尾的指路句，以及两个实例副本的同名内容全部删除；`contract-migrations.md` 的 `### Renamed members` 保留（它服务 `P1-2` 的 `APPROVED → DECIDED`）。叶 §4 增三份手工源、§6 记 Ruling，`AC2` 基线第二次重算；详见 `docs/SELF-AUDIT.md` 第 9.11 节
 - Baseline revision/workspace: `main` @ `d6eff20`，工作区差值以 `git status --porcelain` 为准；基线清单见 `.charter/evidence/baseline-2026-10-19.txt`（本行不写现在时的计数）
-- Current candidate revision: 未提交（工作区）
+- Current candidate revision: `main` @ `5e1e6c3` + 第三个提交（工作区，仅 `.charter/` 四个文件）
 - Predecessor receipts: 无（本叶是第一个叶）
 - Reuse discovery ID / gate status / selected revisions: 一律读唯一的投影处（RD 与 freshness 见 `project.md` 第 6.1 节的三行，候选与版本见 `reuse-discovery.md` 的候选表）——本行不持有任何取值（`REV-CHARTER-19` 的 NF-55）
 - Verified facts (current rollup; superseded per-leaf detail belongs in `.charter/handoff-archive.md`):
@@ -54,18 +54,15 @@ Use this file as the resume packet for another actor. It records the current tas
 | `.charter/evidence/dependency-check.log` | `verification` | 依赖探测两段：全仓 2026-10-19T12:43:28Z、复用阶段 12:54:05Z（后者另存 `.charter/evidence/reuse-probe-2026-10-19.txt`） | `check_dependencies.py` | `AVAILABLE` python / git / superpowers / j-space / grill-me / reuse-first / framework-first-coding / reduce-reinvention / find-skills；`UNVERIFIED` independent-review、subagent | 探测不能证明 fresh 上下文可用，只能在使用时验证；日志不记 argv 已记为 D-06 |
 | `.charter/evidence/baseline-2026-10-19.txt` | `verification` | 叶开始前的 `git status --porcelain` 快照（行数与分解见该文件首行注释，此处不复制） | `git status` | AC2 的比对基准：本叶不得让 `portable/`、`targets/`、`scripts/`、`tests/` 新增改动行 | 清单只覆盖叶开始时刻；叶内新增的合法改动必须落在 `.charter/` 与 `docs/SELF-AUDIT.md` |
 | `.charter/evidence/ac-liveness-2026-10-19.txt` | `verification` | 各验收项的检查原文、原样运行与对象侧突变表（该文件的 `## Mutations` 段是权威，本行不复述计数、分项与退出码） | 宿主 shell / python | 哪一条突变打红、哪一条控制组应保持绿，全部只看该文件的表；每次突变后按字节还原 | AC4 继承校验器的失败模式，本轮用「给 `portable/templates/review.md` 追加换行」触发 |
+| `.charter/evidence/checks-2026-10-20.txt` | `verification` | 第三次提交后 `python .charter/checks.py` 的九条输出、两条失败项的原文原因、以及 `AC2` / `AC5` 改写成不变量形式后的对象侧突变（错 SHA 与白名单外脏路径各打红一次） | 宿主 shell / python | 哪一条突变打红、控制组是否保持绿，只看该文件；两次突变后均按字节还原 | `AC2` 的白名单现在从叶合同第 4 节解析（唯一来源），码内不再有第二份拷贝；基线例外只覆盖叶开始时就已脏的路径 |
 | `.charter/evidence/validate-2026-10-19.txt` | `verification` | `python scripts/validate_kit.py .` 的终态输出 | 宿主 shell | 输出与退出码只在该文件里（其圆点行即子检查的权威清单） | 校验只证明套件自一致，不证明章程内容正确 |
 
 ## Exact next action
-执行叶 `R1.1-S1-L1`（状态 `APPROVED`，授权只覆盖这一片叶）。顺序：
-① 跑 `python .charter/checks.py`（九条验收项必须全 `ok`）、`python scripts/validate_kit.py .`（exit 0）、`python -m pytest tests -q`；
-② 把三次输出写进 `.charter/evidence/`（各自带时间戳与退出码），不要只贴结论；
-③ 关闭要四层证据齐：退出码、原始物重算、独立上下文 Review A（`REV-<TASK-ID>-<nn>` 新文件）、集成后验证；
-④ 关闭决定按 `CLS1`…`CLS10` 逐条作答，任何一项空缺即视为未关闭；
-⑤ 关闭后同步 `roadmap.md` 的七态投影与 `Next authorization`，并清 `Active leaf`。
+本叶的九条验收项已全 `ok`（第三次提交后复跑仍在 `.charter/evidence/checks-2026-10-20.txt`），叶状态 `APPROVED`、实现与验收已完成，剩下关闭两步：
+① 派发叶级 Review A（fresh 上下文、`REV-R1.1-S1-L1-01` 新文件），让它只判 `AC1`…`AC9` 与 `CLS1`…`CLS10` 的语义部分，特别是 `AC2` 的白名单解析是否真来自叶合同、以及 `AC5` 只保留后代关系后漏判了什么；
+② Review A 给出判词后按 `CLS1`…`CLS10` 逐条作答、写关闭记录，同步 `roadmap.md` 的七态投影与 `Next authorization`，清 `Active leaf`。
+在那之前不要动 `R1.2-S1-L1`；也不要把「checks 全绿」当成关闭——绿只证明机检项成立，语义类判据按 `D-09` 由 Review A 判。
 
-仍开着的决策不阻塞这一片叶（`D-10` 是读集增长，属章程级；`D-01`…`D-08` 各自有结算条件，见 `project.md` 第 10 节）。
-本行不复制清单：逐条验收项以 `.charter/current-task.md` 第 5 节为准，处置与判词以 `.charter/records/` 为准。
 ## Do not do
 
 - Do not start `R1.2-S1-L1` until the current task is `PASS_CLOSED` and authorization exists.

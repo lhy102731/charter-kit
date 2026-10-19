@@ -1,0 +1,44 @@
+# checks.py 全量运行 + 两次对象侧突变（2026-10-20，第三次提交前）
+
+## 为什么有这份文件
+上一个提交（5e1e6c3）之后，.charter/checks.py 由 PASS 变成 FAIL(2)：AC5 逐字比较 git rev-parse HEAD 与 d6eff20，
+AC2 要求工作区 diff 摘要等于基线。这两条把「提交」写成了必然为红的条件——等于用验收项禁止收尾动作本身。
+本文件记录改写成不变量形式之后的全量输出，以及证明新写法仍会红的两次对象侧突变。
+
+## 全量运行
+$ python .charter/checks.py
+ok   AC1  missing=[] status='APPROVED' rows=1
+ok   AC2  whitelist=7E/5P dirty_bad=[] dirty=4 diff=e3b0c44298fc committed=119 committed_bad=[]
+ok   AC3  gate=COMPLETE leaf=['ADOPT'] bad=[]
+ok   AC4  rc=0 bad=[]
+ok   AC5  head=5e1e6c3e0bb9 start=d6eff20240ad commits_since_start=2
+ok   AC6  header=5 rows=10 bad=[]
+ok   AC7  records=2 bad=[]
+ok   AC8  blocks=9 bad=[]
+ok   AC9  bad=[]
+RESULT PASS
+rc=0
+
+## 突变（每次之后按字节还原，还原后 git status 只剩本轮的四个文件）
+$ python .charter/checks_mut.py --only AC5   # 把叶开始修订换成一个不存在的 SHA
+FAIL AC5  head=5e1e6c3e0bb9 start=0123456789ab commits_since_start=fatal: Invalid revision range 0123456789abcdef0123456789abcdef01234567..HEAD
+RESULT FAIL(1)
+rc=1
+
+$ printf "\n# m2 probe\n" >> scripts/validate_kit.py; python .charter/checks.py --only AC2
+FAIL AC2  whitelist=7E/5P dirty_bad=[(' M', 'scripts/validate_kit.py')] dirty=5 diff=1b2634ac1640 committed=119 committed_bad=[]
+RESULT FAIL(1)
+rc=1
+
+## 判读
+
+- AC2 现在有三个条件：工作区脏路径全在白名单内；工作区非空时摘要等于基线；提交范围内每个路径也在白名单内（基线里本来就脏的路径豁免，那些字节不是本叶产生的）。
+
+- AC2 的白名单从叶合同第 4 节解析，码内不再有第二份拷贝（LS-004 的同类病灶）。
+
+- AC5 只保留「HEAD 必须是叶开始修订的后代」，提交数量作为记录事实写在叶 §7，不再由检查逐字比对。
+
+- 两条突变都打红、且各自只让对应那条变红：这是它们仍具活性的证据。
+
+- 控制组：两次突变各自还原后，全量运行仍是 PASS —— 三件事是同一次会话里先后跑的，突变只打红对应那条。
+- 限制：本文件记录的是提交前那一刻的树。第三个提交之后的复跑不写进本文件（写进去也只能进下一个提交），单独落 `checks-2026-10-20-post.txt`，且该文件提交时是未跟踪状态 —— 自报不算证据，这一点不靠这段文字，靠那份文件在不在版本控制里。

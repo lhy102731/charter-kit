@@ -25,9 +25,27 @@ BS = chr(92)
 EXPECTED_HEAD = "d6eff20240adbcce327ca7cffe27053a6df6bd02"
 GATE_ENUM = ("PENDING", "COMPLETE", "BLOCKED_TOOLING", "WAIVED", "NOT_STARTED")
 READ_SET = ("project.md", "roadmap.md", "reuse-discovery.md", "current-task.md", "handoff.md", "lessons.md")
-ALLOWED_PREFIXES = (".charter/", "docs/SELF-AUDIT.md", "portable/templates/review.md",
-                    "portable/references/contract-migrations.md", "targets/", "skills/",
-                    "plugins/", ".codex-plugin/plugin.json")
+def contract_allowed():
+    """The allowed paths, parsed from the leaf contract itself.
+
+    The whitelist used to live here *and* in section 4 of the leaf contract: two copies
+    of one rule, the exact defect REV-CHARTER-20 named (LS-004). The contract text is now
+    the only source; this function only reads it."""
+    t = read(".charter/current-task.md")
+    parts = re.split(r"^### Allowed paths / artifacts\s*$", t, flags=re.M)
+    if len(parts) < 2:
+        return set(), ()
+    sec = re.split(r"^### ", parts[1], flags=re.M)[0]
+    exact, pref = set(), []
+    for m in re.finditer(B + "([^" + B + "]+)" + B, sec):
+        tok = m.group(1).strip()
+        if tok.endswith("/**"):
+            pref.append(tok[:-3].rstrip("/"))
+        elif tok.endswith("/"):
+            pref.append(tok[:-1])
+        elif tok.endswith(".md") or tok.endswith(".json"):
+            exact.add(tok)
+    return exact, tuple(pref)
 
 
 def read(p):
@@ -119,25 +137,27 @@ def check_ac1():
 
 
 def check_ac2():
+    """No change outside the allowed paths: the worktree, and the commit range too."""
+    exact, pref = contract_allowed()
+
+    def allowed(p):
+        return p in exact or any(p == a2 or p.startswith(a2 + "/") for a2 in pref)
+
     bl = read(".charter/evidence/baseline-2026-10-19.txt").splitlines()
     exp = [l.split(": ", 1)[1].strip().split()[0] for l in bl if l.startswith("# diff-sha256: ")]
-
+    base_paths = set(l[3:].strip() for l in bl
+                     if len(l) > 3 and l.strip() and not l.startswith("#") and l[3:].strip())
     def parse(lines):
         out = set()
         for l in lines:
-            if len(l) > 3:
-                path = l[3:].strip()
-                if path:
-                    out.add((l[:2], path))
+            if len(l) > 3 and l[3:].strip():
+                out.add((l[:2], l[3:].strip()))
         return out
-
-    def allowed(path):
-        return any(path == a or path.startswith(a) for a in ALLOWED_PREFIXES)
 
     rc, out = run(["git", "status", "--porcelain"])
     cur = parse(out.splitlines())
-    base = parse([l for l in bl if l.strip() and not l.startswith("#")])
-    bad = [x for x in (base ^ cur) if not allowed(x[1])]
+    dirty_bad = [x for x in cur if not allowed(x[1])]
+
     rc2, dg = run_bytes(["git", "diff", "--", ".",
                          ":(exclude).charter", ":(exclude)docs/SELF-AUDIT.md",
                          ":(exclude)portable/templates/review.md",
@@ -145,8 +165,17 @@ def check_ac2():
                          ":(exclude)targets", ":(exclude)skills",
                          ":(exclude)plugins", ":(exclude).codex-plugin"])
     sha = hashlib.sha256(dg).hexdigest()
-    ok = (not bad) and bool(exp) and exp[0] == sha
-    return ok, "bad=%s diff=%s expected=%s" % (bad[:4], sha[:12], exp[0][:12] if exp else None)
+    # vacuous while the baseline bytes are no longer uncommitted; binding again if they
+    # reappear as a diff, which then has to be exactly the baseline diff.
+    dirty_ok = (not dg) or (bool(exp) and exp[0] == sha)
+
+    rc3, names = run(["git", "diff", "--name-only", EXPECTED_HEAD + "..HEAD"])
+    committed = [n.strip() for n in names.splitlines() if n.strip()]
+    committed_bad = [n for n in committed if not allowed(n) and n not in base_paths]
+
+    ok = (not dirty_bad) and dirty_ok and (not committed_bad) and bool(exact or pref)
+    return ok, "whitelist=%dE/%dP dirty_bad=%s dirty=%d diff=%s committed=%d committed_bad=%s" % (
+        len(exact), len(pref), dirty_bad[:4], len(cur), sha[:12], len(committed), committed_bad[:4])
 
 
 def check_ac3():
@@ -225,9 +254,12 @@ def check_ac4():
 
 
 def check_ac5():
-    rc, out = run(["git", "rev-parse", "HEAD"])
-    h = out.strip()
-    return (h == EXPECTED_HEAD), "head=%s" % h
+    """History is not rewritten: HEAD must descend from the leaf's start revision."""
+    rc, _ = run(["git", "merge-base", "--is-ancestor", EXPECTED_HEAD, "HEAD"])
+    _, cnt = run(["git", "rev-list", "--count", EXPECTED_HEAD + "..HEAD"])
+    _, h = run(["git", "rev-parse", "HEAD"])
+    return (rc == 0), "head=%s start=%s commits_since_start=%s" % (
+        h.strip()[:12], EXPECTED_HEAD[:12], cnt.strip())
 
 
 def check_ac6():

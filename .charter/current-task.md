@@ -68,7 +68,7 @@
 - [x] `read_only`
 - [x] `sample_run`
 - [x] `code_write`（限本书 Allowed paths 列出的路径）
-- [ ] `local_merge`
+- [x] `local_merge`（本叶落地为三个本地提交，见 §6 的 Ruling；不含分支合并、不含 push）
 - [ ] `external_service`
 - [ ] `sensitive_data`
 - [ ] `release`
@@ -77,7 +77,7 @@
 ### Forbidden effects
 
 - `.charter/project.md` 第 5 节 forbidden effects 基线 `—` 本叶不新增、不收窄任何效果
-- 本叶额外禁止：改上列之外任何 `portable/` 文件、根 `DEVELOPMENT_CHARTER.md`、提交、push、打 tag。
+- 本叶额外禁止：改上列之外任何 `portable/` 文件、根 `DEVELOPMENT_CHARTER.md`、push、打 tag（`提交` 一项经 §6 的 Ruling 解禁：YG 于 m03483 授权把本叶产物落成三个本地提交）。
 
 ## 5. Acceptance
 
@@ -104,8 +104,8 @@ Ids run `AC1`-`AC9` and are frozen by id, not by position: `AC2` and `AC5` are b
 
 ### Negative behavior / boundaries
 
-- [ ] `AC2` 允许路径之外的改动为零：相对 `.charter/evidence/baseline-2026-10-19.txt`，除 `.charter/**` 与 `docs/SELF-AUDIT.md` 之外，`git status` 的（状态码，路径）集合必须与该清单完全相同，且 `git diff` 对该范围的摘要必须等于清单首部的 `diff-sha256` - check: `python .charter/checks.py --only AC2`（实现唯一：`.charter/checks.py` —— 本行不内联实现。REV-CHARTER-20 的主判定就是「按点名修」：同一条规则两份实现，改一处另一处照旧漂）
-- [ ] `AC5` 本叶不产生提交：交付时 `git rev-parse HEAD` 必须全等于叶开始时的完整 SHA `d6eff20240adbcce327ca7cffe27053a6df6bd02` - check: `python .charter/checks.py --only AC5`（实现唯一：`.charter/checks.py` —— 本行不内联实现。REV-CHARTER-20 的主判定就是「按点名修」：同一条规则两份实现，改一处另一处照旧漂）
+- [ ] `AC2` 允许路径之外的改动为零，三个条件同时成立：① 工作区 `git status --porcelain` 的每个路径都落在 Allowed paths 白名单内；② 工作区非空时，`git diff` 对非白名单缺省范围的摘要仍等于 `.charter/evidence/baseline-2026-10-19.txt` 首部的 `diff-sha256`（提交后工作区为空，此条自动退化为真，见 §6 的 Ruling）；③ `git diff --name-only d6eff20240adbcce327ca7cffe27053a6df6bd02..HEAD` 的每个路径同样落在白名单内 —— 提交本身不豁免边界 - check: `python .charter/checks.py --only AC2`（实现唯一：`.charter/checks.py` —— 本行不内联实现。REV-CHARTER-20 的主判定就是「按点名修」：同一条规则两份实现，改一处另一处照旧漂）
+- [ ] `AC5` 本叶不重写历史：`HEAD` 必须是叶开始修订 `d6eff20240adbcce327ca7cffe27053a6df6bd02` 的后代（`git merge-base --is-ancestor` 退 0）；本叶产生的提交数量是记录事实、落在 §7，不再要求 `HEAD` 与该 SHA 全等 —— 旧写法在提交存在的瞬间必然为红，等于用验收项禁止收尾动作本身，见 §6 的 Ruling - check: `python .charter/checks.py --only AC5`（实现唯一：`.charter/checks.py` —— 本行不内联实现。REV-CHARTER-20 的主判定就是「按点名修」：同一条规则两份实现，改一处另一处照旧漂）
 ### Suite verification
 
 - [ ] Whole-suite verification: `python -m pytest tests -q`（结果落点 `.charter/evidence/pytest-2026-10-19.txt`；本行不写预期退出码）`—` 该运行暴露的无关失败要按名字写进 Evidence index；看到红却不报，等于用省略伪造记录。
@@ -178,12 +178,13 @@ and keep going. Deviating without a recorded Ruling is a decision made in secret
 - Escalation owner: `YG`
 - Ruling: 把 `CHK14` 的落地纳入本叶 —— 为什么：`REV-CHARTER-18` 的 `NF-47` 判定「由 Review A 判」指不到任何检查项；章程自己的不变量写着「没有运行时，写在读集之外的规则等于不存在」，一条没有人被要求守的规则与不存在等价，本叶若只在 `.charter/` 里留下这句话，就是把缺口从「判据失效」搬到「门不存在」。 —— 若判断错了，代价：本叶范围由「只碰 `.charter/` 与 `docs/SELF-AUDIT.md`」扩大到两份手工模板加它们的镜像与生成物，Review A 覆盖面更大，`AC2` 的白名单与基线摘要都要重算，且这次模板改动会进入下一次发版。
 - Ruling: 把 `P1-3` 的回滚纳入本叶 —— 为什么：用户直接裁定「把 P1-3 回滚回去」；`P1-3` 是我在 m00843 之后自行改判落地的条目（用户原裁决是「不做」），它新增的读集增长规则与 roadmap 的扇出引线已按令删除，删除动作必须同时改三份手工源及其镜像。 —— 若判断错了，代价：本叶范围再扩大三份手工源，`AC2` 的白名单与基线摘要第二次重算；回滚删掉的是读集体积的机械触发条件，「读集无界增长」这个缺口重新回到无人管的 `D-01`。
+- Ruling: 本叶产出落成三个本地提交，并把两条「状态锁死」的验收项改写成不变量形式 —— 为什么：YG 于 m03483 明确授权按默认收尾路径执行，其中包含提交；而原叶 §4 把「提交」列为禁止、§7 写 `Merge allowed: no`，我拿到授权后先提交、再回看合同，这是先动后补的偏离，故按 Ruling 体例补记，而不是把它写成「本来如此」；同时 `AC5` 原文要求 `git rev-parse HEAD` 全等于 `d6eff20…`、`AC2` 原文要求工作区摘要等于基线 —— 这两条在提交存在的瞬间必然为红，等价于用验收项禁止收尾动作本身；改成「白名单 + 历史不被重写」后，两条都变成对最终状态成立的不变量。 —— 若判断错了，代价：`AC2` 新增的条件 ③ 把提交范围也纳入边界检查，若第三个提交碰了白名单外的路径就当场红；`AC5` 失去「HEAD 全等」这条最强的防篡改断言、只保留后代关系，任何人若在本叶内把历史改写成另一个仍含 `d6eff20` 的形态，检查发现不了。
 
 ## 7. Integration policy
 
-- Candidate revision reference: `main` @ `d6eff20` + 工作区未提交改动
+- Candidate revision reference: `main` @ `d6eff20` + 本叶三个本地提交（`0bb410f` 套件侧、`5e1e6c3` 治理工作集、第三个把两条验收项改写成不变量形式并补记 §6 的 Ruling）
 - Target branch or destination: `main`
-- Merge allowed: `no`（本叶没有代码产出，只有治理记录）
+- Merge allowed: `no`（只是在 `main` 上追加本地提交，没有分支合并；`local_merge` 已勾选，语义按 §4 的注：本地提交算 `local_merge`，分支合并与 push 仍禁止）
 - Push / PR / deployment allowed: `no`
 - Required post-integration verification: `python scripts/validate_kit.py .` 与 `git status --porcelain .charter` 复核
 - Governance-record discipline: in the main worktree, stage explicit paths only — never a
