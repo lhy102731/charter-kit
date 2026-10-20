@@ -1401,3 +1401,36 @@ YG 的原话（m07320）：『现在还有一个事情是开发推进过程中�
 
 门：`validate_kit.py .` PASS (250 files)；`pytest -q` **311 passed / 525 subtests**（此前 298 / 519，新增 13 个用例）；
 三个 `build_*_plugin.py --check` 全 PASS；`check_scratch.py .` 对套件自身 `excluded=3` / `RESULT PASS`；版本统一到 `0.7.0`。
+
+### YG 的追问：不应该是关闭后才清理吗（m07560）
+
+这句话把次序问题戳出来了，但结论要反过来：**清场必须发生在签收之前**，不能发生在关闭之后。理由是三条。
+
+一，**关闭之后没有任何执行者**。关闭（写 `PASS_CLOSED` 与关闭决定）是这个叶的最后一个事件；之后再没有一步触发于它，
+下一叶开始，这份合同变成历史。把清理挂在那儿，等于把它写成希望——这正是 §4 那句 "the rule is not `clean up later`" 已经否掉的形状。
+
+二，**垃圾是在集成那一刻过界的，而集成在关闭序列之内**（`CLS5` 之后的 post-integration verification）。「关闭后清理」实际含义是
+「已经合并进主干之后再清」，要防的那件事在那之前就发生了。
+
+三，你说的对的那一半：**不能在还要用它的时候清**。审阅者要重跑命令，`CLS2`/`CLS9` 要引证据，那些文件得还在。
+所以我原来那句 "is emptied before closure" 是有缺陷的措辞——它可以被读成「关闭一开始就清」→ 先删后取证，证据没了。
+
+正确次序是三段：**取证 → 清场 → 签收**。取证把要长期留下的那部分抄成凭据（命令、输出、哈希）落到 `.charter/evidence/`，
+`CLS` 的 Evidence reference 指向它；清场删掉临时根与散落物；签收才写 `CLS11` 与关闭决定。
+
+这个问题还照出第二个缺口——**中间产物有三种寿命，混在一起就必错**：
+
+| 寿命 | 例子 | 正确去处 | 如果搞错 |
+|---|---|---|---|
+| 证据 | 九条检查的输出、pytest 摘要、突变前后的对照 | 抄成文本进 `.charter/evidence/`，`CLS` 引用它 | 清场时删掉，签收时无证可引 |
+| 过程产物 | 探针脚本、抓包、覆盖率 html、junit xml、下载样本 | 叶内用完即弃 | 留下来长进交付树 |
+| 承重产物 | 生成的 fixture、golden 文件、测试要跑的样本 | **提升进树**，登记进 §4 Allowed paths | 关闭时被当垃圾删掉，下一叶的测试跑不起来 |
+
+第三条是原文缺的：原来只写了「不是交付物的都进临时根」，没有写「反过来，临时根里如果有测试必须依赖的东西，它不是中间产物，是交付物」。
+
+落到码上的四处修改（同一提交）：`leaf-task.md` §4 增两种寿命与三段次序；`CLS11` 的问题列改成
+「Answered after the evidence the other rows cite is written: …」；`check_scratch.py` 的 docstring 写明**什么时候跑**
+（取证之后、签收之前，以及 CI——只在叶边界跑的规则在大部分工作时间里是睡着的）；`contract-migrations.md` 的 `Scratch root` 迁移行
+要求保留次序与三种寿命。新增守卫 `test_every_leaf_template_states_the_order_of_evidence_cleanup_and_closure`，
+三份手工叶模板都要含「evidence is written first, then the root is emptied, then closure is signed」「Three lifetimes…」「Load-bearing output」
+以及新的 `CLS11` 措辞——否则这段话下次会被当成可以删的散文。

@@ -58,7 +58,7 @@ own Change Triage route and its own decision.
 | Rulings protocol | `## 6. Stop conditions and repair budget` | `Rulings protocol` |
 | Closure checklist (`CLS1`-`CLS11`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
 | Acceptance items (`AC1`-`ACn`) | `## 5. Acceptance` | `### Acceptance items` - number the existing items, add the `check:` slot to each; ids are never renumbered |
-| Scratch root | `## 4. Scope` | `### Scratch root` - the whole subsection, plus `CLS11` in the closure checklist |
+| Scratch root | `## 4. Scope` | `### Scratch root` - the whole subsection, plus `CLS11` in the closure checklist; keep both the order it states (evidence written, root emptied, closure signed) and the three lifetimes, since a scratch root that only forbids paths drops the part that keeps proof alive |
 
 Which template ships which row: the seven rows above `Closure checklist` are present in
 the `0.2` template; `Closure checklist` and `Acceptance items` arrive with the `0.4`

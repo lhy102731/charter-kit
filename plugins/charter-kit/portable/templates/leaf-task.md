@@ -66,7 +66,8 @@
 - Scratch root: `.scratch` - the one place this leaf may write anything that is not a deliverable.
 - Intermediate artifacts belong here and nowhere else: probe and throwaway scripts, generated fixtures, captured logs, downloaded samples, extraction dumps, coverage and report output. The rule is not "clean up later"; it is that the deliverable tree never receives them at all.
 - Point a tool's output at the scratch root instead of letting it land beside the code: `pytest --junitxml`, coverage report targets, `-o` destinations, `TMPDIR`.
-- The scratch root is ignored by version control and is emptied before closure. A survivor is listed here with the reason it stays and the trigger that removes it.
+- Three lifetimes are decided when an artifact is produced, not when it is deleted. Evidence outlives the leaf: copy the command, its output, and its hash into `.charter/evidence/` and cite that file from the `CLS` answer. Process output dies with this leaf. Load-bearing output - a fixture, golden file, or sample the suite must run against later - is a deliverable: move it into the tree, name it under Allowed paths, and never leave it here.
+- The scratch root is ignored by version control and is emptied in this order: evidence is written first, then the root is emptied, then closure is signed. Cleaning before the evidence is taken deletes the only proof; cleaning after closure never runs, because closure is the leaf's last event and the junk would already have been integrated. A survivor is listed with the reason it stays and the trigger that removes it.
 - Survivors: `<path - why it survives this leaf - what removes it>`
 
 ### Allowed effects
@@ -259,7 +260,7 @@ Every row carries an answer before closure is written; a row that does not apply
 | `CLS8` | Contract, roadmap, and handoff agree on this leaf's state in one commit | `<answer>` | `<raw ref>` |
 | `CLS9` | Closure decision chosen from the five options with its reason, and every `AC` confirmed against its check | `<answer>` | `<raw ref>` |
 | `CLS10` | No boundary left unchecked: check it, or carry it in `project.md` section 10 with a recheck trigger | `<answer>` | `<raw ref>` |
-| `CLS11` | The scratch root is empty, or every survivor is listed with the reason it stays and the trigger that removes it, and no artifact of this leaf sits outside it | `<answer>` (`check_scratch.py` from the installed kit reports `RESULT PASS`, or the manual equivalent is named) | `<raw ref>` |
+| `CLS11` | Answered after the evidence the other rows cite is written: the scratch root is empty, or every survivor is listed with the reason it stays and the trigger that removes it, and no artifact of this leaf sits outside it | `<answer>` (`check_scratch.py` from the installed kit reports `RESULT PASS`, or the manual equivalent is named) | `<raw ref>` |
 
 `CLS3` is not an absence of findings: one recorded as `ACCEPTED_WITH_LIMITATION` or `DECIDED_BACKLOG` closes only when the same commit puts it where the next session meets it without the review. `CLS9` is answered last; a blank row above it makes the closure decision premature, not optional.
 

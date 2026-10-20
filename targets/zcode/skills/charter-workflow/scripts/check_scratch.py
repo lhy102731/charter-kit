@@ -20,6 +20,16 @@ Interpreter caches, test and coverage output, editor backups, captured logs,
 patch leftovers. A project-specific artifact type does not belong in this list;
 it belongs in the scratch root.
 
+When to run it: after the layer evidence this leaf will cite is in the record, and 
+before closure is signed. Not after closing - no step runs then, and the artifacts 
+would already have been integrated - and not before the evidence is taken, which 
+deletes the proof the answer needs. Run it in CI as well: a rule that only runs at 
+leaf boundaries is asleep for most of the work.
+
+The check does not decide lifetimes. A fixture or golden file the suite must run 
+against later is a deliverable that was left in the scratch root: promote it into 
+the tree and name it under Allowed paths.
+
 Usage:
     python scripts/check_scratch.py [project_dir] [--scratch PATH] [--json] [--init]
 

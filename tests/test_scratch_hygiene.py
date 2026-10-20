@@ -189,6 +189,15 @@ class ScratchRuleDeclarationTests(unittest.TestCase):
                 self.assertIn("check_scratch.py", text)
                 self.assertIn("- Contract version: `0.5`", text)
 
+    def test_every_leaf_template_states_the_order_of_evidence_cleanup_and_closure(self):
+        for relative in self.TEMPLATE_TREES:
+            with self.subTest(template=str(relative)):
+                text = self.read(relative)
+                self.assertIn("evidence is written first, then the root is emptied, then closure is signed", text)
+                self.assertIn("Three lifetimes are decided when an artifact is produced", text)
+                self.assertIn("Load-bearing output", text)
+                self.assertIn("Answered after the evidence the other rows cite is written", text)
+
     def test_every_migration_table_covers_the_scratch_row(self):
         for relative in self.MIGRATION_TREES:
             with self.subTest(table=str(relative)):
