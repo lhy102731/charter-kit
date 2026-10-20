@@ -56,7 +56,7 @@ own Change Triage route and its own decision.
 | Suite verification | `## 5. Acceptance` | `Whole-suite verification` |
 | Review focus | `## 5. Acceptance` | `Review focus` — `none identified` is a declared value, not an omission |
 | Rulings protocol | `## 6. Stop conditions and repair budget` | `Rulings protocol` |
-| Closure checklist (`CLS1`-`CLS9`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
+| Closure checklist (`CLS1`-`CLS10`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
 | Acceptance items (`AC1`-`ACn`) | `## 5. Acceptance` | `### Acceptance items` - number the existing items, add the `check:` slot to each; ids are never renumbered |
 
 Which template ships which row: the seven rows above `Closure checklist` are present in

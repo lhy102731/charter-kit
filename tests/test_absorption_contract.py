@@ -118,6 +118,33 @@ class ClosureChecklist(unittest.TestCase):
         for where, number in cited("CLS"):
             self.assertIn(int(number), declared, where + " cites CLS" + number + ", which leaf-task.md does not declare")
 
+    def test_the_migration_range_ends_at_the_last_declared_row(self):
+        """The migration table range is the work order for old contracts.
+
+        A lower bound alone is not enough: naming CLS1-CLS9 passes every
+        "is it declared" check once CLS10 exists, and silently drops the newest
+        row from the migration of every 0.1 contract.  Pin the upper bound.
+        """
+        declared = [number for number, _rest in self.rows()]
+        self.assertTrue(declared, "leaf-task.md carries no CLS row")
+        pattern = re.compile(
+            r"Closure checklist\s*\(" + BT + r"CLS(\d+)" + BT + r"-" + BT + r"CLS(\d+)" + BT + r"\)"
+        )
+        ranges = []
+        for line in read(MIGRATIONS).splitlines():
+            match = pattern.search(line)
+            if match:
+                ranges.append((int(match.group(1)), int(match.group(2))))
+        self.assertTrue(ranges, "the migration table states no closure checklist range")
+        for low, high in ranges:
+            self.assertEqual(low, 1, "the migration range must start at CLS1")
+            self.assertEqual(
+                high,
+                max(declared),
+                "the migration table names CLS1-CLS" + str(high)
+                + ", but leaf-task.md declares up to CLS" + str(max(declared)),
+            )
+
 
 class AcceptanceItems(unittest.TestCase):
     """Every acceptance item names the check that can move the exit code."""
