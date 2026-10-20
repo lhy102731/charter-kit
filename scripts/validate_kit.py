@@ -130,7 +130,7 @@ PORTABLE_TEMPLATES: dict[str, tuple[str, ...]] = {
 # documents, so it lives here once and is required verbatim wherever it is
 # stated, and the template is held to half of it -- a template that grows toward
 # the bound spends the budget the project needs before the project starts.
-LEAF_CONTRACT_CEILING_KB = 36
+LEAF_CONTRACT_CEILING_KB = 48
 LEAF_CONTRACT_TEMPLATE = "portable/templates/leaf-task.md"
 
 HOST_PROMPTS = (
@@ -298,6 +298,7 @@ DISTRIBUTION_ROOT_ITEMS = (
     "portable",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/check_scratch.py",
     "scripts/install_dependencies.py",
 )
 
@@ -348,10 +349,12 @@ REQUIRED_FILES = (
     "skills/charter-workflow/dependencies.json",
     "skills/charter-workflow/scripts/check_dependencies.py",
     "skills/charter-workflow/scripts/init_project.py",
+    "skills/charter-workflow/scripts/check_scratch.py",
     *(f"{SKILL_TEMPLATE_ROOT}/{Path(path).name}" for path in PORTABLE_TEMPLATES),
     "scripts/validate_kit.py",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/check_scratch.py",
     "scripts/install_dependencies.py",
     "dependencies.install.json",
     TARGET_CHANGE_TRIAGE_REFERENCE,
@@ -379,6 +382,7 @@ MIRRORS = (
     ("dependencies.json", "skills/charter-workflow/dependencies.json"),
     ("scripts/check_dependencies.py", "skills/charter-workflow/scripts/check_dependencies.py"),
     ("scripts/init_project.py", "skills/charter-workflow/scripts/init_project.py"),
+    ("scripts/check_scratch.py", "skills/charter-workflow/scripts/check_scratch.py"),
     ("portable/references/design-interview.md", "skills/charter-workflow/references/design-interview.md"),
     (CHANGE_TRIAGE_REFERENCE, SKILL_CHANGE_TRIAGE_REFERENCE),
     (CONTRACT_MIGRATIONS_REFERENCE, SKILL_CONTRACT_MIGRATIONS_REFERENCE),

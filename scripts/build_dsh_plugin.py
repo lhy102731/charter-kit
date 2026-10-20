@@ -43,6 +43,7 @@ DISTRIBUTION_ROOT_ITEMS = (
     "portable",
     "scripts/check_dependencies.py",
     "scripts/init_project.py",
+    "scripts/check_scratch.py",
     "scripts/install_dependencies.py",
 )
 TARGET_FILES = (

@@ -1344,3 +1344,60 @@ m00600 裁决的 14 条**全部完成**（批 1、2、2b、3、4、5、5b、6）
 
 顺手修掉一处旧伤：本文件末尾的孤 `}`（§9.12 插入时留下的）已删除。校验：`.charter/checks.py` 九条全 `ok`、
 `validate_kit.py .` PASS (246 files)、`pytest -q` 298 passed / 519 subtests。
+
+## 9.14 中间产物没有落点，也没有出口（2026-10-20）
+
+YG 的原话（m07320）：『现在还有一个事情是开发推进过程中的中间临时产物不会自动清理，导致最后出来的项目特别大，
+特别是tdd的时候的各种测试脚本和测试结果，这怎么办』。
+
+`grep -rniE "scratch|临时产物|cleanup|清理|hygiene|artifact" portable/` 几乎零命中——套件在 0.7.0 之前**完全没有**工件卫生规则。
+唯一擦边的是 `portable/references/contract-migrations.md:170` 的「no index, no notes, no scratch」，而那说的是 `.charter/records/` 里只放记录，
+与项目树的中间产物无关。同时 `scripts/init_project.py` 只往 `.gitignore` 追加 `.jspace/`，从不给临时产物指定落点。
+
+结果是一个结构缺口，不是习惯问题：**TDD 的产物（探针脚本、生成的 fixture、覆盖率与 junit 输出、抓包、下载样本）在合同里没有名字，
+所以它们默认落在能落的地方**——交付树里，然后被下一次 `git add` 带走。规则写在散文里也拦不住，因为散文既没有落点也没有出口。
+
+### 落地的四件东西（一个落点、一个出口、一道检查、一条不变量）
+
+| 面 | 落点 | 形态 |
+| --- | --- | --- |
+| 落点 | `portable/templates/leaf-task.md` §4 新 `### Scratch root` | 每个叶声明一个临时根（默认 `.scratch`），写明中间产物只落此处、工具输出要指过去（`--junitxml`、coverage 目标、`-o`、`TMPDIR`）、关闭前清空、存活物登记理由与移除触发 |
+| 出口 | `leaf-task.md` §9 新 `CLS11` | 临时根为空，或每个存活物写明留下的理由与移除它的触发，且本叶没有产物落在它之外；判据 `python scripts/check_scratch.py .` 报 `RESULT PASS` |
+| 检查 | 新 `scripts/check_scratch.py` | git 感知的三分类：已被忽略的只计数（`excluded=N`）；会被提交的报 `nothing ignores it`；已提交的报 `already committed`；另报临时根内被跟踪的文件与临时根未被忽略本身 |
+| 不变量 | `DEVELOPMENT_CHARTER.md` §2.2 | 「交付树里没有中间产物——探针脚本、测试输出、抓包与提取结果只落在合同声明的临时根，关闭前清空或逐个登记存活理由与移除触发」 |
+
+`scripts/init_project.py` 相应泛化：新增 `ensure_ignored_directories` / `ensure_directory_ignored` / `covers_directory`，
+`IGNORED_DIRECTORIES` 一次应用 `.jspace/` 与 `.scratch/`，并在初始化时真的建出 `.scratch/`——让「这个东西放哪」由树回答，而不是由某个约定回答。
+旧的两个函数名保留为包装，因为 `tests/test_charter_kit.py` 与 `scripts/validate_kit.py` 都按名字断言它们在场。
+
+### 检查为什么按「git 会怎么处置它」分类，而不是按目录名
+
+只报「这里有个 `*.pyc`」会让检查在干净的树上也满屏噪音；只报「临时根里有东西」又会漏掉真正的病：产物落在临时根之外、
+并且**下一次 `git add` 会把它带走**。所以判据取 git 自己的答案（`check-ignore` / `ls-files`）：被忽略的是本地噪音（计数），
+会被提交的是正在长大的项目（报红），已提交的是已经长大的项目（报红，且忽略规则对它无效）。三条代价不同，所以分三档。
+
+### 顺带解决 F-10：36 KB 的一半阈值只剩 83 字节
+
+`leaf-task.md` 从 18349 字节涨到 19400 字节（新增 Scratch root 小节与 `CLS11` 行），越过「不超过 36 KB 一半」的阈值 18432。
+这不是这次改动的缺陷，是审计 `docs/AUDIT-15-2026-10-20.md` 里 `F-10` 早就点名的处境：余量只剩 83 字节，任何增补类改动的第一条报错
+都会指向体积而不是它自己。按 `F-10` 给的两条路选了第一条——**deliberately 抬高上限**：`LEAF_CONTRACT_CEILING_KB` 36 → 48，
+并在所有陈述该上限的文档里同步（`leaf-task.md:7`、五份 bootstrap 提示词、`portable/commands/charter-workflow.md`、
+`targets/{codex,zcode}/skills/charter-workflow/SKILL.md`、`targets/zcode/commands/charter-workflow.md`、`tests/test_charter_kit.py` 的复制常量）。
+一半阈值随之到 24576 字节，现余量 5176 字节。选抬高而不是搬家，理由是这段规则搬不动：落点是叶自己的字段，`CLS11` 是叶自己的出口，
+搬到引用文件里等于让每个叶去别处读它该写在哪。
+
+### 断定「守住了」的证据
+
+- `tests/test_scratch_hygiene.py`（新，12 用例 / 6 子用例）：干净树 PASS；未被忽略的 `*.log` 报红；已被忽略的只计数；
+  已提交的 `*.pyc` 报红；临时根内被跟踪的文件报红；临时根未被忽略报红；合同可改临时根名；`--init` 建根；
+  `init_project` 写两条忽略且幂等、并真的建出目录；套件自身 `RESULT PASS`；三份手工叶模板都声明 Scratch root 与 `CLS11`、版本 `0.5`；
+  三份迁移表都写 `CLS1`-`CLS11` 且不再残留 `CLS1`-`CLS10`。
+- 迁移链同步：`contract-migrations.md` 的 CLS 范围行改 `CLS1`-`CLS11`，表尾新增 `Scratch root` 迁移行，
+  「Bump `Contract version`」步骤改指 `0.5`；`tests/test_absorption_contract.py` 原有的上下界夹逼测试（`test_the_migration_range_ends_at_the_last_declared_row`）
+  自动跟随到 11，无需改测试就验证了「范围上界 == 最后声明的行」。
+- 既有断言只有一处因改动而必须改：`test_init_preserves_an_explicit_decision_to_track_the_ledger` 原先把 `!.jspace` 当作
+  「`.gitignore` 一个字节都不许动」，现在把断言收窄到它真正的主张——**一条否定只决定它点名的那一个目录**：`.jspace` 不被追加，
+  `.scratch/` 仍然被追加。若沿用旧断言，这条规则会退化成「用户写了一条否定，第二条规则静默失效」。
+
+门：`validate_kit.py .` PASS (250 files)；`pytest -q` **311 passed / 525 subtests**（此前 298 / 519，新增 13 个用例）；
+三个 `build_*_plugin.py --check` 全 PASS；`check_scratch.py .` 对套件自身 `excluded=3` / `RESULT PASS`；版本统一到 `0.7.0`。

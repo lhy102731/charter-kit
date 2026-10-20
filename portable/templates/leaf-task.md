@@ -4,7 +4,7 @@
 
 > **Write the delta, not the project.** A clause whose authoritative source is already in the required-start read set may be carried by an explicit reference plus this leaf's delta — for example `project.md section 5 baseline, plus: <leaf-specific item>` for forbidden effects, or `roadmap.md verification commands` for the standard checks. Anything that narrows, widens, or contradicts that baseline is written out here in full. Never replace a leaf-specific field with a reference: the result sentence, allowed paths, acceptance checks, repair budget, and any stop condition that differs from the standard list are always inline. A reference names its source file and section so the archived contract stays resolvable at the commit that recorded it.
 
-> **Bounded size.** Keep this contract under 36 KB. Every resume re-reads it, so its length is paid by every later actor — but the bound is also a reading of the leaf, not a budget: a contract that needs more than this has almost always absorbed material that belongs to a file already in the read set, or it is more than one leaf. Move goal or scope prose to `project.md`, sequencing to `roadmap.md`, candidate evidence and pinned versions to `reuse-discovery.md`, and command output to `.charter/evidence/`; if nothing belongs elsewhere, the result sentence is what should be split. Past the bound, record a Ruling that says why this leaf needs it and what you gave up — raising the number is a deliberate change to every document that states it, never a silent edit. Never buy the reduction by deleting acceptance checks, stop conditions, allowed paths, or effects: a contract that no longer states what the gate needs is a worse defect than a long one.
+> **Bounded size.** Keep this contract under 48 KB. Every resume re-reads it, so its length is paid by every later actor — but the bound is also a reading of the leaf, not a budget: a contract that needs more than this has almost always absorbed material that belongs to a file already in the read set, or it is more than one leaf. Move goal or scope prose to `project.md`, sequencing to `roadmap.md`, candidate evidence and pinned versions to `reuse-discovery.md`, and command output to `.charter/evidence/`; if nothing belongs elsewhere, the result sentence is what should be split. Past the bound, record a Ruling that says why this leaf needs it and what you gave up — raising the number is a deliberate change to every document that states it, never a silent edit. Never buy the reduction by deleting acceptance checks, stop conditions, allowed paths, or effects: a contract that no longer states what the gate needs is a worse defect than a long one.
 
 ## 1. Identity
 
@@ -16,7 +16,7 @@
 - Mode: `MANUAL | AUTO_DEV`
 - Status: `DRAFT`
 - Leaf approval / preauthorization reference: `NOT_GRANTED`
-- Contract version: `0.4` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
+- Contract version: `0.5` — a contract predating a field this workflow now requires is migrated, and its version bumped, before the next state transition: `portable/references/contract-migrations.md` in the full kit or `references/contract-migrations.md` in the self-contained Skill
 
 ## 2. Result contract
 
@@ -60,6 +60,14 @@
 
 - `<workspace-relative path or artifact>`
 -
+
+### Scratch root
+
+- Scratch root: `.scratch` - the one place this leaf may write anything that is not a deliverable.
+- Intermediate artifacts belong here and nowhere else: probe and throwaway scripts, generated fixtures, captured logs, downloaded samples, extraction dumps, coverage and report output. The rule is not "clean up later"; it is that the deliverable tree never receives them at all.
+- Point a tool's output at the scratch root instead of letting it land beside the code: `pytest --junitxml`, coverage report targets, `-o` destinations, `TMPDIR`.
+- The scratch root is ignored by version control and is emptied before closure. A survivor is listed here with the reason it stays and the trigger that removes it.
+- Survivors: `<path - why it survives this leaf - what removes it>`
 
 ### Allowed effects
 
@@ -251,6 +259,7 @@ Every row carries an answer before closure is written; a row that does not apply
 | `CLS8` | Contract, roadmap, and handoff agree on this leaf's state in one commit | `<answer>` | `<raw ref>` |
 | `CLS9` | Closure decision chosen from the five options with its reason, and every `AC` confirmed against its check | `<answer>` | `<raw ref>` |
 | `CLS10` | No boundary left unchecked: check it, or carry it in `project.md` section 10 with a recheck trigger | `<answer>` | `<raw ref>` |
+| `CLS11` | The scratch root is empty, or every survivor is listed with the reason it stays and the trigger that removes it, and no artifact of this leaf sits outside it | `<answer>` (`check_scratch.py` from the installed kit reports `RESULT PASS`, or the manual equivalent is named) | `<raw ref>` |
 
 `CLS3` is not an absence of findings: one recorded as `ACCEPTED_WITH_LIMITATION` or `DECIDED_BACKLOG` closes only when the same commit puts it where the next session meets it without the review. `CLS9` is answered last; a blank row above it makes the closure decision premature, not optional.
 

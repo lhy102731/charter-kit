@@ -31,7 +31,7 @@ For each field below that the active contract does not carry:
 1. Add the listed line to the listed section of `.charter/current-task.md`, using
    the wording from `templates/leaf-task.md` so the field reads exactly as it
    does in a contract created today.
-2. Bump `Contract version` in section 1 to the template's current version (`0.4`).
+2. Bump `Contract version` in section 1 to the template's current version (`0.5`).
    The number records the approval that carried the migration, not the number of steps
    taken: a `0.1` contract lands on `0.4` in one pass.
 3. Record a `CLARIFICATION` Change Triage entry naming the field added and the
@@ -56,15 +56,18 @@ own Change Triage route and its own decision.
 | Suite verification | `## 5. Acceptance` | `Whole-suite verification` |
 | Review focus | `## 5. Acceptance` | `Review focus` — `none identified` is a declared value, not an omission |
 | Rulings protocol | `## 6. Stop conditions and repair budget` | `Rulings protocol` |
-| Closure checklist (`CLS1`-`CLS10`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
+| Closure checklist (`CLS1`-`CLS11`) | `## 9. Review and closure` | `Closure checklist` - the whole table, every row answered, `N/A` plus reason where a row does not apply |
 | Acceptance items (`AC1`-`ACn`) | `## 5. Acceptance` | `### Acceptance items` - number the existing items, add the `check:` slot to each; ids are never renumbered |
+| Scratch root | `## 4. Scope` | `### Scratch root` - the whole subsection, plus `CLS11` in the closure checklist |
 
 Which template ships which row: the seven rows above `Closure checklist` are present in
-the `0.2` template, and `Closure checklist` plus `Acceptance items` arrive with the
-current `0.4` template. No `0.3` template was ever released - the version number
-records an approval, and these two additions were approved together - so a `0.2`
-contract adds both rows and bumps straight to `0.4`. A `0.1` contract carries none of
-the nine rows and numbers no items, so it migrates every row in one pass. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
+the `0.2` template; `Closure checklist` and `Acceptance items` arrive with the `0.4`
+template; `Scratch root` arrives with the current `0.5` template. No `0.3`
+template was ever released - the version number records an approval, and the two `0.4`
+additions were approved together - so a `0.2` contract adds both of those rows and
+bumps straight to `0.4`, and a `0.4` contract adds `Scratch root` and bumps to `0.5`. A
+`0.1` contract carries none of the ten rows and numbers no items, so it migrates
+every row in one pass. The `Long-task ledger` declaration also gained an allowed value — `control.py controller` (j-space SV1) — when `0.2` shipped. That is an enum extension, not a migration: a contract already declaring `jspace.py controller` keeps it, and the legacy mode stays valid for as long as the session's installed j-space is what provides the ledger.
 
 The two ledger rows are one change and are applied together. The first declares the
 ledger mode for the session; the second is what closure actually checks. A

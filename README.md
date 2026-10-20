@@ -78,7 +78,7 @@ Reuse Check 只有三个门状态：
 
 `NO_MATCH` 必须有真实查询和证据支撑。
 
-#### 叶契约（Contract version `0.2`）
+#### 叶契约（Contract version `0.5`）
 
 0.2 版本新增三个字段：
 
@@ -91,6 +91,8 @@ Reuse Check 只有三个门状态：
 - j-space SV1 控制器加入 ledger 模式枚举（旧 `jspace.py` 模式继续合法）。
 - `0.1` 契约可按 `portable/references/contract-migrations.md` 迁移，也可继续有效。
 - 已关闭的契约永不迁移。
+- `0.4` 加入 **Closure checklist**（`CLS1`…`CLS11` 关闭清单）与 **Acceptance items**（每条验收配一条可复算的 check）。
+- `0.5` 加入 **Scratch root**：每个叶声明一个临时根（默认 `.scratch`），探针脚本、生成的 fixture、覆盖率与 junit 输出、抓包与下载样本只落在那里；关闭时 `CLS11` 要求它为空，或每个存活物写明留下的理由与移除它的触发。`scripts/check_scratch.py` 是这条规则的判据——它按 git 自己的处置分类：已被忽略的只计数，会被提交的报红，已提交的也报红。
 
 ### 使用方式
 
@@ -380,7 +382,7 @@ Each Reuse Check record keeps three dimensions separate:
 
 `NO_MATCH` requires an actual query and evidence.
 
-#### Leaf contracts (Contract version `0.2`)
+#### Leaf contracts (Contract version `0.5`)
 
 Version 0.2 adds three fields:
 
@@ -393,6 +395,8 @@ In addition:
 - The j-space SV1 controller is added to the ledger-mode enum (the legacy `jspace.py` mode stays valid).
 - A `0.1` contract migrates through `portable/references/contract-migrations.md` or remains valid as written.
 - Closed contracts are never migrated.
+- `0.4` adds the **Closure checklist** (`CLS1`…`CLS11`) and **Acceptance items** (every acceptance check carries a recomputable command or assertion).
+- `0.5` adds the **Scratch root**: each leaf declares one temporary root (default `.scratch`) where probe scripts, generated fixtures, coverage and junit output, captures, and downloaded samples go; at closure `CLS11` requires it to be empty, or every survivor to name why it stays and what removes it. `scripts/check_scratch.py` is the check behind that sentence, classifying by what version control would do: excluded is counted, accepted is reported, already committed is reported too.
 
 ### Use it
 

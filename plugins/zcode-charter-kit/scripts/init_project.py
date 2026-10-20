@@ -57,13 +57,33 @@ LEDGER_IGNORE_COMMENT = (
     "# .charter/ carries the governance record and stays tracked; this directory does not.\n"
 )
 
+# The scratch root is where a leaf's intermediate artifacts are allowed to land:
+# probe scripts, captured logs, generated fixtures, coverage and report output.
+# Naming one destination is what keeps them out of the deliverable tree, and
+# emptying it is what closure checks.  The directory is ignored here so an
+# artifact left behind cannot reach a commit while the leaf is still open.
+SCRATCH_DIRECTORY = ".scratch"
+SCRATCH_IGNORE_ENTRY = f"{SCRATCH_DIRECTORY}/"
+SCRATCH_IGNORE_COMMENT = (
+    "# Charter Kit: the scratch root holds a leaf's intermediate artifacts, not its\n"
+    "# deliverable. Closure empties it; nothing in here is the project's history.\n"
+)
 
-def covers_ledger(pattern: str) -> bool:
-    """Report whether one .gitignore line already decides the ledger directory.
+# One pass applies both entries, because half the rule is worse than none of it:
+# a tracked ledger makes host state look like project history, and a tracked
+# scratch root makes scaffolding look like the product.
+IGNORED_DIRECTORIES = (
+    (LEDGER_DIRECTORY, LEDGER_IGNORE_ENTRY, LEDGER_IGNORE_COMMENT),
+    (SCRATCH_DIRECTORY, SCRATCH_IGNORE_ENTRY, SCRATCH_IGNORE_COMMENT),
+)
+
+
+def covers_directory(pattern: str, directory: str) -> bool:
+    """Report whether one .gitignore line already decides a directory.
 
     This is a deliberately small subset of gitignore matching: the realistic
     spellings of a directory entry, plus negations, which are reported so an
-    explicit user decision to track the ledger is never overwritten.
+    explicit user decision to track the directory is never overwritten.
     """
 
     candidate = pattern.strip()
@@ -71,11 +91,17 @@ def covers_ledger(pattern: str) -> bool:
         return False
     candidate = candidate.removeprefix("!").removeprefix("/")
     candidate = candidate.removesuffix("/**").removesuffix("/*").removesuffix("/")
-    return candidate == LEDGER_DIRECTORY
+    return candidate == directory
 
 
-def ensure_ledger_ignored(project_dir: Path) -> str:
-    """Append the ledger ignore entry once, without rewriting user lines.
+def covers_ledger(pattern: str) -> bool:
+    """Report whether one .gitignore line already decides the ledger directory."""
+
+    return covers_directory(pattern, LEDGER_DIRECTORY)
+
+
+def ensure_directory_ignored(project_dir: Path, directory: str, entry: str, comment: str) -> str:
+    """Append one directory's ignore entry once, without rewriting user lines.
 
     Never raises: the working set matters more than this convenience, so every
     failure is reported as a status string and initialization continues.
@@ -83,7 +109,7 @@ def ensure_ledger_ignored(project_dir: Path) -> str:
 
     gitignore = project_dir / ".gitignore"
     if not (project_dir / ".git").exists() and not gitignore.exists():
-        return "SKIPPED - no repository or .gitignore in the project root"
+        return f"SKIPPED - no repository or .gitignore in the project root, so {entry} is not ignored"
     try:
         if is_link(gitignore):
             return "UNVERIFIED - refusing to write a linked .gitignore"
@@ -91,10 +117,10 @@ def ensure_ledger_ignored(project_dir: Path) -> str:
             return "UNVERIFIED - .gitignore is not a regular file"
         existing = gitignore.read_text(encoding="utf-8", errors="replace") if gitignore.is_file() else ""
         for line in existing.splitlines():
-            if covers_ledger(line):
+            if covers_directory(line, directory):
                 if line.strip().startswith("!"):
-                    return f"UNCHANGED - an explicit negation keeps {LEDGER_IGNORE_ENTRY} tracked"
-                return f"UNCHANGED - {LEDGER_IGNORE_ENTRY} is already ignored"
+                    return f"UNCHANGED - an explicit negation keeps {entry} tracked"
+                return f"UNCHANGED - {entry} is already ignored"
         if not existing:
             prefix = ""
         elif existing.endswith("\n"):
@@ -102,12 +128,25 @@ def ensure_ledger_ignored(project_dir: Path) -> str:
         else:
             prefix = "\n\n"
         with gitignore.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(f"{prefix}{LEDGER_IGNORE_COMMENT}{LEDGER_IGNORE_ENTRY}\n")
-        return f"ADDED - {LEDGER_IGNORE_ENTRY} appended to .gitignore"
+            handle.write(f"{prefix}{comment}{entry}\n")
+        return f"ADDED - {entry} appended to .gitignore"
     except OSError as exc:
         return f"UNVERIFIED - .gitignore could not be updated ({exc.__class__.__name__})"
 
 
+def ensure_ledger_ignored(project_dir: Path) -> str:
+    """Append the ledger entry alone. The named single-directory form of the rule."""
+
+    return ensure_directory_ignored(project_dir, LEDGER_DIRECTORY, LEDGER_IGNORE_ENTRY, LEDGER_IGNORE_COMMENT)
+
+
+def ensure_ignored_directories(project_dir: Path) -> list[str]:
+    """Apply every governed ignore entry and report one status sentence each."""
+
+    return [
+        ensure_directory_ignored(project_dir, directory, entry, comment)
+        for directory, entry, comment in IGNORED_DIRECTORIES
+    ]
 def find_template_dir(package_root: Path) -> Path:
     """Find templates in either the full kit or the self-contained Skill.
 
@@ -321,8 +360,14 @@ def init_project(
     # not.  Both halves of that rule are cheap to apply here and expensive to
     # discover later, when an untracked charter can no longer be cited as
     # authoritative history.
-    ledger_status = ensure_ledger_ignored(project_dir.resolve())
-    return created, backup_dir, ledger_status
+    ignore_statuses = ensure_ignored_directories(project_dir.resolve())
+    try:
+        # The destination exists from the first leaf, so "where does this go" is
+        # answered by the tree instead of by a convention someone has to recall.
+        (project_dir.resolve() / SCRATCH_DIRECTORY).mkdir(exist_ok=True)
+    except OSError:
+        pass
+    return created, backup_dir, ignore_statuses
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -343,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
     package_root = Path(__file__).resolve().parents[1]
     project_dir = Path(args.project_dir).expanduser()
     try:
-        created, backup_dir, ledger_status = init_project(package_root, project_dir, args.force, args.add_missing)
+        created, backup_dir, ignore_statuses = init_project(package_root, project_dir, args.force, args.add_missing)
     except (FileExistsError, FileNotFoundError, OSError) as exc:
         print(f"Charter project initialization: FAIL: {exc}", file=sys.stderr)
         return 1
@@ -355,7 +400,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- {path.relative_to(project_dir.resolve())}")
     if args.add_missing and not created:
         print("- no missing generated files")
-    print(f"Session ledger ignore rule: {ledger_status}")
+    for ignore_status in ignore_statuses:
+        print(f"Ignore rule: {ignore_status}")
     print("Next: fill .charter/project.md and .charter/roadmap.md, complete .charter/reuse-discovery.md, then approve the first bounded current-task.md.")
     print("Then commit .charter/ (project.md and reuse-discovery.md included) so the charter and the reuse gate carry auditable history.")
     return 0

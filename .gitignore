@@ -21,3 +21,7 @@ docs/.panel*
 .env.*
 !.env.example
 
+
+# The kit's own scratch root: intermediate artifacts of a working leaf
+# land here and are emptied at closure.
+.scratch/

@@ -19,7 +19,7 @@ GENERATED_MARKER_NAME = "GENERATED.md"
 # Mirrors LEAF_CONTRACT_CEILING_KB in scripts/validate_kit.py.  Duplicated on
 # purpose: a test that read the constant out of the validator would pass no
 # matter what number the shipped documents state.
-LEAF_CONTRACT_CEILING_KB = 36
+LEAF_CONTRACT_CEILING_KB = 48
 
 
 class CharterKitBehaviorTests(unittest.TestCase):
@@ -277,18 +277,28 @@ class CharterKitBehaviorTests(unittest.TestCase):
         self.assertIn("UNCHANGED", second.stdout)
 
     def test_init_preserves_an_explicit_decision_to_track_the_ledger(self) -> None:
-        """A negation is a user decision; convenience must not overrule it."""
+        """A negation is a user decision; convenience must not overrule it.
+
+        A negation decides one directory, so it silences the entry it names and
+        nothing else: the ledger stays tracked as the user chose, and the scratch
+        root still gets the entry that keeps artifacts out of commits. Reading the
+        first negation as "the user wants everything tracked" would silently drop
+        the second rule.
+        """
         package = self.make_package_copy()
         project = package.parent / "tracked-ledger-project"
         project.mkdir()
         (project / ".git").mkdir()
-        original = "!.jspace\n"
-        (project / ".gitignore").write_text(original, encoding="utf-8")
+        (project / ".gitignore").write_text("!.jspace\n", encoding="utf-8")
 
         result = self.run_script(package / "scripts" / "init_project.py", project)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((project / ".gitignore").read_text(encoding="utf-8"), original)
-        self.assertIn("UNCHANGED", result.stdout)
+        written = (project / ".gitignore").read_text(encoding="utf-8")
+        self.assertTrue(written.startswith("!.jspace\n"), written)
+        self.assertNotIn(".jspace/", written)
+        self.assertIn("UNCHANGED - an explicit negation keeps .jspace/ tracked", result.stdout)
+        self.assertEqual(written.count(".scratch/"), 1, written)
+        self.assertIn("ADDED - .scratch/ appended to .gitignore", result.stdout)
 
     def test_init_does_not_create_a_gitignore_outside_a_repository(self) -> None:
         """Without a repository there is nothing to keep out of version control."""
